@@ -1,0 +1,50 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+apply plugin: 'application'
+
+buildscript {
+	repositories {
+		maven {
+			url "https://plugins.gradle.org/m2/"
+		}
+		jcenter()
+	}
+}
+
+sourceCompatibility = 1.8
+version = '0.1.0'
+
+def ENV = System.getenv()
+if (ENV.BUILD_NUMBER) {
+    version = version + "." + "${System.getenv().BUILD_NUMBER}"
+}
+
+group = 'net.fabricmc'
+archivesBaseName = 'tiny-remapper'
+mainClassName = "net.fabricmc.tinyremapper.Main"
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	compile 'com.google.guava:guava:17.+'
+	compile 'org.ow2.asm:asm:5.1'
+	compile 'org.ow2.asm:asm-commons:5.1'
+	compile 'org.ow2.asm:asm-tree:5.1'
+	compile 'org.ow2.asm:asm-util:5.1'
+}
+
+jar {
+	manifest {
+		attributes	'Implementation-Title': 'TinyRemapper',
+				'Implementation-Version': version,
+				'Main-Class': mainClassName
+	}
+	from {
+		configurations.compile.collect {
+			it.isDirectory() ? it : zipTree(it)
+		}
+	}
+}
