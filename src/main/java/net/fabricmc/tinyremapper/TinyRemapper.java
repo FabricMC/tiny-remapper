@@ -1,15 +1,11 @@
 package net.fabricmc.tinyremapper;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Modifier;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
@@ -18,18 +14,11 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.*;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -46,167 +35,109 @@ import org.objectweb.asm.commons.Remapper;
 import org.objectweb.asm.util.CheckClassAdapter;
 
 public class TinyRemapper {
-	public static void main(String[] rawArgs) {
-		List<String> args = new ArrayList<String>(rawArgs.length);
-		boolean reverse = false;
-		File forcePropagationFile = null;
+	public static class Builder {
+		private int threadCount;
+		private Set<String> forcePropagation = new HashSet<>();
+		private IMappingProvider mappingProvider;
+		private boolean propagatePrivate = false;
+		private boolean removeFrames = false;
 
-		for (String arg : rawArgs) {
-			if (arg.startsWith("--")) {
-				int valueSepPos = arg.indexOf('=');
+		private Builder() {
 
-				String argKey = valueSepPos == -1 ? arg.substring(2) : arg.substring(2, valueSepPos);
-				argKey = argKey.toLowerCase(Locale.US);
+		}
 
-				switch (argKey) {
-				case "reverse":
-					reverse = true;
-					break;
-				case "forcepropagation":
-					forcePropagationFile = new File(arg.substring(valueSepPos + 1));
-					break;
-				case "propagateprivate":
-					propagatePrivate = true;
-					break;
-				case "removeFrames":
-					removeFrames = true;
-					break;
-				default:
-					System.out.println("invalid argument: "+arg+".");
-					System.exit(1);
-				}
-			} else {
-				args.add(arg);
+		public Builder withMappings(IMappingProvider provider) {
+			this.mappingProvider = provider;
+			return this;
+		}
+
+		public Builder threads(int threadCount) {
+			this.threadCount = threadCount;
+			return this;
+		}
+
+		public Builder withForcedPropagation(Set<String> entries) {
+			forcePropagation.addAll(entries);
+			return this;
+		}
+
+		public Builder propagatePrivate(boolean value) {
+			propagatePrivate = value;
+			return this;
+		}
+
+		public Builder removeFrames(boolean value) {
+			removeFrames = value;
+			return this;
+		}
+
+		public TinyRemapper build() {
+			TinyRemapper remapper = new TinyRemapper(threadCount, forcePropagation);
+			remapper.propagatePrivate = propagatePrivate;
+			remapper.removeFrames = removeFrames;
+			if (mappingProvider != null) {
+				mappingProvider.load(remapper.classMap, remapper.fieldMap, remapper.methodMap);
 			}
+			return remapper;
 		}
-
-		if (args.size() < 5) {
-			System.out.println("usage: <input> <output> <mappings> <from> <to> [<classpath>]... [--reverse] [--forcePropagation=<file>] [--propagatePrivate]");
-			System.exit(1);
-		}
-
-		Path input = Paths.get(args.get(0));
-		if (!Files.isReadable(input)) {
-			System.out.println("Can't read input file "+input+".");
-			System.exit(1);
-		}
-
-		Path output = Paths.get(args.get(1));
-		if (Files.exists(output) && !Files.isDirectory(output)) {
-			System.out.println("The output path "+output+" exists, but is no directory.");
-			System.exit(1);
-		}
-
-		Path mappings = Paths.get(args.get(2));
-		if (!Files.isReadable(mappings) || Files.isDirectory(mappings)) {
-			System.out.println("Can't read mappings file "+mappings+".");
-			System.exit(1);
-		}
-
-		String fromM = args.get(3);
-		String toM = args.get(4);
-
-		Path[] classpath = new Path[args.size() - 5];
-
-		for (int i = 0; i < classpath.length; i++) {
-			classpath[i] = Paths.get(args.get(i + 3));
-			if (!Files.isReadable(classpath[i])) {
-				System.out.println("Can't read classpath file "+i+": "+classpath[i]+".");
-				System.exit(1);
-			}
-		}
-
-		if (forcePropagationFile != null) {
-			if (!forcePropagationFile.canRead()) {
-				System.out.println("Can't read forcePropagation file "+forcePropagationFile+".");
-				System.exit(1);
-			}
-
-			try (BufferedReader reader = new BufferedReader(new FileReader(forcePropagationFile))) {
-				String line;
-
-				while ((line = reader.readLine()) != null) {
-					line = line.trim();
-
-					if (line.isEmpty() || line.charAt(0) == '#') continue;
-
-					forcePropagation.add(line);
-				}
-			} catch (IOException e) {
-				e.printStackTrace();
-				System.exit(1);
-			}
-		}
-
-		process(input, output, mappings, fromM, toM, classpath, reverse);
 	}
 
-	private static void process(Path input, Path output, Path mappings, String fromM, String toM, Path[] classpath, boolean reverse) {
-		long startTime = System.nanoTime();
+	private final boolean check = false;
 
-		// class map
+	private final Set<String> forcePropagation;
+	private boolean propagatePrivate = false;
+	private boolean removeFrames = false;
+	private final Map<String, String> classMap = new HashMap<>();
+	private final Map<String, String> methodMap = new HashMap<>();
+	private final Map<String, String> fieldMap = new HashMap<>();
+	private final Map<String, RClass> nodes = new HashMap<>();
+	private final Map<TypedMember, Set<String>> conflicts = new ConcurrentHashMap<>();
+	private final int threadCount;
+	private final ExecutorService threadPool;
 
-		try (BufferedReader reader = Files.newBufferedReader(mappings)) {
-			TinyUtils.read(reader, fromM, toM, classMap, fieldMap, methodMap);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
+	private boolean dirty;
 
-		System.out.printf("mappings: %d classes, %d methods, %d fields%n", classMap.size(), methodMap.size(), fieldMap.size());
+	private TinyRemapper(int threadCount, Set<String> forcePropagation) {
+		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
+		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
+		this.forcePropagation = forcePropagation;
+	}
 
-		long classMapTime = System.nanoTime() - startTime;
+	public static Builder newRemapper() {
+		return new Builder();
+	}
 
-		// read + analyze
-
-		List<Future<List<RClass>>> futures = new ArrayList<>();
-		futures.addAll(read(input, Namespace.Unknown, true));
-
-		for (Path classpathFile : classpath) {
-			futures.addAll(read(classpathFile, Namespace.Unknown, true));
-		}
-
-		try {
-			for (Future<List<RClass> > future : futures) {
-				for (RClass node : future.get()) {
-					nodes.put(node.name, node);
-				}
-			}
-		} catch (InterruptedException | ExecutionException e) {
-			throw new RuntimeException(e);
-		}
-
-		// merge
-
-		long mergeTime = System.nanoTime();
-		merge();
-		mergeTime = System.nanoTime() - mergeTime;
-
-		// propagate
-
-		long propagateTime = System.nanoTime();
-		propagate();
-		propagateTime = System.nanoTime() - propagateTime;
-
-		// apply
-
-		long applyTime = System.nanoTime();
-		apply(input, output);
-		applyTime = System.nanoTime() - applyTime;
-
-		// finish
-
+	public void finish() {
 		threadPool.shutdown();
 		try {
 			threadPool.awaitTermination(20, TimeUnit.SECONDS);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
-
-		System.out.printf("Finished after %.2f ms.\n", (System.nanoTime() - startTime) / 1e6);
-		System.out.printf("classmap %.2f ms, read %.2f ms, analyze %.2f ms, merge %.2f ms, propagate %.2f ms, apply %.2f ms.\n", classMapTime / 1e6, readTime.get() / 1e6, analyzeTime.get() / 1e6, mergeTime / 1e6, propagateTime / 1e6, applyTime / 1e6);
 	}
 
-	private static List<Future<List<RClass>>> read(final Path file, final Namespace namespace, boolean saveData) {
+	public void read(final Path... inputs) {
+		List<Future<List<TinyRemapper.RClass>>> futures = new ArrayList<>();
+		for (Path input : inputs) {
+			futures.addAll(read(input, TinyRemapper.Namespace.Unknown, true));
+		}
+
+		if (futures.size() > 0) {
+			dirty = true;
+		}
+
+		try {
+			for (Future<List<TinyRemapper.RClass> > future : futures) {
+				for (TinyRemapper.RClass node : future.get()) {
+					nodes.put(node.name, node);
+				}
+			}
+		} catch (InterruptedException | ExecutionException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	private List<Future<List<RClass>>> read(final Path file, final Namespace namespace, boolean saveData) {
 		try {
 			return read(file, namespace, file, saveData);
 		} catch (IOException e) {
@@ -214,7 +145,7 @@ public class TinyRemapper {
 		}
 	}
 
-	private static List<Future<List<RClass>>> read(final Path file, final Namespace namespace, final Path srcPath, final boolean saveData) throws IOException {
+	private List<Future<List<RClass>>> read(final Path file, final Namespace namespace, final Path srcPath, final boolean saveData) throws IOException {
 		List<Future<List<RClass>>> ret = new ArrayList<>();
 
 		Files.walkFileTree(file, new SimpleFileVisitor<Path>() {
@@ -246,7 +177,7 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private static List<RClass> readFile(Path file, Namespace namespace, final Path srcPath, boolean saveData) throws IOException {
+	private List<RClass> readFile(Path file, Namespace namespace, final Path srcPath, boolean saveData) throws IOException {
 		List<RClass> ret = new ArrayList<RClass>();
 
 		if (file.getFileName().endsWith(".class")) {
@@ -254,7 +185,7 @@ public class TinyRemapper {
 
 			byte[] data = Files.readAllBytes(file);
 
-			readTime.addAndGet(System.nanoTime() - startTime);
+			// readTime.addAndGet(System.nanoTime() - startTime);
 
 			ret.add(analyze(srcPath, data, saveData));
 		} else {
@@ -270,7 +201,7 @@ public class TinyRemapper {
 							data = ByteStreams.toByteArray(is);
 						}
 
-						readTime.addAndGet(System.nanoTime() - startTime);
+						// readTime.addAndGet(System.nanoTime() - startTime);
 						ret.add(analyze(srcPath, data, saveData));
 					}
 				}
@@ -280,7 +211,7 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private static RClass analyze(Path srcPath, byte[] data, boolean saveData) {
+	private RClass analyze(Path srcPath, byte[] data, boolean saveData) {
 		long startTime = System.nanoTime();
 		final RClass ret = new RClass(srcPath, saveData ? data : null);
 
@@ -310,18 +241,18 @@ public class TinyRemapper {
 			}
 		}, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
 
-		analyzeTime.addAndGet(System.nanoTime() - startTime);
+		// analyzeTime.addAndGet(System.nanoTime() - startTime);
 
 		return ret;
 	}
 
-	static String mapClass(String className) {
+	String mapClass(String className) {
 		String ret = classMap.get(className);
 
 		return ret != null ? ret : className;
 	}
 
-	private static void merge() {
+	private void merge() {
 		for (RClass node : nodes.values()) {
 			assert node.superName != null;
 
@@ -343,7 +274,7 @@ public class TinyRemapper {
 		}
 	}
 
-	static void propagate() {
+	private void propagate() {
 		List<Future<?>> futures = new ArrayList<>();
 		List<Map.Entry<String, String>> tasks = new ArrayList<>();
 		int maxTasks = methodMap.size() / threadCount / 4;
@@ -377,7 +308,7 @@ public class TinyRemapper {
 		handleConflicts();
 	}
 
-	private static void handleConflicts() {
+	private void handleConflicts() {
 		if (conflicts.isEmpty()) return;
 
 		System.out.println("Mapping conflicts detected:");
@@ -395,44 +326,36 @@ public class TinyRemapper {
 		System.exit(1);
 	}
 
-	private static void apply(Path srcPath, final Path outputPath) {
+	public void apply(Path srcPath, final BiConsumer<String, byte[]> outputConsumer) {
+		if (dirty) {
+			merge();
+			propagate();
+
+			dirty = false;
+		}
+
 		List<Future<?>> futures = new ArrayList<>();
 
 		for (final RClass cls : nodes.values()) {
 			if (cls.srcPath != srcPath) continue;
 
-			futures.add(threadPool.submit(new Runnable() {
-				@Override
-				public void run() {
-					apply(cls, outputPath);
-				}
-			}));
+			futures.add(threadPool.submit(() -> outputConsumer.accept(cls.name, apply(cls))));
 		}
 
 		waitForAll(futures);
 	}
 
-	private static void apply(final RClass cls, Path outputPath) {
+	private byte[] apply(final RClass cls) {
 		ClassReader reader = new ClassReader(cls.data);
 		ClassWriter writer = new ClassWriter(0);
 		int flags = removeFrames ? ClassReader.SKIP_FRAMES : ClassReader.EXPAND_FRAMES;
 		reader.accept(new ClassRemapper(check ? new CheckClassAdapter(writer) : writer, remapper), flags);
 		// TODO: compute frames (-Xverify:all -XX:-FailOverToOldVerifier)
 
-		int pkgEnd = cls.name.lastIndexOf('/');
-
-		if (pkgEnd != -1) outputPath = outputPath.resolve(cls.name.substring(0, pkgEnd));
-		Path output = outputPath.resolve(cls.name.substring(pkgEnd + 1)+".class");
-
-		try {
-			Files.createDirectories(outputPath);
-			Files.write(output, writer.toByteArray());
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
+		return writer.toByteArray();
 	}
 
-	private static void waitForAll(Iterable<Future<?>> futures) {
+	private void waitForAll(Iterable<Future<?>> futures) {
 		try {
 			for (Future<?> future : futures) {
 				future.get();
@@ -442,7 +365,7 @@ public class TinyRemapper {
 		}
 	}
 
-	private static final Remapper remapper = new Remapper() {
+	private final Remapper remapper = new Remapper() {
 		@Override
 		public String map(String typeName) {
 			String ret = classMap.get(typeName);
@@ -523,7 +446,7 @@ public class TinyRemapper {
 		}
 	};
 
-	static String getClassName(String nameDesc, MemberType type) {
+	String getClassName(String nameDesc, MemberType type) {
 		int descStart = getDescStart(nameDesc, type);
 		int nameStart = nameDesc.lastIndexOf('/', descStart - 1);
 		if (nameStart == -1) nameStart = 0;
@@ -531,7 +454,7 @@ public class TinyRemapper {
 		return nameDesc.substring(0, nameStart);
 	}
 
-	static String stripClassName(String nameDesc, MemberType type) {
+	String stripClassName(String nameDesc, MemberType type) {
 		int descStart = getDescStart(nameDesc, type);
 		int nameStart = nameDesc.lastIndexOf('/', descStart - 1);
 		if (nameStart == -1) nameStart = 0;
@@ -539,11 +462,11 @@ public class TinyRemapper {
 		return nameDesc.substring(nameStart + 1);
 	}
 
-	static String stripDesc(String nameDesc, MemberType type) {
+	String stripDesc(String nameDesc, MemberType type) {
 		return nameDesc.substring(0, getDescStart(nameDesc, type));
 	}
 
-	private static int getDescStart(String nameDesc, MemberType type) {
+	private int getDescStart(String nameDesc, MemberType type) {
 		int ret;
 
 		if (type == MemberType.METHOD) {
@@ -557,11 +480,11 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	static enum Namespace {
+	enum Namespace {
 		Unknown
 	}
 
-	static class RClass {
+	class RClass {
 		RClass(Path srcFile, byte[] data) {
 			this.srcPath = srcFile;
 			this.data = data;
@@ -675,7 +598,7 @@ public class TinyRemapper {
 		String[] interfaces;
 	}
 
-	static class Member {
+	class Member {
 		Member(String name, String desc, int access) {
 			this.name = name;
 			this.desc = desc;
@@ -687,18 +610,18 @@ public class TinyRemapper {
 		int access;
 	}
 
-	static enum Direction {
+	enum Direction {
 		ANY,
 		UP,
 		DOWN
 	}
 
-	static enum MemberType {
+	enum MemberType {
 		METHOD,
 		FIELD
 	}
 
-	static class TypedMember {
+	class TypedMember {
 		public TypedMember(RClass cls, MemberType type, String id) {
 			this.cls = cls;
 			this.type = type;
@@ -726,7 +649,7 @@ public class TinyRemapper {
 		final String id;
 	}
 
-	static class Propagation implements Runnable {
+	class Propagation implements Runnable {
 		Propagation(MemberType type, List<Map.Entry<String, String> > tasks) {
 			this.type = type;
 			this.tasks.addAll(tasks);
@@ -754,19 +677,4 @@ public class TinyRemapper {
 		private final MemberType type;
 		private final List<Map.Entry<String, String> > tasks = new ArrayList<Map.Entry<String,String> >();
 	}
-
-	private static final boolean check = false;
-
-	private static final Set<String> forcePropagation = new HashSet<>();
-	private static boolean propagatePrivate = false;
-	private static boolean removeFrames = false;
-	private static final Map<String, String> classMap = new HashMap<>();
-	private static final Map<String, String> methodMap = new HashMap<>();
-	private static final Map<String, String> fieldMap = new HashMap<>();
-	private static final Map<String, RClass> nodes = new HashMap<>();
-	private static final Map<TypedMember, Set<String>> conflicts = new ConcurrentHashMap<>();
-	private static final int threadCount = Math.max(Runtime.getRuntime().availableProcessors(), 2);
-	private static final ExecutorService threadPool = Executors.newFixedThreadPool(threadCount);
-	private static final AtomicLong readTime = new AtomicLong();
-	private static final AtomicLong analyzeTime = new AtomicLong();
 }

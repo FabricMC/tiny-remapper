@@ -2,11 +2,14 @@ package net.fabricmc.tinyremapper;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 
 import org.objectweb.asm.commons.Remapper;
 
@@ -36,6 +39,11 @@ public final class TinyUtils {
 			System.arraycopy(src, count, out, 0, out.length);
 			return out;
 		}
+	}
+
+	public static BiConsumer<String, byte[]> createOutputConsumerDir(final Path outputPath) {
+		return (clsName, data) -> {
+		};
 	}
 
 	public static void read(BufferedReader reader, String from, String to, Map<String, String> classMap, Map<String, String> fieldMap, Map<String, String> methodMap)
