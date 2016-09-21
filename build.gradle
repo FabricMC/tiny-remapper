@@ -40,12 +40,26 @@ apply from: 'https://github.com/FabricMC/fabric-docs/raw/master/gradle/license.g
 jar {
 	manifest {
 		attributes	'Implementation-Title': 'TinyRemapper',
-				'Implementation-Version': version,
-				'Main-Class': "net.fabricmc.tinyremapper.Main"
+					'Implementation-Version': version,
+					'Main-Class': "net.fabricmc.tinyremapper.Main"
 	}
-	from {
+}
+
+task fatJar(type: Jar) {
+    from {
 		configurations.compile.collect {
 			it.isDirectory() ? it : zipTree(it)
 		}
 	}
+	manifest {
+		attributes	'Implementation-Title': 'TinyRemapper',
+					'Implementation-Version': version,
+					'Main-Class': "net.fabricmc.tinyremapper.Main"
+	}
+	classifier = 'fat'
+	with jar
+}
+
+artifacts {
+   archives fatJar
 }
