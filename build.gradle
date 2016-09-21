@@ -1,7 +1,6 @@
 apply plugin: 'java'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
-apply plugin: 'application'
 
 buildscript {
 	repositories {
@@ -22,7 +21,6 @@ if (ENV.BUILD_NUMBER) {
 
 group = 'net.fabricmc'
 archivesBaseName = 'tiny-remapper'
-mainClassName = "net.fabricmc.tinyremapper.Main"
 
 repositories {
 	mavenCentral()
@@ -36,11 +34,14 @@ dependencies {
 	compile 'org.ow2.asm:asm-util:5.1'
 }
 
+apply from: 'https://github.com/FabricMC/fabric-docs/raw/master/gradle/maven.gradle'
+apply from: 'https://github.com/FabricMC/fabric-docs/raw/master/gradle/license.gradle'
+
 jar {
 	manifest {
 		attributes	'Implementation-Title': 'TinyRemapper',
 				'Implementation-Version': version,
-				'Main-Class': mainClassName
+				'Main-Class': "net.fabricmc.tinyremapper.Main"
 	}
 	from {
 		configurations.compile.collect {
