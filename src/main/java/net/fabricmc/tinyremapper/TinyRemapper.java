@@ -55,7 +55,7 @@ public class TinyRemapper {
 	public static class Builder {
 		private int threadCount;
 		private Set<String> forcePropagation = new HashSet<>();
-		private IMappingProvider mappingProvider;
+		private Set<IMappingProvider> mappingProviders = new HashSet<>();
 		private boolean propagatePrivate = false;
 		private boolean removeFrames = false;
 
@@ -64,7 +64,7 @@ public class TinyRemapper {
 		}
 
 		public Builder withMappings(IMappingProvider provider) {
-			this.mappingProvider = provider;
+			mappingProviders.add(provider);
 			return this;
 		}
 
@@ -92,8 +92,8 @@ public class TinyRemapper {
 			TinyRemapper remapper = new TinyRemapper(threadCount, forcePropagation);
 			remapper.propagatePrivate = propagatePrivate;
 			remapper.removeFrames = removeFrames;
-			if (mappingProvider != null) {
-				mappingProvider.load(remapper.classMap, remapper.fieldMap, remapper.methodMap);
+			for (IMappingProvider provider : mappingProviders) {
+				provider.load(remapper.classMap, remapper.fieldMap, remapper.methodMap);
 			}
 			return remapper;
 		}

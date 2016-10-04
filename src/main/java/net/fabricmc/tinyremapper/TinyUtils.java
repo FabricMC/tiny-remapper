@@ -18,6 +18,7 @@
 package net.fabricmc.tinyremapper;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -56,6 +57,30 @@ public final class TinyUtils {
 			System.arraycopy(src, count, out, 0, out.length);
 			return out;
 		}
+	}
+
+	public static IMappingProvider createTinyMappingProvider(final Path mappings, String fromM, String toM) {
+		return (classMap, fieldMap, methodMap) -> {
+			try (BufferedReader reader = Files.newBufferedReader(mappings)) {
+				TinyUtils.read(reader, fromM, toM, classMap, fieldMap, methodMap);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+
+			System.out.printf("%s: %d classes, %d methods, %d fields%n", mappings.getFileName().toString(), classMap.size(), methodMap.size(), fieldMap.size());
+		};
+	}
+
+	public static IMappingProvider createTinyMappingProvider(final BufferedReader reader, String fromM, String toM) {
+		return (classMap, fieldMap, methodMap) -> {
+			try {
+				TinyUtils.read(reader, fromM, toM, classMap, fieldMap, methodMap);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+
+			System.out.printf("%d classes, %d methods, %d fields%n", classMap.size(), methodMap.size(), fieldMap.size());
+		};
 	}
 
 	public static BiConsumer<String, byte[]> createOutputConsumerDir(final Path outputPath) {

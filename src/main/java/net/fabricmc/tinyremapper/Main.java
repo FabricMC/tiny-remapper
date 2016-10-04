@@ -123,15 +123,9 @@ public class Main {
 
         long startTime = System.nanoTime();
 
-        TinyRemapper remapper = TinyRemapper.newRemapper().withMappings(((classMap, fieldMap, methodMap) -> {
-            try (BufferedReader reader = Files.newBufferedReader(mappings)) {
-                TinyUtils.read(reader, fromM, toM, classMap, fieldMap, methodMap);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-
-            System.out.printf("mappings: %d classes, %d methods, %d fields%n", classMap.size(), methodMap.size(), fieldMap.size());
-        })).withForcedPropagation(forcePropagation)
+        TinyRemapper remapper = TinyRemapper.newRemapper()
+                .withMappings(TinyUtils.createTinyMappingProvider(mappings, fromM, toM))
+                .withForcedPropagation(forcePropagation)
                 .propagatePrivate(propagatePrivate)
                 .removeFrames(removeFrames)
                 .build();
