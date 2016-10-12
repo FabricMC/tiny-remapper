@@ -139,14 +139,14 @@ public final class TinyUtils {
 
 		for (String[] splitLine : linesStageTwo) {
 			if ("FIELD".equals(splitLine[0])) {
-				String owner = obfFrom.get(splitLine[1]);
+				String owner = obfFrom.getOrDefault(splitLine[1], splitLine[1]);
 				String desc = descObfFrom.mapDesc(splitLine[2]);
-				String tOwner = obfTo.get(splitLine[1]);
+				String tOwner = obfTo.getOrDefault(splitLine[1], splitLine[1]);
 				fieldMap.put(owner + "/" + splitLine[3 + fromIndex] + ";;" + desc, tOwner + "/" + splitLine[3 + toIndex]);
 			} else if ("METHOD".equals(splitLine[0])) {
-				String owner = obfFrom.get(splitLine[1]);
+				String owner = obfFrom.getOrDefault(splitLine[1], splitLine[1]);
 				String desc = descObfFrom.mapMethodDesc(splitLine[2]);
-				String tOwner = obfTo.get(splitLine[1]);
+				String tOwner = obfTo.getOrDefault(splitLine[1], splitLine[1]);
 				methodMap.put(owner + "/" + splitLine[3 + fromIndex] + desc, tOwner + "/" + splitLine[3 + toIndex]);
 			}
 		}
