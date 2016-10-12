@@ -18,8 +18,11 @@
 package net.fabricmc.tinyremapper;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.lang.reflect.Modifier;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,19 +30,21 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 
-import com.google.common.io.ByteStreams;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -54,8 +59,8 @@ import org.objectweb.asm.util.CheckClassAdapter;
 public class TinyRemapper {
 	public static class Builder {
 		private int threadCount;
-		private Set<String> forcePropagation = new HashSet<>();
-		private Set<IMappingProvider> mappingProviders = new HashSet<>();
+		private final Set<String> forcePropagation = new HashSet<>();
+		private final Set<IMappingProvider> mappingProviders = new HashSet<>();
 		private boolean propagatePrivate = false;
 		private boolean removeFrames = false;
 
@@ -178,6 +183,8 @@ public class TinyRemapper {
 						public List<RClass> call() {
 							try {
 								return readFile(file, namespace, srcPath, saveData);
+							} catch (URISyntaxException e) {
+								throw new RuntimeException(e);
 							} catch (IOException e) {
 								System.out.println(file.toAbsolutePath());
 								e.printStackTrace();
@@ -194,34 +201,25 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private List<RClass> readFile(Path file, Namespace namespace, final Path srcPath, boolean saveData) throws IOException {
+	private List<RClass> readFile(Path file, Namespace namespace, final Path srcPath, boolean saveData) throws IOException, URISyntaxException {
 		List<RClass> ret = new ArrayList<RClass>();
 
-		if (file.getFileName().endsWith(".class")) {
-			long startTime = System.nanoTime();
-
-			byte[] data = Files.readAllBytes(file);
-
-			// readTime.addAndGet(System.nanoTime() - startTime);
-
-			ret.add(analyze(srcPath, data, saveData));
+		if (file.toString().endsWith(".class")) {
+			ret.add(analyze(srcPath, Files.readAllBytes(file), saveData));
 		} else {
-			try (ZipFile zip = new ZipFile(file.toFile())) {
-				for (Enumeration<? extends ZipEntry> it = zip.entries(); it.hasMoreElements(); ) {
-					ZipEntry entry = it.nextElement();
+			URI uri = new URI("jar:file", null, file.toString(), null);
 
-					if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
-						long startTime = System.nanoTime();
-						byte[] data;
-
-						try (InputStream is = zip.getInputStream(entry)) {
-							data = ByteStreams.toByteArray(is);
+			try (FileSystem fs = FileSystems.newFileSystem(uri, Collections.emptyMap())) {
+				Files.walkFileTree(fs.getPath("/"), new SimpleFileVisitor<Path>() {
+					@Override
+					public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+						if (file.toString().endsWith(".class")) {
+							ret.add(analyze(srcPath, Files.readAllBytes(file), saveData));
 						}
 
-						// readTime.addAndGet(System.nanoTime() - startTime);
-						ret.add(analyze(srcPath, data, saveData));
+						return FileVisitResult.CONTINUE;
 					}
-				}
+				});
 			}
 		}
 
@@ -229,7 +227,6 @@ public class TinyRemapper {
 	}
 
 	private RClass analyze(Path srcPath, byte[] data, boolean saveData) {
-		long startTime = System.nanoTime();
 		final RClass ret = new RClass(srcPath, saveData ? data : null);
 
 		ClassReader reader = new ClassReader(data);
@@ -257,8 +254,6 @@ public class TinyRemapper {
 				return null;
 			}
 		}, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
-
-		// analyzeTime.addAndGet(System.nanoTime() - startTime);
 
 		return ret;
 	}

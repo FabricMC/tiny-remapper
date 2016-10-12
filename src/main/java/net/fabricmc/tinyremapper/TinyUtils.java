@@ -19,8 +19,11 @@ package net.fabricmc.tinyremapper;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.zip.GZIPInputStream;
 
 import org.objectweb.asm.commons.Remapper;
 
@@ -61,7 +65,7 @@ public final class TinyUtils {
 
 	public static IMappingProvider createTinyMappingProvider(final Path mappings, String fromM, String toM) {
 		return (classMap, fieldMap, methodMap) -> {
-			try (BufferedReader reader = Files.newBufferedReader(mappings)) {
+			try (BufferedReader reader = getMappingReader(mappings.toFile())) {
 				TinyUtils.read(reader, fromM, toM, classMap, fieldMap, methodMap);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
@@ -69,6 +73,16 @@ public final class TinyUtils {
 
 			System.out.printf("%s: %d classes, %d methods, %d fields%n", mappings.getFileName().toString(), classMap.size(), methodMap.size(), fieldMap.size());
 		};
+	}
+
+	private static BufferedReader getMappingReader(File file) throws IOException {
+		InputStream is = new FileInputStream(file);
+
+		if (file.getName().endsWith(".gz")) {
+			is = new GZIPInputStream(is);
+		}
+
+		return new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
 	}
 
 	public static IMappingProvider createTinyMappingProvider(final BufferedReader reader, String fromM, String toM) {
