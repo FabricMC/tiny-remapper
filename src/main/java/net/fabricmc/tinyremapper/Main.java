@@ -90,7 +90,7 @@ public class Main {
         Path[] classpath = new Path[args.size() - 5];
 
         for (int i = 0; i < classpath.length; i++) {
-            classpath[i] = Paths.get(args.get(i + 3));
+            classpath[i] = Paths.get(args.get(i + 5));
             if (!Files.isReadable(classpath[i])) {
                 System.out.println("Can't read classpath file "+i+": "+classpath[i]+".");
                 System.exit(1);
