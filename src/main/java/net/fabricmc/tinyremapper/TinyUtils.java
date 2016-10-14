@@ -25,11 +25,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.zip.GZIPInputStream;
 
@@ -43,6 +39,21 @@ public final class TinyUtils {
 			this.owner = owner;
 			this.name = name;
 			this.desc = desc;
+		}
+
+		@Override
+		public boolean equals(Object other) {
+			if (other == null || !(other instanceof Mapping)) {
+				return false;
+			} else {
+				Mapping otherM = (Mapping) other;
+				return owner.equals(otherM.owner) && name.equals(otherM.name) && desc.equals(otherM.desc);
+			}
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(owner, name, desc);
 		}
 	}
 
