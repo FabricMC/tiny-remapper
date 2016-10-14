@@ -36,6 +36,16 @@ import java.util.zip.GZIPInputStream;
 import org.objectweb.asm.commons.Remapper;
 
 public final class TinyUtils {
+	public static class Mapping {
+		public final String owner, name, desc;
+
+		public Mapping(String owner, String name, String desc) {
+			this.owner = owner;
+			this.name = name;
+			this.desc = desc;
+		}
+	}
+
 	private static class SimpleClassMapper extends Remapper {
 		final Map<String, String> classMap;
 
@@ -53,20 +63,10 @@ public final class TinyUtils {
 
 	}
 
-	private static final String[] removeFirst(String[] src, int count) {
-		if (count >= src.length) {
-			return new String[0];
-		} else {
-			String[] out = new String[src.length - count];
-			System.arraycopy(src, count, out, 0, out.length);
-			return out;
-		}
-	}
-
 	public static IMappingProvider createTinyMappingProvider(final Path mappings, String fromM, String toM) {
 		return (classMap, fieldMap, methodMap) -> {
 			try (BufferedReader reader = getMappingReader(mappings.toFile())) {
-				TinyUtils.read(reader, fromM, toM, classMap, fieldMap, methodMap);
+				readInternal(reader, fromM, toM, classMap, fieldMap, methodMap);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
@@ -88,7 +88,7 @@ public final class TinyUtils {
 	public static IMappingProvider createTinyMappingProvider(final BufferedReader reader, String fromM, String toM) {
 		return (classMap, fieldMap, methodMap) -> {
 			try {
-				TinyUtils.read(reader, fromM, toM, classMap, fieldMap, methodMap);
+				readInternal(reader, fromM, toM, classMap, fieldMap, methodMap);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
@@ -97,12 +97,20 @@ public final class TinyUtils {
 		};
 	}
 
-	public static BiConsumer<String, byte[]> createOutputConsumerDir(final Path outputPath) {
-		return (clsName, data) -> {
-		};
+	private static void readInternal(BufferedReader reader, String fromM, String toM, Map<String, String> classMap, Map<String, String> fieldMap, Map<String, String> methodMap) throws IOException {
+		TinyUtils.read(reader, fromM, toM, (classFrom, classTo) -> {
+			classMap.put(classFrom, classTo);
+		}, (fieldFrom, fieldTo) -> {
+			fieldMap.put(fieldFrom.owner + "/" + fieldFrom.name + ";;" + fieldFrom.desc, fieldTo.owner + "/" + fieldTo.name);
+		}, (methodFrom, methodTo) -> {
+			methodMap.put(methodFrom.owner + "/" + methodFrom.name + methodFrom.desc, methodTo.owner + "/" + methodTo.name);
+		});
 	}
 
-	public static void read(BufferedReader reader, String from, String to, Map<String, String> classMap, Map<String, String> fieldMap, Map<String, String> methodMap)
+	public static void read(BufferedReader reader, String from, String to,
+							BiConsumer<String, String> classMappingConsumer,
+							BiConsumer<Mapping, Mapping> fieldMappingConsumer,
+							BiConsumer<Mapping, Mapping> methodMappingConsumer)
 			throws IOException {
 		String[] header = reader.readLine().split("\t");
 		if (header.length <= 1
@@ -110,9 +118,9 @@ public final class TinyUtils {
 			throw new IOException("Invalid mapping version!");
 		}
 
-		List<String> headerList = Arrays.asList(removeFirst(header, 1));
-		int fromIndex = headerList.indexOf(from);
-		int toIndex = headerList.indexOf(to);
+		List<String> headerList = Arrays.asList(header);
+		int fromIndex = headerList.indexOf(from) - 1;
+		int toIndex = headerList.indexOf(to) - 1;
 
 		if (fromIndex < 0) throw new IOException("Could not find mapping '" + from + "'!");
 		if (toIndex < 0) throw new IOException("Could not find mapping '" + to + "'!");
@@ -126,7 +134,7 @@ public final class TinyUtils {
 			String[] splitLine = line.split("\t");
 			if (splitLine.length >= 2) {
 				if ("CLASS".equals(splitLine[0])) {
-					classMap.put(splitLine[1 + fromIndex], splitLine[1 + toIndex]);
+					classMappingConsumer.accept(splitLine[1 + fromIndex], splitLine[1 + toIndex]);
 					obfFrom.put(splitLine[1], splitLine[1 + fromIndex]);
 					obfTo.put(splitLine[1], splitLine[1 + toIndex]);
 				} else {
@@ -136,18 +144,27 @@ public final class TinyUtils {
 		}
 
 		SimpleClassMapper descObfFrom = new SimpleClassMapper(obfFrom);
+		SimpleClassMapper descObfTo = new SimpleClassMapper(obfTo);
 
 		for (String[] splitLine : linesStageTwo) {
 			if ("FIELD".equals(splitLine[0])) {
 				String owner = obfFrom.getOrDefault(splitLine[1], splitLine[1]);
 				String desc = descObfFrom.mapDesc(splitLine[2]);
 				String tOwner = obfTo.getOrDefault(splitLine[1], splitLine[1]);
-				fieldMap.put(owner + "/" + splitLine[3 + fromIndex] + ";;" + desc, tOwner + "/" + splitLine[3 + toIndex]);
+				String tDesc = descObfTo.mapDesc(splitLine[2]);
+				fieldMappingConsumer.accept(
+						new Mapping(owner, splitLine[3 + fromIndex], desc),
+						new Mapping(tOwner, splitLine[3 + toIndex], tDesc)
+				);
 			} else if ("METHOD".equals(splitLine[0])) {
 				String owner = obfFrom.getOrDefault(splitLine[1], splitLine[1]);
 				String desc = descObfFrom.mapMethodDesc(splitLine[2]);
 				String tOwner = obfTo.getOrDefault(splitLine[1], splitLine[1]);
-				methodMap.put(owner + "/" + splitLine[3 + fromIndex] + desc, tOwner + "/" + splitLine[3 + toIndex]);
+				String tDesc = descObfFrom.mapMethodDesc(splitLine[2]);
+				methodMappingConsumer.accept(
+						new Mapping(owner, splitLine[3 + fromIndex], desc),
+						new Mapping(tOwner, splitLine[3 + toIndex], tDesc)
+				);
 			}
 		}
 	}
