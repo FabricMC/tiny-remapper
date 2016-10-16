@@ -21,12 +21,7 @@ import java.io.IOException;
 import java.lang.reflect.Modifier;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -208,19 +203,28 @@ public class TinyRemapper {
 			ret.add(analyze(srcPath, Files.readAllBytes(file), saveData));
 		} else {
 			URI uri = new URI("jar:file", null, file.toString(), null);
+			FileSystem fs = null;
 
-			try (FileSystem fs = FileSystems.newFileSystem(uri, Collections.emptyMap())) {
-				Files.walkFileTree(fs.getPath("/"), new SimpleFileVisitor<Path>() {
-					@Override
-					public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-						if (file.toString().endsWith(".class")) {
-							ret.add(analyze(srcPath, Files.readAllBytes(file), saveData));
-						}
+			try {
+				fs = FileSystems.getFileSystem(uri);
+			} catch (FileSystemNotFoundException e) {
 
-						return FileVisitResult.CONTINUE;
-					}
-				});
 			}
+
+			if (fs == null) {
+				fs = FileSystems.newFileSystem(uri, Collections.emptyMap());
+			}
+
+			Files.walkFileTree(fs.getPath("/"), new SimpleFileVisitor<Path>() {
+				@Override
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					if (file.toString().endsWith(".class")) {
+						ret.add(analyze(srcPath, Files.readAllBytes(file), saveData));
+					}
+
+					return FileVisitResult.CONTINUE;
+				}
+			});
 		}
 
 		return ret;
