@@ -47,7 +47,7 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]> {
 			URI uri;
 
 			try {
-				uri = new URI("jar:file", null, dstFile.toAbsolutePath().toString(), null);
+				uri = new URI("jar:"+dstFile.toUri().toString());
 			} catch (URISyntaxException e) {
 				throw new RuntimeException(e);
 			}
