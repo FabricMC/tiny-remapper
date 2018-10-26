@@ -241,7 +241,7 @@ public class TinyRemapper {
 
 		ClassReader reader = new ClassReader(data);
 
-		reader.accept(new ClassVisitor(Opcodes.ASM5) {
+		reader.accept(new ClassVisitor(Opcodes.ASM6) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 				ret.name = mapClass(name);
