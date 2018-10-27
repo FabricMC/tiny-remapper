@@ -512,7 +512,7 @@ public class TinyRemapper {
 				}
 
 				if (!isVirtual && dir != Direction.DOWN) { // up propagation for non-virtual member having found the described method stops resolution
-					if (dir == Direction.ANY && (member.access & Opcodes.ACC_PRIVATE) != 0) {
+					if (dir == Direction.ANY && (member.access & Opcodes.ACC_PRIVATE) == 0) {
 						dir = Direction.DOWN;
 					} else {
 						return;
