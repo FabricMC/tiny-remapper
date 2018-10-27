@@ -39,6 +39,7 @@ public class Main {
 		boolean removeFrames = false;
 		Set<String> forcePropagation = Collections.emptySet();
 		File forcePropagationFile = null;
+		boolean ignoreConflicts = false;
 
 		for (String arg : rawArgs) {
 			if (arg.startsWith("--")) {
@@ -61,6 +62,9 @@ public class Main {
 				case "removeframes":
 					removeFrames = true;
 					break;
+				case "ignoreconflicts":
+					ignoreConflicts = true;
+					break;
 				default:
 					System.out.println("invalid argument: "+arg+".");
 					System.exit(1);
@@ -71,7 +75,7 @@ public class Main {
 		}
 
 		if (args.size() < 5) {
-			System.out.println("usage: <input> <output> <mappings> <from> <to> [<classpath>]... [--reverse] [--forcePropagation=<file>] [--propagatePrivate]");
+			System.out.println("usage: <input> <output> <mappings> <from> <to> [<classpath>]... [--reverse] [--forcePropagation=<file>] [--propagatePrivate] [--ignoreConflicts]");
 			System.exit(1);
 		}
 
@@ -133,6 +137,7 @@ public class Main {
 				.withForcedPropagation(forcePropagation)
 				.propagatePrivate(propagatePrivate)
 				.removeFrames(removeFrames)
+				.ignoreConflicts(ignoreConflicts)
 				.build();
 
 		try {

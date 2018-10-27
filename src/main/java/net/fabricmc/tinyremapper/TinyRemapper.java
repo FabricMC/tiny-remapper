@@ -18,7 +18,6 @@
 package net.fabricmc.tinyremapper;
 
 import java.io.IOException;
-import java.lang.reflect.Modifier;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
@@ -29,12 +28,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -52,22 +53,11 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
-import org.objectweb.asm.commons.ClassRemapper;
-import org.objectweb.asm.commons.Remapper;
 import org.objectweb.asm.util.CheckClassAdapter;
 
 public class TinyRemapper {
 	public static class Builder {
-		private int threadCount;
-		private final Set<String> forcePropagation = new HashSet<>();
-		private final Set<IMappingProvider> mappingProviders = new HashSet<>();
-		private boolean propagatePrivate = false;
-		private boolean removeFrames = false;
-
-		private Builder() {
-
-		}
+		private Builder() { }
 
 		public Builder withMappings(IMappingProvider provider) {
 			mappingProviders.add(provider);
@@ -94,36 +84,39 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public Builder ignoreConflicts(boolean value) {
+			ignoreConflicts = value;
+			return this;
+		}
+
 		public TinyRemapper build() {
-			TinyRemapper remapper = new TinyRemapper(threadCount, forcePropagation);
-			remapper.propagatePrivate = propagatePrivate;
-			remapper.removeFrames = removeFrames;
+			TinyRemapper remapper = new TinyRemapper(threadCount, forcePropagation, propagatePrivate, removeFrames, ignoreConflicts);
+
 			for (IMappingProvider provider : mappingProviders) {
 				provider.load(remapper.classMap, remapper.fieldMap, remapper.methodMap);
 			}
+
 			return remapper;
 		}
+
+		private int threadCount;
+		private final Set<String> forcePropagation = new HashSet<>();
+		private final Set<IMappingProvider> mappingProviders = new HashSet<>();
+		private boolean propagatePrivate = false;
+		private boolean removeFrames = false;
+		private boolean ignoreConflicts = false;
 	}
 
-	private final boolean check = false;
-
-	private final Set<String> forcePropagation;
-	private boolean propagatePrivate = false;
-	private boolean removeFrames = false;
-	private final Map<String, String> classMap = new HashMap<>();
-	private final Map<String, String> methodMap = new HashMap<>();
-	private final Map<String, String> fieldMap = new HashMap<>();
-	private final Map<String, RClass> nodes = new HashMap<>();
-	private final Map<TypedMember, Set<String>> conflicts = new ConcurrentHashMap<>();
-	private final int threadCount;
-	private final ExecutorService threadPool;
-
-	private boolean dirty;
-
-	private TinyRemapper(int threadCount, Set<String> forcePropagation) {
+	private TinyRemapper(int threadCount, Set<String> forcePropagation,
+			boolean propagatePrivate,
+			boolean removeFrames,
+			boolean ignoreConflicts) {
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
 		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
 		this.forcePropagation = forcePropagation;
+		this.propagatePrivate = propagatePrivate;
+		this.removeFrames = removeFrames;
+		this.ignoreConflicts = ignoreConflicts;
 	}
 
 	public static Builder newRemapper() {
@@ -246,6 +239,7 @@ public class TinyRemapper {
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 				ret.name = mapClass(name);
 				ret.superName = mapClass(superName);
+				ret.isInterface = (access & Opcodes.ACC_INTERFACE) != 0;
 				ret.interfaces = new String[interfaces.length];
 				for (int i = 0; i < interfaces.length; i++) ret.interfaces[i] = mapClass(interfaces[i]);
 			}
@@ -334,18 +328,49 @@ public class TinyRemapper {
 		if (conflicts.isEmpty()) return;
 
 		System.out.println("Mapping conflicts detected:");
+		boolean unfixableConflicts = false;
 
 		for (Map.Entry<TypedMember, Set<String>> entry : conflicts.entrySet()) {
 			TypedMember tmember = entry.getKey();
 			Member member = (tmember.type == MemberType.METHOD ? tmember.cls.methods : tmember.cls.fields).get(tmember.id);
 			String newName = (tmember.type == MemberType.METHOD ? tmember.cls.methodsToMap : tmember.cls.fieldsToMap).get(tmember.id);
 			Set<String> names = entry.getValue();
-			names.add(newName);
+			names.add(tmember.cls.name+"/"+newName);
 
 			System.out.printf("  %s %s %s (%s) -> %s%n", tmember.cls.name, tmember.type.name(), member.name, member.desc, names);
+
+			if (ignoreConflicts) {
+				Map<String, String> mappings = tmember.type == MemberType.METHOD ? methodMap : fieldMap;
+				String mappingName = mappings.get(tmember.cls.name+"/"+tmember.id);
+
+				if (mappingName == null) { // no direct mapping match, try parents
+					Queue<RClass> queue = new ArrayDeque<>(tmember.cls.parents);
+					RClass cls;
+
+					while ((cls = queue.poll()) != null) {
+						mappingName = mappings.get(cls.name+"/"+tmember.id);
+						if (mappingName != null) break;
+
+						queue.addAll(cls.parents);
+					}
+				}
+
+				if (mappingName == null) {
+					unfixableConflicts = true;
+				} else {
+					mappingName = stripClassName(mappingName, tmember.type);
+					ConcurrentMap<String, String> outputMap = (tmember.type == MemberType.METHOD) ? tmember.cls.methodsToMap : tmember.cls.fieldsToMap;
+					outputMap.put(tmember.id, mappingName);
+					System.out.println("    fixable: replaced with "+mappingName);
+				}
+			}
 		}
 
-		System.exit(1);
+		if (!ignoreConflicts || unfixableConflicts) {
+			if (ignoreConflicts) System.out.println("There were unfixable conflicts.");
+
+			System.exit(1);
+		}
 	}
 
 	public void apply(Path srcPath, final BiConsumer<String, byte[]> outputConsumer) {
@@ -371,7 +396,7 @@ public class TinyRemapper {
 		ClassReader reader = new ClassReader(cls.data);
 		ClassWriter writer = new ClassWriter(0);
 		int flags = removeFrames ? ClassReader.SKIP_FRAMES : ClassReader.EXPAND_FRAMES;
-		reader.accept(new ClassRemapper(check ? new CheckClassAdapter(writer) : writer, remapper), flags);
+		reader.accept(new AsmClassRemapper(check ? new CheckClassAdapter(writer) : writer, remapper), flags);
 		// TODO: compute frames (-Xverify:all -XX:-FailOverToOldVerifier)
 
 		return writer.toByteArray();
@@ -386,87 +411,6 @@ public class TinyRemapper {
 			throw new RuntimeException(e);
 		}
 	}
-
-	private final Remapper remapper = new Remapper() {
-		@Override
-		public String map(String typeName) {
-			String ret = classMap.get(typeName);
-
-			return ret != null ? ret : typeName;
-		}
-
-		@Override
-		public String mapFieldName(String owner, String name, String desc) {
-			/*String ret = fieldMap.get(owner+"/"+name);
-            if (ret != null) return stripClassName(ret);*/
-
-			RClass cls = nodes.get(owner);
-
-			if (cls == null) {
-				owner = classMap.get(owner);
-				if (owner == null) return name;
-
-				cls = nodes.get(owner);
-				if (cls == null) return name;
-			}
-
-			String ret = cls.fieldsToMap.get(name + ";;" + desc);
-			if (ret != null) return ret;
-
-			assert fieldMap.get(owner+"/"+name+";;"+desc) == null;
-
-			return name;
-		}
-
-		@Override
-		public String mapMethodName(String owner, String name, String desc) {
-			/*String ret = methodMap.get(owner+"/"+name+desc);
-            if (ret != null) return stripDesc(stripClassName(ret));*/
-
-			RClass cls = nodes.get(owner);
-
-			if (cls == null) {
-				owner = classMap.get(owner);
-				if (owner == null) return name;
-
-				cls = nodes.get(owner);
-				if (cls == null) return name;
-			}
-
-			String ret = cls.methodsToMap.get(name+desc);
-			if (ret != null) return ret;
-
-			assert methodMap.get(owner+"/"+name+desc) == null;
-			return name;
-		}
-
-		@Override
-		public String mapInvokeDynamicMethodName(String name, String desc) {
-			String owner = Type.getType(desc).getReturnType().getClassName();
-			RClass cls = nodes.get(owner);
-
-			if (cls == null) {
-				owner = classMap.get(owner);
-				if (owner == null) return name;
-
-				cls = nodes.get(owner);
-				if (cls == null) return name;
-			}
-
-			for (Map.Entry<String, String> entry : cls.methodsToMap.entrySet()) {
-				String src = entry.getKey();
-				int descStart = src.indexOf('/');
-
-				if (name.length() == descStart && name.equals(src.substring(0, descStart))) {
-					String dst = entry.getValue();
-
-					return dst.substring(0, dst.indexOf('/'));
-				}
-			}
-
-			return name;
-		}
-	};
 
 	String getClassName(String nameDesc, MemberType type) {
 		int descStart = getDescStart(nameDesc, type);
@@ -520,58 +464,64 @@ public class TinyRemapper {
 		 * @param idDst New name.
 		 * @param dir Futher propagation direction.
 		 */
-		void propagate(MemberType type, String idSrc, String idDst, Direction dir, Set<RClass> visited) {
+		void propagate(MemberType type, String originatingCls, String idSrc, String idDst, Direction dir, boolean isVirtual, boolean first, Set<RClass> visited) {
+			/*
+			 * initial private or static in interface: only local
+			 * non-virtual: up to matching member (if not already in this), then down until matching again (exclusive) - skip private|static in interfaces
+			 * virtual: all across the hierarchy, only non-private|static can change direction - skip private|static in interfaces
+			 */
+
 			Map<String, Member> members = (type == MemberType.METHOD) ? methods : fields;
 			Member member = members.get(idSrc);
-			boolean isMapped;
+			boolean newMapping;
 
 			if (member == null) {
-				isMapped = true;
+				newMapping = false;
 				member = members.get(idDst);
 			} else {
+				newMapping = true;
 				assert !members.containsKey(idDst);
-				isMapped = false;
 			}
 
 			if (member != null) {
-				if (!propagatePrivate &&
-						Modifier.isPrivate(member.access) &&
-						!forcePropagation.contains(name.replace('/', '.')+"."+member.name)) {
-					// private doesn't have any inheritance effect on other classes
+				if (!isVirtual && dir == Direction.DOWN) { // down propagation from (assumed) non-virtual member matching the signature again, which starts its own namespace
 					return;
 				}
 
-				if (!isMapped) { // there's a matching element and it wasn't mapped yet
+				if (!isVirtual && type == MemberType.METHOD && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0) {
+					isVirtual = true;
+					// restart propagation as virtual
+					dir = Direction.ANY;
+					visited.clear();
+					visited.add(this);
+				}
+
+				if (newMapping // there's an element matching idSrc (-> not mapped yet)
+						&& (first // directly mapped
+								|| !isInterface // no interface -> allow any modifiers
+								|| (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0 // not private and not static
+								|| propagatePrivate
+								|| forcePropagation.contains(name.replace('/', '.')+"."+member.name))) { // don't rename private members unless forced or initial (=dir any)
 					ConcurrentMap<String, String> outputMap = (type == MemberType.METHOD) ? methodsToMap : fieldsToMap;
 					String prev = outputMap.putIfAbsent(idSrc, idDst);
 
 					if (prev != null && !prev.equals(idDst)) {
-						conflicts.computeIfAbsent(new TypedMember(this, type, idSrc), x -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(idDst);
+						conflicts.computeIfAbsent(new TypedMember(this, type, idSrc), x -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(originatingCls+"/"+idDst);
 					}
 					//System.out.printf("%s: %s %s -> %s\n", name, (type == Type.METHOD) ? "Method" : "Field", idSrc, idDst);
 				}
-			}
 
-			if (member == null) {
-				if (dir == Direction.ANY) {
-					/*
-					 * A mapping is initially (=ANY) applied to this class, but no matching member
-					 * was found. It's assumed to be safe to ignore.
-					 */
-
+				if (!isVirtual) { // up propagation for non-virtual member having found the described method stops resolution
 					return;
 				}
+			} else { // member == null
+				// Java likes/allows to access members in a super class by querying the "this"
+				// class directly. To cover this, outputMap is being populated regardless.
 
-				if (dir == Direction.DOWN) {
-					/*
-					 * Java likes/allows to access members in a super class by querying the "this"
-					 * class directly. To cover this, outputMap is being populated regardless.
-					 */
-
-					ConcurrentMap<String, String> outputMap = (type == MemberType.METHOD) ? methodsToMap : fieldsToMap;
-					outputMap.putIfAbsent(idSrc, idDst);
-				}
+				ConcurrentMap<String, String> outputMap = (type == MemberType.METHOD) ? methodsToMap : fieldsToMap;
+				outputMap.putIfAbsent(idSrc, idDst);
 			}
+
 
 			/*
 			 * Propagate the mapping along the hierarchy tree.
@@ -585,23 +535,23 @@ public class TinyRemapper {
 			 * Direction.UP/DOWN handle propagation skipping across nodes which don't contain the
 			 * specific member, thus having no direct reference.
 			 *
-			 * member != null handles propagation to an existing matching member, which spawns a
-			 * new initial node from the propagation perspective. This is necessary as different
-			 * branches of the hierarchy tree that were not visited before may access it.
+			 * isVirtual && ... handles propagation to an existing matching virtual member, which
+			 * spawns a new initial node from the propagation perspective. This is necessary as
+			 * different branches of the hierarchy tree that were not visited before may access it.
 			 */
 
-			if (dir == Direction.ANY || dir == Direction.UP || member != null) {
+			if (dir == Direction.ANY || dir == Direction.UP || isVirtual && member != null && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0) {
 				for (RClass node : parents) {
 					if (visited.add(node)) {
-						node.propagate(type, idSrc, idDst, Direction.UP, visited);
+						node.propagate(type, originatingCls, idSrc, idDst, Direction.UP, isVirtual, false, visited);
 					}
 				}
 			}
 
-			if (dir == Direction.ANY || dir == Direction.DOWN || member != null) {
+			if (dir == Direction.ANY || dir == Direction.DOWN || isVirtual && member != null && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0) {
 				for (RClass node : children) {
 					if (visited.add(node)) {
-						node.propagate(type, idSrc, idDst, Direction.DOWN, visited);
+						node.propagate(type, originatingCls, idSrc, idDst, Direction.DOWN, isVirtual, false, visited);
 					}
 				}
 			}
@@ -613,10 +563,11 @@ public class TinyRemapper {
 		private final Map<String, Member> fields = new HashMap<String, Member>();
 		private final Set<RClass> parents = new HashSet<RClass>();
 		private final Set<RClass> children = new HashSet<RClass>();
-		private final ConcurrentMap<String, String> methodsToMap = new ConcurrentHashMap<String, String>();
-		private final ConcurrentMap<String, String> fieldsToMap = new ConcurrentHashMap<String, String>();
+		final ConcurrentMap<String, String> methodsToMap = new ConcurrentHashMap<String, String>();
+		final ConcurrentMap<String, String> fieldsToMap = new ConcurrentHashMap<String, String>();
 		String name;
 		String superName;
+		boolean isInterface;
 		String[] interfaces;
 	}
 
@@ -690,8 +641,13 @@ public class TinyRemapper {
 				String idDst = stripClassName(entry.getValue(), type);
 				if (idSrc.equals(idDst)) continue;
 
+				if ((className+"/"+idDst).equals("net/minecraft/entity/passive/EntityIronGolem/IRON_GOLEM_FLAGS")
+						|| (className+"/"+idDst).equals("net/minecraft/entity/boss/EntityEnderDragon/ATTACHED_FACE")) {
+					System.currentTimeMillis();
+				}
+
 				visited.add(node);
-				node.propagate(type, idSrc, idDst, Direction.ANY, visited);
+				node.propagate(type, className, idSrc, idDst, Direction.ANY, false, true, visited);
 				visited.clear();
 			}
 		}
@@ -699,4 +655,21 @@ public class TinyRemapper {
 		private final MemberType type;
 		private final List<Map.Entry<String, String> > tasks = new ArrayList<Map.Entry<String,String> >();
 	}
+
+	private final boolean check = false;
+
+	private final Set<String> forcePropagation;
+	private final boolean propagatePrivate;
+	private final boolean removeFrames;
+	private final boolean ignoreConflicts;
+	final Map<String, String> classMap = new HashMap<>();
+	final Map<String, String> methodMap = new HashMap<>();
+	final Map<String, String> fieldMap = new HashMap<>();
+	final Map<String, RClass> nodes = new HashMap<>();
+	private final Map<TypedMember, Set<String>> conflicts = new ConcurrentHashMap<>();
+	private final int threadCount;
+	private final ExecutorService threadPool;
+	private final AsmRemapper remapper = new AsmRemapper(this);
+
+	private boolean dirty;
 }
