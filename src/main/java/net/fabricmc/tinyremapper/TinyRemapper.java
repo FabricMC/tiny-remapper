@@ -511,8 +511,12 @@ public class TinyRemapper {
 					//System.out.printf("%s: %s %s -> %s\n", name, (type == Type.METHOD) ? "Method" : "Field", idSrc, idDst);
 				}
 
-				if (!isVirtual) { // up propagation for non-virtual member having found the described method stops resolution
-					return;
+				if (!isVirtual && dir != Direction.DOWN) { // up propagation for non-virtual member having found the described method stops resolution
+					if (dir == Direction.ANY && (member.access & Opcodes.ACC_PRIVATE) != 0) {
+						dir = Direction.DOWN;
+					} else {
+						return;
+					}
 				}
 			} else { // member == null
 				// Java likes/allows to access members in a super class by querying the "this"
