@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -464,7 +465,7 @@ public class TinyRemapper {
 		 * @param idDst New name.
 		 * @param dir Futher propagation direction.
 		 */
-		void propagate(MemberType type, String originatingCls, String idSrc, String idDst, Direction dir, boolean isVirtual, boolean first, Set<RClass> visited) {
+		void propagate(MemberType type, String originatingCls, String idSrc, String idDst, Direction dir, boolean isVirtual, boolean first, Set<RClass> visitedUp, Set<RClass> visitedDown) {
 			/*
 			 * initial private or static in interface: only local
 			 * non-virtual: up to matching member (if not already in this), then down until matching again (exclusive) - skip private|static in interfaces
@@ -473,15 +474,6 @@ public class TinyRemapper {
 
 			Map<String, Member> members = (type == MemberType.METHOD) ? methods : fields;
 			Member member = members.get(idSrc);
-			boolean newMapping;
-
-			if (member == null) {
-				newMapping = false;
-				member = members.get(idDst);
-			} else {
-				newMapping = true;
-				assert !members.containsKey(idDst);
-			}
 
 			if (member != null) {
 				if (!isVirtual && dir == Direction.DOWN) { // down propagation from (assumed) non-virtual member matching the signature again, which starts its own namespace
@@ -492,16 +484,17 @@ public class TinyRemapper {
 					isVirtual = true;
 					// restart propagation as virtual
 					dir = Direction.ANY;
-					visited.clear();
-					visited.add(this);
+					visitedUp.clear();
+					visitedDown.clear();
+					visitedUp.add(this);
+					visitedDown.add(this);
 				}
 
-				if (newMapping // there's an element matching idSrc (-> not mapped yet)
-						&& (first // directly mapped
-								|| !isInterface // no interface -> allow any modifiers
-								|| (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0 // not private and not static
-								|| propagatePrivate
-								|| forcePropagation.contains(name.replace('/', '.')+"."+member.name))) { // don't rename private members unless forced or initial (=dir any)
+				if (first // directly mapped
+						|| !isInterface // no interface -> allow any modifiers
+						|| (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0 // not private and not static
+						|| propagatePrivate
+						|| forcePropagation.contains(name.replace('/', '.')+"."+member.name)) { // don't rename private members unless forced or initial (=dir any)
 					ConcurrentMap<String, String> outputMap = (type == MemberType.METHOD) ? methodsToMap : fieldsToMap;
 					String prev = outputMap.putIfAbsent(idSrc, idDst);
 
@@ -546,19 +539,24 @@ public class TinyRemapper {
 
 			if (dir == Direction.ANY || dir == Direction.UP || isVirtual && member != null && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0) {
 				for (RClass node : parents) {
-					if (visited.add(node)) {
-						node.propagate(type, originatingCls, idSrc, idDst, Direction.UP, isVirtual, false, visited);
+					if (visitedUp.add(node)) {
+						node.propagate(type, originatingCls, idSrc, idDst, Direction.UP, isVirtual, false, visitedUp, visitedDown);
 					}
 				}
 			}
 
 			if (dir == Direction.ANY || dir == Direction.DOWN || isVirtual && member != null && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0) {
 				for (RClass node : children) {
-					if (visited.add(node)) {
-						node.propagate(type, originatingCls, idSrc, idDst, Direction.DOWN, isVirtual, false, visited);
+					if (visitedDown.add(node)) {
+						node.propagate(type, originatingCls, idSrc, idDst, Direction.DOWN, isVirtual, false, visitedUp, visitedDown);
 					}
 				}
 			}
+		}
+
+		@Override
+		public String toString() {
+			return name;
 		}
 
 		private final Path srcPath;
@@ -634,7 +632,8 @@ public class TinyRemapper {
 
 		@Override
 		public void run() {
-			Set<RClass> visited = new HashSet<>();
+			Set<RClass> visitedUp = Collections.newSetFromMap(new IdentityHashMap<>());
+			Set<RClass> visitedDown = Collections.newSetFromMap(new IdentityHashMap<>());
 
 			for (Map.Entry<String, String> entry : tasks) {
 				String className = getClassName(entry.getValue(), type);
@@ -645,14 +644,11 @@ public class TinyRemapper {
 				String idDst = stripClassName(entry.getValue(), type);
 				if (idSrc.equals(idDst)) continue;
 
-				if ((className+"/"+idDst).equals("net/minecraft/entity/passive/EntityIronGolem/IRON_GOLEM_FLAGS")
-						|| (className+"/"+idDst).equals("net/minecraft/entity/boss/EntityEnderDragon/ATTACHED_FACE")) {
-					System.currentTimeMillis();
-				}
-
-				visited.add(node);
-				node.propagate(type, className, idSrc, idDst, Direction.ANY, false, true, visited);
-				visited.clear();
+				visitedUp.add(node);
+				visitedDown.add(node);
+				node.propagate(type, className, idSrc, idDst, Direction.ANY, false, true, visitedUp, visitedDown);
+				visitedUp.clear();
+				visitedDown.clear();
 			}
 		}
 
