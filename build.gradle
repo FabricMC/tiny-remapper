@@ -27,11 +27,10 @@ repositories {
 }
 
 dependencies {
-	compile 'com.google.guava:guava:23.+'
-	compile 'org.ow2.asm:asm:6.2.1'
-	compile 'org.ow2.asm:asm-commons:6.2.1'
-	compile 'org.ow2.asm:asm-tree:6.2.1'
-	compile 'org.ow2.asm:asm-util:6.2.1'
+	compile 'org.ow2.asm:asm:7.0'
+	compile 'org.ow2.asm:asm-commons:7.0'
+	compile 'org.ow2.asm:asm-tree:7.0'
+	compile 'org.ow2.asm:asm-util:7.0'
 }
 
 apply from: 'https://github.com/FabricMC/fabric-docs/raw/master/gradle/maven.gradle'
