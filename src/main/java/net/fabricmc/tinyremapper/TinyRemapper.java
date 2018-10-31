@@ -476,25 +476,14 @@ public class TinyRemapper {
 			Member member = members.get(idSrc);
 
 			if (member != null) {
-				if (!isVirtual && dir == Direction.DOWN) { // down propagation from (assumed) non-virtual member matching the signature again, which starts its own namespace
+				if (!first && !isVirtual) { // down propagation from non-virtual (static) member matching the signature again, which starts its own namespace
 					return;
 				}
 
-				if (!isVirtual && type == MemberType.METHOD && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0) {
-					isVirtual = true;
-					// restart propagation as virtual
-					dir = Direction.ANY;
-					visitedUp.clear();
-					visitedDown.clear();
-					visitedUp.add(this);
-					visitedDown.add(this);
-				}
-
 				if (first // directly mapped
-						|| !isInterface // no interface -> allow any modifiers
 						|| (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0 // not private and not static
 						|| propagatePrivate
-						|| forcePropagation.contains(name.replace('/', '.')+"."+member.name)) { // don't rename private members unless forced or initial (=dir any)
+						|| !forcePropagation.isEmpty() && forcePropagation.contains(name.replace('/', '.')+"."+member.name)) { // don't rename private members unless forced or initial (=dir any)
 					ConcurrentMap<String, String> outputMap = (type == MemberType.METHOD) ? methodsToMap : fieldsToMap;
 					String prev = outputMap.putIfAbsent(idSrc, idDst);
 
@@ -504,14 +493,14 @@ public class TinyRemapper {
 					//System.out.printf("%s: %s %s -> %s\n", name, (type == Type.METHOD) ? "Method" : "Field", idSrc, idDst);
 				}
 
-				if (!isVirtual && dir != Direction.DOWN) { // up propagation for non-virtual member having found the described method stops resolution
-					if (dir == Direction.ANY && (member.access & Opcodes.ACC_PRIVATE) == 0) {
-						dir = Direction.DOWN;
-					} else {
-						return;
-					}
+				if (first
+						&& ((member.access & Opcodes.ACC_PRIVATE) != 0 // private members don't propagate, but they may get skipped over by overriding virtual methods
+						|| isInterface && !isVirtual)) { // non-virtual members don't propagate either, the jvm only resolves direct accesses to them
+					return;
 				}
 			} else { // member == null
+				assert !first && (!isInterface || isVirtual);
+
 				// Java likes/allows to access members in a super class by querying the "this"
 				// class directly. To cover this, outputMap is being populated regardless.
 
@@ -552,6 +541,69 @@ public class TinyRemapper {
 					}
 				}
 			}
+		}
+
+		RClass resolve(MemberType type, String id, Set<RClass> visited, Queue<RClass> queue) {
+			Map<String, Member> members = (type == MemberType.METHOD) ? methods : fields;
+			Member member = members.get(id);
+			if (member != null) return this;
+
+			queue.add(this);
+			visited.add(this);
+			RClass cls;
+
+			// step 1
+			// method: search in all super classes recursively
+			// field: search in all direct super interfaces
+
+			while ((cls = queue.poll()) != null) {
+				for (RClass parent : cls.parents) {
+					if (parent.isInterface == (type == MemberType.FIELD) && visited.add(parent)) {
+						Map<String, Member> parentMembers = (type == MemberType.METHOD) ? parent.methods : parent.fields;
+						if (parentMembers.get(id) != null) return parent;
+
+						if (type == MemberType.METHOD) queue.add(parent);
+					}
+				}
+			}
+
+			visited.clear();
+			queue.add(this);
+			visited.add(this);
+			RClass secondaryMatch = null;
+
+			// step 2
+			// method: search for non-static, non-private, non-abstract in all super interfaces recursively
+			//         (breadth first search to obtain the potentially maximally-specific superinterface directly)
+			// field: search in all super classes recursively
+			// step 3
+			// method: search for non-static, non-private in all super interfaces recursively
+
+			// step 3 is a super set of step 2 with any option being able to be "arbitrarily chosen" as per the jvm
+			// spec, so step 2 ignoring the "exactly one" match requirement doesn't matter and >potentially<
+			// maximally-specific superinterface is good enough
+
+			while ((cls = queue.poll()) != null) {
+				for (RClass parent : cls.parents) {
+					if (parent.isInterface != (type == MemberType.FIELD) && visited.add(parent)) {
+						Map<String, Member> parentMembers = (type == MemberType.METHOD) ? parent.methods : parent.fields;
+						Member parentMember = parentMembers.get(id);
+
+						if (parentMember != null
+								&& (type == MemberType.FIELD || (parentMember.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0)) {
+							if (type == MemberType.METHOD && (parentMember.access & (Opcodes.ACC_ABSTRACT)) != 0) {
+								secondaryMatch = parent;
+							} else {
+								return parent;
+							}
+						}
+
+						queue.add(parent);
+					}
+				}
+			}
+
+			return secondaryMatch;
 		}
 
 		@Override
@@ -634,6 +686,7 @@ public class TinyRemapper {
 		public void run() {
 			Set<RClass> visitedUp = Collections.newSetFromMap(new IdentityHashMap<>());
 			Set<RClass> visitedDown = Collections.newSetFromMap(new IdentityHashMap<>());
+			Queue<RClass> queue = new ArrayDeque<>();
 
 			for (Map.Entry<String, String> entry : tasks) {
 				String className = getClassName(entry.getValue(), type);
@@ -644,9 +697,23 @@ public class TinyRemapper {
 				String idDst = stripClassName(entry.getValue(), type);
 				if (idSrc.equals(idDst)) continue;
 
+				// resolve real owner in case the mapping doesn't reference the actual class
+				node = node.resolve(type, idSrc, visitedUp, queue);
+				visitedUp.clear();
+				queue.clear();
+
+				if (node == null) {
+					System.out.println("Unknown "+(type == MemberType.METHOD ? "method" : "field")+" referenced: "+entry.getKey());
+					continue;
+				}
+
+				Map<String, Member> members = (type == MemberType.METHOD) ? node.methods : node.fields;
+				Member member = members.get(idSrc); // must exist
+				boolean isVirtual = (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
+
 				visitedUp.add(node);
 				visitedDown.add(node);
-				node.propagate(type, className, idSrc, idDst, Direction.ANY, false, true, visitedUp, visitedDown);
+				node.propagate(type, className, idSrc, idDst, isVirtual ? Direction.ANY : Direction.DOWN, isVirtual, true, visitedUp, visitedDown);
 				visitedUp.clear();
 				visitedDown.clear();
 			}
