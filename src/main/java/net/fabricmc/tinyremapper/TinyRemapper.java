@@ -467,8 +467,8 @@ public class TinyRemapper {
 		 */
 		void propagate(MemberType type, String originatingCls, String idSrc, String idDst, Direction dir, boolean isVirtual, boolean first, Set<RClass> visitedUp, Set<RClass> visitedDown) {
 			/*
-			 * initial private or static in interface: only local
-			 * non-virtual: up to matching member (if not already in this), then down until matching again (exclusive) - skip private|static in interfaces
+			 * initial private member or static method in interface: only local
+			 * non-virtual: up to matching member (if not already in this), then down until matching again (exclusive)
 			 * virtual: all across the hierarchy, only non-private|static can change direction - skip private|static in interfaces
 			 */
 
@@ -495,11 +495,11 @@ public class TinyRemapper {
 
 				if (first
 						&& ((member.access & Opcodes.ACC_PRIVATE) != 0 // private members don't propagate, but they may get skipped over by overriding virtual methods
-						|| isInterface && !isVirtual)) { // non-virtual members don't propagate either, the jvm only resolves direct accesses to them
+						|| type == MemberType.METHOD && isInterface && !isVirtual)) { // non-virtual interface methods don't propagate either, the jvm only resolves direct accesses to them
 					return;
 				}
 			} else { // member == null
-				assert !first && (!isInterface || isVirtual);
+				assert !first && (type == MemberType.FIELD || !isInterface || isVirtual);
 
 				// Java likes/allows to access members in a super class by querying the "this"
 				// class directly. To cover this, outputMap is being populated regardless.
@@ -508,6 +508,7 @@ public class TinyRemapper {
 				outputMap.putIfAbsent(idSrc, idDst);
 			}
 
+			assert isVirtual || dir == Direction.DOWN;
 
 			/*
 			 * Propagate the mapping along the hierarchy tree.
@@ -554,7 +555,7 @@ public class TinyRemapper {
 
 			// step 1
 			// method: search in all super classes recursively
-			// field: search in all direct super interfaces
+			// field: search in all direct super interfaces recursively
 
 			while ((cls = queue.poll()) != null) {
 				for (RClass parent : cls.parents) {
@@ -562,7 +563,7 @@ public class TinyRemapper {
 						Map<String, Member> parentMembers = (type == MemberType.METHOD) ? parent.methods : parent.fields;
 						if (parentMembers.get(id) != null) return parent;
 
-						if (type == MemberType.METHOD) queue.add(parent);
+						queue.add(parent);
 					}
 				}
 			}
