@@ -171,7 +171,7 @@ public final class TinyUtils {
 				String owner = obfFrom.getOrDefault(splitLine[1], splitLine[1]);
 				String desc = descObfFrom.mapMethodDesc(splitLine[2]);
 				String tOwner = obfTo.getOrDefault(splitLine[1], splitLine[1]);
-				String tDesc = descObfFrom.mapMethodDesc(splitLine[2]);
+				String tDesc = descObfTo.mapMethodDesc(splitLine[2]);
 				methodMappingConsumer.accept(
 						new Mapping(owner, splitLine[3 + fromIndex], desc),
 						new Mapping(tOwner, splitLine[3 + toIndex], tDesc)
