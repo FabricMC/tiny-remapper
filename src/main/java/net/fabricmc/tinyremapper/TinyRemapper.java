@@ -135,15 +135,17 @@ public class TinyRemapper {
 
 	public void read(final Path... inputs) {
 		List<Future<List<TinyRemapper.RClass>>> futures = new ArrayList<>();
-		for (Path input : inputs) {
-			futures.addAll(read(input, TinyRemapper.Namespace.Unknown, true));
-		}
-
-		if (futures.size() > 0) {
-			dirty = true;
-		}
+		List<FileSystem> fsToClose = Collections.synchronizedList(new ArrayList<>());
 
 		try {
+			for (Path input : inputs) {
+				futures.addAll(read(input, TinyRemapper.Namespace.Unknown, true, fsToClose));
+			}
+
+			if (futures.size() > 0) {
+				dirty = true;
+			}
+
 			for (Future<List<TinyRemapper.RClass> > future : futures) {
 				for (TinyRemapper.RClass node : future.get()) {
 					nodes.put(node.name, node);
@@ -151,18 +153,24 @@ public class TinyRemapper {
 			}
 		} catch (InterruptedException | ExecutionException e) {
 			throw new RuntimeException(e);
+		} finally {
+			for (FileSystem fs : fsToClose) {
+				try {
+					fs.close();
+				} catch (IOException e) { }
+			}
 		}
 	}
 
-	private List<Future<List<RClass>>> read(final Path file, final Namespace namespace, boolean saveData) {
+	private List<Future<List<RClass>>> read(final Path file, final Namespace namespace, boolean saveData, final List<FileSystem> fsToClose) {
 		try {
-			return read(file, namespace, file, saveData);
+			return read(file, namespace, file, saveData, fsToClose);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
 
-	private List<Future<List<RClass>>> read(final Path file, final Namespace namespace, final Path srcPath, final boolean saveData) throws IOException {
+	private List<Future<List<RClass>>> read(final Path file, final Namespace namespace, final Path srcPath, final boolean saveData, final List<FileSystem> fsToClose) throws IOException {
 		List<Future<List<RClass>>> ret = new ArrayList<>();
 
 		Files.walkFileTree(file, new SimpleFileVisitor<Path>() {
@@ -177,7 +185,7 @@ public class TinyRemapper {
 						@Override
 						public List<RClass> call() {
 							try {
-								return readFile(file, namespace, srcPath, saveData);
+								return readFile(file, namespace, srcPath, saveData, fsToClose);
 							} catch (URISyntaxException e) {
 								throw new RuntimeException(e);
 							} catch (IOException e) {
@@ -196,7 +204,7 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private List<RClass> readFile(Path file, Namespace namespace, final Path srcPath, boolean saveData) throws IOException, URISyntaxException {
+	private List<RClass> readFile(Path file, Namespace namespace, final Path srcPath, boolean saveData, List<FileSystem> fsToClose) throws IOException, URISyntaxException {
 		List<RClass> ret = new ArrayList<RClass>();
 
 		if (file.toString().endsWith(".class")) {
@@ -213,6 +221,7 @@ public class TinyRemapper {
 
 			if (fs == null) {
 				fs = FileSystems.newFileSystem(uri, Collections.emptyMap());
+				fsToClose.add(fs);
 			}
 
 			Files.walkFileTree(fs.getPath("/"), new SimpleFileVisitor<Path>() {

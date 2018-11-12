@@ -17,6 +17,7 @@
 
 package net.fabricmc.tinyremapper;
 
+import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
@@ -33,7 +34,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiConsumer;
 
-public class OutputConsumerPath implements BiConsumer<String, byte[]> {
+public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable {
 	public OutputConsumerPath(Path dstFile) throws IOException {
 		if (!isJar(dstFile)) {
 			Files.createDirectories(dstFile);
@@ -115,7 +116,8 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]> {
 		}
 	}
 
-	public void finish() throws IOException {
+	@Override
+	public void close() throws IOException {
 		if (closeFs) dstDir.getFileSystem().close();
 	}
 

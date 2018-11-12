@@ -140,17 +140,13 @@ public class Main {
 				.ignoreConflicts(ignoreConflicts)
 				.build();
 
-		try {
-			OutputConsumerPath outputConsumer = new OutputConsumerPath(output);
-
+		try (OutputConsumerPath outputConsumer = new OutputConsumerPath(output)) {
 			outputConsumer.addNonClassFiles(input);
 
 			remapper.read(input);
 			remapper.read(classpath);
 
 			remapper.apply(input, outputConsumer);
-
-			outputConsumer.finish();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		} finally {
