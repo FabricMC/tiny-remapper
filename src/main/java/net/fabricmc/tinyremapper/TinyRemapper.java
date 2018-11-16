@@ -719,7 +719,7 @@ public class TinyRemapper {
 
 				Map<String, Member> members = (type == MemberType.METHOD) ? node.methods : node.fields;
 				Member member = members.get(idSrc); // must exist
-				boolean isVirtual = (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
+				boolean isVirtual = type == MemberType.METHOD && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
 
 				visitedUp.add(node);
 				visitedDown.add(node);
