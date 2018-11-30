@@ -40,6 +40,7 @@ public class Main {
 		Set<String> forcePropagation = Collections.emptySet();
 		File forcePropagationFile = null;
 		boolean ignoreConflicts = false;
+		boolean resolveMissing = false;
 
 		for (String arg : rawArgs) {
 			if (arg.startsWith("--")) {
@@ -64,6 +65,9 @@ public class Main {
 					break;
 				case "ignoreconflicts":
 					ignoreConflicts = true;
+					break;
+				case "resolvemissing":
+					resolveMissing = true;
 					break;
 				default:
 					System.out.println("invalid argument: "+arg+".");
@@ -138,6 +142,7 @@ public class Main {
 				.propagatePrivate(propagatePrivate)
 				.removeFrames(removeFrames)
 				.ignoreConflicts(ignoreConflicts)
+				.resolveMissing(resolveMissing)
 				.build();
 
 		try (OutputConsumerPath outputConsumer = new OutputConsumerPath(output)) {

@@ -90,8 +90,13 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public Builder resolveMissing(boolean value) {
+			resolveMissing = value;
+			return this;
+		}
+
 		public TinyRemapper build() {
-			TinyRemapper remapper = new TinyRemapper(threadCount, forcePropagation, propagatePrivate, removeFrames, ignoreConflicts);
+			TinyRemapper remapper = new TinyRemapper(threadCount, forcePropagation, propagatePrivate, removeFrames, ignoreConflicts, resolveMissing);
 
 			for (IMappingProvider provider : mappingProviders) {
 				provider.load(remapper.classMap, remapper.fieldMap, remapper.methodMap);
@@ -106,18 +111,21 @@ public class TinyRemapper {
 		private boolean propagatePrivate = false;
 		private boolean removeFrames = false;
 		private boolean ignoreConflicts = false;
+		private boolean resolveMissing = false;
 	}
 
 	private TinyRemapper(int threadCount, Set<String> forcePropagation,
 			boolean propagatePrivate,
 			boolean removeFrames,
-			boolean ignoreConflicts) {
+			boolean ignoreConflicts,
+			boolean resolveMissing) {
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
 		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
 		this.forcePropagation = forcePropagation;
 		this.propagatePrivate = propagatePrivate;
 		this.removeFrames = removeFrames;
 		this.ignoreConflicts = ignoreConflicts;
+		this.resolveMissing = resolveMissing;
 	}
 
 	public static Builder newRemapper() {
@@ -342,7 +350,7 @@ public class TinyRemapper {
 
 		for (Map.Entry<TypedMember, Set<String>> entry : conflicts.entrySet()) {
 			TypedMember tmember = entry.getKey();
-			Member member = (tmember.type == MemberType.METHOD ? tmember.cls.methods : tmember.cls.fields).get(tmember.id);
+			Member member = tmember.cls.getMember(tmember.type, tmember.id);
 			String newName = (tmember.type == MemberType.METHOD ? tmember.cls.methodsToMap : tmember.cls.fieldsToMap).get(tmember.id);
 			Set<String> names = entry.getValue();
 			names.add(tmember.cls.name+"/"+newName);
@@ -466,6 +474,14 @@ public class TinyRemapper {
 			this.data = data;
 		}
 
+		Member getMember(MemberType type, String id) {
+			if (type == MemberType.METHOD) {
+				return methods.get(id);
+			} else {
+				return fields.get(id);
+			}
+		}
+
 		/**
 		 * Rename the member src to dst and continue propagating in dir.
 		 *
@@ -481,8 +497,7 @@ public class TinyRemapper {
 			 * virtual: all across the hierarchy, only non-private|static can change direction - skip private|static in interfaces
 			 */
 
-			Map<String, Member> members = (type == MemberType.METHOD) ? methods : fields;
-			Member member = members.get(idSrc);
+			Member member = getMember(type, idSrc);
 
 			if (member != null) {
 				if (!first && !isVirtual) { // down propagation from non-virtual (static) member matching the signature again, which starts its own namespace
@@ -554,8 +569,7 @@ public class TinyRemapper {
 		}
 
 		RClass resolve(MemberType type, String id, Set<RClass> visited, Queue<RClass> queue) {
-			Map<String, Member> members = (type == MemberType.METHOD) ? methods : fields;
-			Member member = members.get(id);
+			Member member = getMember(type, id);
 			if (member != null) return this;
 
 			queue.add(this);
@@ -569,8 +583,7 @@ public class TinyRemapper {
 			while ((cls = queue.poll()) != null) {
 				for (RClass parent : cls.parents) {
 					if (parent.isInterface == (type == MemberType.FIELD) && visited.add(parent)) {
-						Map<String, Member> parentMembers = (type == MemberType.METHOD) ? parent.methods : parent.fields;
-						if (parentMembers.get(id) != null) return parent;
+						if (parent.getMember(type, id) != null) return parent;
 
 						queue.add(parent);
 					}
@@ -596,8 +609,7 @@ public class TinyRemapper {
 			while ((cls = queue.poll()) != null) {
 				for (RClass parent : cls.parents) {
 					if (parent.isInterface != (type == MemberType.FIELD) && visited.add(parent)) {
-						Map<String, Member> parentMembers = (type == MemberType.METHOD) ? parent.methods : parent.fields;
-						Member parentMember = parentMembers.get(id);
+						Member parentMember = parent.getMember(type, id);
 
 						if (parentMember != null
 								&& (type == MemberType.FIELD || (parentMember.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0)) {
@@ -705,20 +717,33 @@ public class TinyRemapper {
 
 				String idSrc = stripClassName(entry.getKey(), type);
 				String idDst = stripClassName(entry.getValue(), type);
-				if (idSrc.equals(idDst)) continue;
+				if (idSrc.equals(idDst)) continue; // no name change
 
-				// resolve real owner in case the mapping doesn't reference the actual class
-				node = node.resolve(type, idSrc, visitedUp, queue);
-				visitedUp.clear();
-				queue.clear();
+				Member member = node.getMember(type, idSrc);
 
-				if (node == null) {
-					System.out.println("Unknown "+(type == MemberType.METHOD ? "method" : "field")+" referenced: "+entry.getKey());
-					continue;
+				if (member == null) {
+					if (resolveMissing) {
+						// resolve real owner in case the mapping doesn't reference the actual class
+						node = node.resolve(type, idSrc, visitedUp, queue);
+						visitedUp.clear();
+						queue.clear();
+
+						// at this point node is null or the member must exist in node
+
+						if (node == null) {
+							// not available for this Side
+							//System.out.println("Unknown "+(type == MemberType.METHOD ? "method" : "field")+" referenced: "+entry.getKey());
+							continue;
+						} else {
+							member = node.getMember(type, idSrc);
+							assert member != null;
+						}
+					} else {
+						// not available for this Side
+						continue;
+					}
 				}
 
-				Map<String, Member> members = (type == MemberType.METHOD) ? node.methods : node.fields;
-				Member member = members.get(idSrc); // must exist
 				boolean isVirtual = type == MemberType.METHOD && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
 
 				visitedUp.add(node);
@@ -739,6 +764,7 @@ public class TinyRemapper {
 	private final boolean propagatePrivate;
 	private final boolean removeFrames;
 	private final boolean ignoreConflicts;
+	private final boolean resolveMissing;
 	final Map<String, String> classMap = new HashMap<>();
 	final Map<String, String> methodMap = new HashMap<>();
 	final Map<String, String> fieldMap = new HashMap<>();
