@@ -41,6 +41,7 @@ public class Main {
 		File forcePropagationFile = null;
 		boolean ignoreConflicts = false;
 		boolean resolveMissing = false;
+		boolean rebuildSourceFilenames = false;
 
 		for (String arg : rawArgs) {
 			if (arg.startsWith("--")) {
@@ -68,6 +69,9 @@ public class Main {
 					break;
 				case "resolvemissing":
 					resolveMissing = true;
+					break;
+				case "rebuildsourcefilenames":
+					rebuildSourceFilenames = true;
 					break;
 				default:
 					System.out.println("invalid argument: "+arg+".");
@@ -143,6 +147,7 @@ public class Main {
 				.removeFrames(removeFrames)
 				.ignoreConflicts(ignoreConflicts)
 				.resolveMissing(resolveMissing)
+				.rebuildSourceFilenames(rebuildSourceFilenames)
 				.build();
 
 		try (OutputConsumerPath outputConsumer = new OutputConsumerPath(output)) {

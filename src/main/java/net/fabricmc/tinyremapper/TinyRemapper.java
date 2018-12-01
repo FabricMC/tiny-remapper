@@ -95,8 +95,13 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public Builder rebuildSourceFilenames(boolean value) {
+			rebuildSourceFilenames = value;
+			return this;
+		}
+
 		public TinyRemapper build() {
-			TinyRemapper remapper = new TinyRemapper(threadCount, forcePropagation, propagatePrivate, removeFrames, ignoreConflicts, resolveMissing);
+			TinyRemapper remapper = new TinyRemapper(threadCount, forcePropagation, propagatePrivate, removeFrames, ignoreConflicts, resolveMissing, rebuildSourceFilenames);
 
 			for (IMappingProvider provider : mappingProviders) {
 				provider.load(remapper.classMap, remapper.fieldMap, remapper.methodMap);
@@ -112,13 +117,15 @@ public class TinyRemapper {
 		private boolean removeFrames = false;
 		private boolean ignoreConflicts = false;
 		private boolean resolveMissing = false;
+		private boolean rebuildSourceFilenames = false;
 	}
 
 	private TinyRemapper(int threadCount, Set<String> forcePropagation,
 			boolean propagatePrivate,
 			boolean removeFrames,
 			boolean ignoreConflicts,
-			boolean resolveMissing) {
+			boolean resolveMissing,
+		    boolean rebuildSourceFilenames) {
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
 		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
 		this.forcePropagation = forcePropagation;
@@ -126,6 +133,7 @@ public class TinyRemapper {
 		this.removeFrames = removeFrames;
 		this.ignoreConflicts = ignoreConflicts;
 		this.resolveMissing = resolveMissing;
+		this.rebuildSourceFilenames = rebuildSourceFilenames;
 	}
 
 	public static Builder newRemapper() {
@@ -414,7 +422,19 @@ public class TinyRemapper {
 		ClassReader reader = new ClassReader(cls.data);
 		ClassWriter writer = new ClassWriter(0);
 		int flags = removeFrames ? ClassReader.SKIP_FRAMES : ClassReader.EXPAND_FRAMES;
-		reader.accept(new AsmClassRemapper(check ? new CheckClassAdapter(writer) : writer, remapper), flags);
+
+		ClassVisitor visitor = writer;
+
+		if (rebuildSourceFilenames) {
+			visitor = new SourceNameRebuildVisitor(Opcodes.ASM7, visitor);
+		}
+
+		if (check) {
+			//noinspection UnusedAssignment
+			visitor = new CheckClassAdapter(visitor);
+		}
+
+		reader.accept(new AsmClassRemapper(visitor, remapper), flags);
 		// TODO: compute frames (-Xverify:all -XX:-FailOverToOldVerifier)
 
 		return writer.toByteArray();
@@ -765,6 +785,7 @@ public class TinyRemapper {
 	private final boolean removeFrames;
 	private final boolean ignoreConflicts;
 	private final boolean resolveMissing;
+	private final boolean rebuildSourceFilenames;
 	final Map<String, String> classMap = new HashMap<>();
 	final Map<String, String> methodMap = new HashMap<>();
 	final Map<String, String> fieldMap = new HashMap<>();
