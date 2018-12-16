@@ -42,6 +42,7 @@ public class Main {
 		boolean ignoreConflicts = false;
 		boolean resolveMissing = false;
 		boolean rebuildSourceFilenames = false;
+		boolean renameInvalidLocals = false;
 
 		for (String arg : rawArgs) {
 			if (arg.startsWith("--")) {
@@ -72,6 +73,9 @@ public class Main {
 					break;
 				case "rebuildsourcefilenames":
 					rebuildSourceFilenames = true;
+					break;
+				case "renameinvalidlocals":
+					renameInvalidLocals = true;
 					break;
 				default:
 					System.out.println("invalid argument: "+arg+".");
@@ -148,6 +152,7 @@ public class Main {
 				.ignoreConflicts(ignoreConflicts)
 				.resolveMissing(resolveMissing)
 				.rebuildSourceFilenames(rebuildSourceFilenames)
+				.renameInvalidLocals(renameInvalidLocals)
 				.build();
 
 		try (OutputConsumerPath outputConsumer = new OutputConsumerPath(output)) {

@@ -27,69 +27,60 @@ import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.MethodRemapper;
 import org.objectweb.asm.commons.Remapper;
 
+import java.util.HashMap;
+import java.util.Map;
+
 class AsmClassRemapper extends ClassRemapper {
-	public AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper) {
+
+	private final boolean renameInvalidLocals;
+
+	public AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper, boolean renameInvalidLocals) {
 		super(cv, remapper);
+		this.renameInvalidLocals = renameInvalidLocals;
 	}
 
 	@Override
 	protected MethodVisitor createMethodRemapper(MethodVisitor mv) {
-		return new AsmMethodRemapper(mv, remapper);
+		return new AsmMethodRemapper(mv, remapper, renameInvalidLocals);
 	}
 
 	private static class AsmMethodRemapper extends MethodRemapper {
-		public AsmMethodRemapper(MethodVisitor mv, Remapper remapper) {
-			super(mv, remapper);
-		}
+		private final Map<String, Integer> nameCounts = new HashMap<>();
+		private boolean renameInvalidLocals;
 
-		private String baseTypeName(String descriptor) {
-			switch (descriptor.charAt(0)) {
-				case 'B':
-					return "byte";
-				case 'C':
-					return "char";
-				case 'D':
-					return "double";
-				case 'F':
-					return "float";
-				case 'I':
-					return "int";
-				case 'J':
-					return "long";
-				case 'S':
-					return "short";
-				case 'Z':
-					return "boolean";
-				case 'V':
-					return "void";
-				case '[':
-					int idx = 1;
-					while(descriptor.charAt(idx) == '[') idx += 1;
-					String s = "array";
-					if(idx > 1) s += idx + "D";
-
-					return s + titleCase(baseTypeName(descriptor.substring(1)));
-				case 'L':
-					String name = descriptor.substring(1, descriptor.length() - 1);
-					name = remapper.mapType(name);
-					return name.substring(name.lastIndexOf('/')+1, name.length());
-
-			}
-			return "var";
-		}
-
-		private String titleCase(String s) {
-			char[] chars = s.toCharArray();
-			chars[0] = Character.toTitleCase(chars[0]);
-			return new String(chars);
+		public AsmMethodRemapper(MethodVisitor methodVisitor, Remapper remapper, boolean renameInvalidLocals) {
+			super(methodVisitor, remapper);
+			this.renameInvalidLocals = renameInvalidLocals;
 		}
 
 		@Override
 		public void visitLocalVariable(String name, String descriptor, String signature, Label start, Label end, int index) {
-			if(name.startsWith("\u2603")) {
-				name = baseTypeName(descriptor) + "_" + index;
+			descriptor = remapper.mapDesc(descriptor);
+
+			if (renameInvalidLocals && !Character.isJavaIdentifierStart(name.charAt(0))) {
+				Type type = Type.getType(descriptor);
+				boolean plural = false;
+
+				if (type.getSort() == Type.ARRAY) {
+					plural = true;
+					type = type.getElementType();
+				}
+				String varName = type.getClassName();
+				int dotIdx = varName.lastIndexOf('.');
+				if (dotIdx != -1)
+					varName = varName.substring(dotIdx+1);
+				
+				if (plural) varName += "s";
+				name = varName + "_" + nameCounts.compute(varName, (k, v) -> (v == null) ? 1 : v + 1);
 			}
-			super.visitLocalVariable(name, descriptor, signature, start, end, index);
+			if (mv != null)
+				mv.visitLocalVariable(
+						name,
+						descriptor,
+						remapper.mapSignature(signature, true),
+						start,
+						end,
+						index);
 		}
 
 		@Override

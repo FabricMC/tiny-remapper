@@ -100,8 +100,13 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public Builder renameInvalidLocals(boolean value) {
+			renameInvalidLocals = value;
+			return this;
+		}
+
 		public TinyRemapper build() {
-			TinyRemapper remapper = new TinyRemapper(threadCount, forcePropagation, propagatePrivate, removeFrames, ignoreConflicts, resolveMissing, rebuildSourceFilenames);
+			TinyRemapper remapper = new TinyRemapper(threadCount, forcePropagation, propagatePrivate, removeFrames, ignoreConflicts, resolveMissing, rebuildSourceFilenames, renameInvalidLocals);
 
 			for (IMappingProvider provider : mappingProviders) {
 				provider.load(remapper.classMap, remapper.fieldMap, remapper.methodMap);
@@ -118,6 +123,7 @@ public class TinyRemapper {
 		private boolean ignoreConflicts = false;
 		private boolean resolveMissing = false;
 		private boolean rebuildSourceFilenames = false;
+		private boolean renameInvalidLocals = false;
 	}
 
 	private TinyRemapper(int threadCount, Set<String> forcePropagation,
@@ -125,7 +131,8 @@ public class TinyRemapper {
 			boolean removeFrames,
 			boolean ignoreConflicts,
 			boolean resolveMissing,
-		    boolean rebuildSourceFilenames) {
+		    boolean rebuildSourceFilenames,
+			boolean renameInvalidLocals) {
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
 		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
 		this.forcePropagation = forcePropagation;
@@ -134,6 +141,7 @@ public class TinyRemapper {
 		this.ignoreConflicts = ignoreConflicts;
 		this.resolveMissing = resolveMissing;
 		this.rebuildSourceFilenames = rebuildSourceFilenames;
+		this.renameInvalidLocals = renameInvalidLocals;
 	}
 
 	public static Builder newRemapper() {
@@ -434,7 +442,7 @@ public class TinyRemapper {
 			visitor = new CheckClassAdapter(visitor);
 		}
 
-		reader.accept(new AsmClassRemapper(visitor, remapper), flags);
+		reader.accept(new AsmClassRemapper(visitor, remapper, renameInvalidLocals), flags);
 		// TODO: compute frames (-Xverify:all -XX:-FailOverToOldVerifier)
 
 		return writer.toByteArray();
@@ -786,6 +794,7 @@ public class TinyRemapper {
 	private final boolean ignoreConflicts;
 	private final boolean resolveMissing;
 	private final boolean rebuildSourceFilenames;
+	private final boolean renameInvalidLocals;
 	final Map<String, String> classMap = new HashMap<>();
 	final Map<String, String> methodMap = new HashMap<>();
 	final Map<String, String> fieldMap = new HashMap<>();
