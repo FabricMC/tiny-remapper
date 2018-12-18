@@ -418,7 +418,7 @@ public class TinyRemapper {
 		List<Future<?>> futures = new ArrayList<>();
 
 		for (final RClass cls : nodes.values()) {
-			if (cls.srcPath != srcPath) continue;
+			if (cls.srcPath != srcPath) continue; // TODO: use a more elegant way to filter files to process (whether they were an input)
 
 			futures.add(threadPool.submit(() -> outputConsumer.accept(cls.name, apply(cls))));
 		}
