@@ -57,7 +57,8 @@ class AsmClassRemapper extends ClassRemapper {
 		public void visitLocalVariable(String name, String descriptor, String signature, Label start, Label end, int index) {
 			descriptor = remapper.mapDesc(descriptor);
 
-			if (renameInvalidLocals && !Character.isJavaIdentifierStart(name.charAt(0))) {
+			if (name == null || name.length() == 0 ||
+					(renameInvalidLocals && !Character.isJavaIdentifierStart(name.charAt(0)))) {
 				Type type = Type.getType(descriptor);
 				boolean plural = false;
 
@@ -69,7 +70,8 @@ class AsmClassRemapper extends ClassRemapper {
 				int dotIdx = varName.lastIndexOf('.');
 				if (dotIdx != -1)
 					varName = varName.substring(dotIdx+1);
-				
+
+				varName = Character.toLowerCase(varName.charAt(0)) + varName.substring(1);
 				if (plural) varName += "s";
 				name = varName + "_" + nameCounts.compute(varName, (k, v) -> (v == null) ? 1 : v + 1);
 			}
