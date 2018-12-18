@@ -19,6 +19,7 @@ package net.fabricmc.tinyremapper;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Handle;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -26,19 +27,62 @@ import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.MethodRemapper;
 import org.objectweb.asm.commons.Remapper;
 
+import java.util.HashMap;
+import java.util.Map;
+
 class AsmClassRemapper extends ClassRemapper {
-	public AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper) {
+
+	private final boolean renameInvalidLocals;
+
+	public AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper, boolean renameInvalidLocals) {
 		super(cv, remapper);
+		this.renameInvalidLocals = renameInvalidLocals;
 	}
 
 	@Override
 	protected MethodVisitor createMethodRemapper(MethodVisitor mv) {
-		return new AsmMethodRemapper(mv, remapper);
+		return new AsmMethodRemapper(mv, remapper, renameInvalidLocals);
 	}
 
 	private static class AsmMethodRemapper extends MethodRemapper {
-		public AsmMethodRemapper(MethodVisitor mv, Remapper remapper) {
-			super(mv, remapper);
+		private final Map<String, Integer> nameCounts = new HashMap<>();
+		private boolean renameInvalidLocals;
+
+		public AsmMethodRemapper(MethodVisitor methodVisitor, Remapper remapper, boolean renameInvalidLocals) {
+			super(methodVisitor, remapper);
+			this.renameInvalidLocals = renameInvalidLocals;
+		}
+
+		@Override
+		public void visitLocalVariable(String name, String descriptor, String signature, Label start, Label end, int index) {
+			descriptor = remapper.mapDesc(descriptor);
+
+			if (name == null || name.length() == 0 ||
+					(renameInvalidLocals && !Character.isJavaIdentifierStart(name.charAt(0)))) {
+				Type type = Type.getType(descriptor);
+				boolean plural = false;
+
+				if (type.getSort() == Type.ARRAY) {
+					plural = true;
+					type = type.getElementType();
+				}
+				String varName = type.getClassName();
+				int dotIdx = varName.lastIndexOf('.');
+				if (dotIdx != -1)
+					varName = varName.substring(dotIdx+1);
+
+				varName = Character.toLowerCase(varName.charAt(0)) + varName.substring(1);
+				if (plural) varName += "s";
+				name = varName + "_" + nameCounts.compute(varName, (k, v) -> (v == null) ? 1 : v + 1);
+			}
+			if (mv != null)
+				mv.visitLocalVariable(
+						name,
+						descriptor,
+						remapper.mapSignature(signature, true),
+						start,
+						end,
+						index);
 		}
 
 		@Override
