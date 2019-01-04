@@ -244,7 +244,13 @@ public class TinyRemapper {
 			}
 
 			if (fs == null) {
-				fs = FileSystems.newFileSystem(uri, Collections.emptyMap());
+                Map<String, Object> env = new HashMap<>();
+			    if(System.getProperty("tiny_use_zipcache","FALSE").equals("TRUE")){
+                    env.put("create", "true");
+                    env.put("useTempFile", Boolean.TRUE);
+                }
+
+				fs = FileSystems.newFileSystem(uri, env);
 				fsToClose.add(fs);
 			}
 
