@@ -43,7 +43,12 @@ public class SourceNameRebuildVisitor extends ClassVisitor {
         if (endPos < 0) {
             endPos = filename.length();
         }
-        super.visitSource(filename.substring(startPos, endPos) + ".java", null);
+        if (endPos <= startPos) {
+            System.err.println("SourceNameRebuildVisitor: Invalid class filename: " + filename + ", please fix!");
+            super.visitSource(null, null);
+        } else {
+            super.visitSource(filename.substring(startPos, endPos) + ".java", null);
+        }
     }
 
     @Override
