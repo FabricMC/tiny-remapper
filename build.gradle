@@ -12,7 +12,7 @@ buildscript {
 }
 
 sourceCompatibility = 1.8
-version = '0.1.0'
+version = '0.1.1'
 
 def ENV = System.getenv()
 if (ENV.BUILD_NUMBER) {
@@ -24,9 +24,14 @@ archivesBaseName = 'tiny-remapper'
 
 repositories {
 	mavenCentral()
+	maven {
+		name = 'Fabric'
+		url = 'https://maven.fabricmc.net/'
+	}
 }
 
 dependencies {
+	compile 'net.fabricmc:tiny-mappings-parser:0.1.0.6'
 	compile 'org.ow2.asm:asm:7.0'
 	compile 'org.ow2.asm:asm-commons:7.0'
 	compile 'org.ow2.asm:asm-tree:7.0'
