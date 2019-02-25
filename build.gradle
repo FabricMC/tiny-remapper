@@ -59,6 +59,12 @@ task fatJar(type: Jar) {
 	with jar
 }
 
+task sourceJar(type:Jar) {
+	classifier = "sources"
+	from sourceSets.main.allSource
+}
+
 artifacts {
    archives fatJar
+   archives sourceJar
 }
