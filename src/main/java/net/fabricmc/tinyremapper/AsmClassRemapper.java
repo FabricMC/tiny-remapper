@@ -60,7 +60,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 		@Override
 		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-			return AsmClassRemapper.createAsnAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
 		}
 	}
 
@@ -75,7 +75,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 		@Override
 		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-			return AsmClassRemapper.createAsnAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
 		}
 
 
@@ -172,10 +172,10 @@ class AsmClassRemapper extends ClassRemapper {
 
 	@Override
 	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-		return createAsnAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+		return createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
 	}
 
-	public static AnnotationRemapper createAsnAnnotationRemapper(String desc, AnnotationVisitor annotationVisitor, Remapper remapper) {
+	public static AnnotationRemapper createAsmAnnotationRemapper(String desc, AnnotationVisitor annotationVisitor, Remapper remapper) {
 		return annotationVisitor == null ? null : new AsmAnnotationRemapper(remapper.mapDesc(desc), annotationVisitor, remapper);
 	}
 
@@ -190,7 +190,6 @@ class AsmClassRemapper extends ClassRemapper {
 		public void visit(String name, Object value) {
 			String desc = "()"+Type.getDescriptor(value.getClass());
 			if(remapper instanceof AsmRemapper) {
-				System.err.printf("remapping annotation %s -> %s\n", name, remapper.mapMethodName(annotationClass, name, desc));
 				super.visit(remapper.mapMethodName(annotationClass, name, desc), value);
 			} else {
 				super.visit(name, value);
@@ -199,7 +198,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 		@Override
 		public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-			return AsmClassRemapper.createAsnAnnotationRemapper(descriptor, super.visitAnnotation(name, descriptor), remapper);
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(name, descriptor), remapper);
 		}
 	}
 }
