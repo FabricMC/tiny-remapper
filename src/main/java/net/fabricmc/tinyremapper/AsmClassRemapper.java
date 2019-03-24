@@ -20,13 +20,17 @@ package net.fabricmc.tinyremapper;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.AnnotationRemapper;
 import org.objectweb.asm.commons.ClassRemapper;
+import org.objectweb.asm.commons.FieldRemapper;
 import org.objectweb.asm.commons.MethodRemapper;
 import org.objectweb.asm.commons.Remapper;
 
@@ -40,8 +44,24 @@ class AsmClassRemapper extends ClassRemapper {
 	}
 
 	@Override
+	protected FieldVisitor createFieldRemapper(FieldVisitor fieldVisitor) {
+		return new AsmFieldRemapper(fieldVisitor, remapper);
+	}
+
+	@Override
 	protected MethodVisitor createMethodRemapper(MethodVisitor mv) {
 		return new AsmMethodRemapper(mv, remapper, renameInvalidLocals);
+	}
+
+	private static class AsmFieldRemapper extends FieldRemapper {
+		public AsmFieldRemapper(FieldVisitor fieldVisitor, Remapper remapper) {
+			super(fieldVisitor, remapper);
+		}
+
+		@Override
+		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+		}
 	}
 
 	private static class AsmMethodRemapper extends MethodRemapper {
@@ -52,6 +72,12 @@ class AsmClassRemapper extends ClassRemapper {
 			super(methodVisitor, remapper);
 			this.renameInvalidLocals = renameInvalidLocals;
 		}
+
+		@Override
+		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+		}
+
 
 		@Override
 		public void visitLocalVariable(String name, String descriptor, String signature, Label start, Label end, int index) {
@@ -141,6 +167,38 @@ class AsmClassRemapper extends ClassRemapper {
 							|| bsm.getName().equals("altMetafactory")
 							&& bsm.getDesc().equals("(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;"))
 					&& !bsm.isInterface();
+		}
+	}
+
+	@Override
+	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+		return createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+	}
+
+	public static AnnotationRemapper createAsmAnnotationRemapper(String desc, AnnotationVisitor annotationVisitor, Remapper remapper) {
+		return annotationVisitor == null ? null : new AsmAnnotationRemapper(remapper.mapDesc(desc), annotationVisitor, remapper);
+	}
+
+	private static class AsmAnnotationRemapper extends AnnotationRemapper {
+		private final String annotationClass;
+		public AsmAnnotationRemapper(String baseDesc, AnnotationVisitor annotationVisitor, Remapper remapper) {
+			super(annotationVisitor, remapper);
+			annotationClass = Type.getType(baseDesc).getInternalName();
+		}
+
+		@Override
+		public void visit(String name, Object value) {
+			String desc = "()"+Type.getDescriptor(value.getClass());
+			if(remapper instanceof AsmRemapper) {
+				super.visit(remapper.mapMethodName(annotationClass, name, desc), value);
+			} else {
+				super.visit(name, value);
+			}
+		}
+
+		@Override
+		public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(name, descriptor), remapper);
 		}
 	}
 }
