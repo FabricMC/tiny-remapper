@@ -60,6 +60,26 @@ class AsmRemapper extends Remapper {
 		return name;
 	}
 
+	public String mapMethodNamePrefixDesc(String owner, String name, String descPrefix) {
+		RClass cls = getClass(owner);
+		if (cls == null) return name;
+
+		String prefix = name+descPrefix;
+		String result = null;
+
+		for (Map.Entry<String, String> entry : cls.methodsToMap.entrySet()) {
+			if (entry.getKey().startsWith(prefix)) {
+				if (result == null) {
+					result = entry.getValue();
+				} else {
+					return name; // no unique match
+				}
+			}
+		}
+
+		return result != null ? result : name;
+	}
+
 	public String mapLambdaInvokeDynamicMethodName(String owner, String name, String desc) {
 		return mapMethodName(owner, name, desc);
 	}

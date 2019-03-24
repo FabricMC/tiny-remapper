@@ -28,6 +28,7 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.TypePath;
 import org.objectweb.asm.commons.AnnotationRemapper;
 import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.FieldRemapper;
@@ -50,7 +51,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 	@Override
 	protected MethodVisitor createMethodRemapper(MethodVisitor mv) {
-		return new AsmMethodRemapper(mv, remapper, renameInvalidLocals);
+		return new AsmMethodRemapper(mv, remapper, className, renameInvalidLocals);
 	}
 
 	private static class AsmFieldRemapper extends FieldRemapper {
@@ -62,15 +63,24 @@ class AsmClassRemapper extends ClassRemapper {
 		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
 			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
 		}
+
+		@Override
+		public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
+		}
 	}
 
 	private static class AsmMethodRemapper extends MethodRemapper {
-		private final Map<String, Integer> nameCounts = new HashMap<>();
-		private final boolean renameInvalidLocals;
-
-		public AsmMethodRemapper(MethodVisitor methodVisitor, Remapper remapper, boolean renameInvalidLocals) {
+		public AsmMethodRemapper(MethodVisitor methodVisitor, Remapper remapper, String className, boolean renameInvalidLocals) {
 			super(methodVisitor, remapper);
+
+			this.className = className;
 			this.renameInvalidLocals = renameInvalidLocals;
+		}
+
+		@Override
+		public AnnotationVisitor visitAnnotationDefault() {
+			return AsmClassRemapper.createAsmAnnotationRemapper(Type.getObjectType(className).getDescriptor(), super.visitAnnotationDefault(), remapper);
 		}
 
 		@Override
@@ -78,6 +88,15 @@ class AsmClassRemapper extends ClassRemapper {
 			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
 		}
 
+		@Override
+		public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
+		}
+
+		@Override
+		public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitParameterAnnotation(parameter, descriptor, visible), remapper);
+		}
 
 		@Override
 		public void visitLocalVariable(String name, String descriptor, String signature, Label start, Label end, int index) {
@@ -168,6 +187,10 @@ class AsmClassRemapper extends ClassRemapper {
 							&& bsm.getDesc().equals("(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;"))
 					&& !bsm.isInterface();
 		}
+
+		private final String className;
+		private final Map<String, Integer> nameCounts = new HashMap<>();
+		private final boolean renameInvalidLocals;
 	}
 
 	@Override
@@ -175,30 +198,116 @@ class AsmClassRemapper extends ClassRemapper {
 		return createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
 	}
 
+	@Override
+	public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
+		return createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
+	}
+
 	public static AnnotationRemapper createAsmAnnotationRemapper(String desc, AnnotationVisitor annotationVisitor, Remapper remapper) {
-		return annotationVisitor == null ? null : new AsmAnnotationRemapper(remapper.mapDesc(desc), annotationVisitor, remapper);
+		return annotationVisitor == null ? null : new AsmAnnotationRemapper(annotationVisitor, remapper, desc);
 	}
 
 	private static class AsmAnnotationRemapper extends AnnotationRemapper {
-		private final String annotationClass;
-		public AsmAnnotationRemapper(String baseDesc, AnnotationVisitor annotationVisitor, Remapper remapper) {
+		public AsmAnnotationRemapper(AnnotationVisitor annotationVisitor, Remapper remapper, String annotationDesc) {
 			super(annotationVisitor, remapper);
-			annotationClass = Type.getType(baseDesc).getInternalName();
+
+			annotationClass = Type.getType(annotationDesc).getInternalName();
 		}
 
 		@Override
 		public void visit(String name, Object value) {
-			String desc = "()"+Type.getDescriptor(value.getClass());
-			if(remapper instanceof AsmRemapper) {
-				super.visit(remapper.mapMethodName(annotationClass, name, desc), value);
-			} else {
-				super.visit(name, value);
-			}
+			super.visit(mapAnnotationName(name, getDesc(value)), value);
+		}
+
+		private static String getDesc(Object value) {
+			if (value instanceof Type) return ((Type) value).getDescriptor();
+
+			Class<?> cls = value.getClass();
+
+			if (Byte.class.isAssignableFrom(cls)) return "B";
+			if (Boolean.class.isAssignableFrom(cls)) return "Z";
+			if (Character.class.isAssignableFrom(cls)) return "C";
+			if (Short.class.isAssignableFrom(cls)) return "S";
+			if (Integer.class.isAssignableFrom(cls)) return "I";
+			if (Long.class.isAssignableFrom(cls)) return "J";
+			if (Float.class.isAssignableFrom(cls)) return "F";
+			if (Double.class.isAssignableFrom(cls)) return "D";
+
+			return Type.getDescriptor(cls);
+		}
+
+		@Override
+		public void visitEnum(String name, String descriptor, String value) {
+			super.visitEnum(mapAnnotationName(name, descriptor),
+					descriptor,
+					remapper.mapFieldName(Type.getType(descriptor).getInternalName(), value, descriptor));
 		}
 
 		@Override
 		public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(name, descriptor), remapper);
+			return createNested(descriptor, av.visitAnnotation(mapAnnotationName(name, descriptor), descriptor));
 		}
+
+		@Override
+		public AnnotationVisitor visitArray(String name) {
+			// try to infer the descriptor from an element
+
+			return new AnnotationVisitor(Opcodes.ASM7) {
+				@Override
+				public void visit(String name, Object value) {
+					if (av == null) start(getDesc(value));
+
+					super.visit(name, value);
+				}
+
+				@Override
+				public void visitEnum(String name, String descriptor, String value) {
+					if (av == null) start(descriptor);
+
+					super.visitEnum(name, descriptor, value);
+				}
+
+				@Override
+				public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+					if (av == null) start(descriptor);
+
+					return super.visitAnnotation(name, descriptor);
+				}
+
+				@Override
+				public AnnotationVisitor visitArray(String name) {
+					throw new IllegalStateException("nested arrays are disallowed by the jvm spec");
+				}
+
+				@Override
+				public void visitEnd() {
+					if (av == null) {
+						// no element to infer from, try to find a mapping with a suitable owner+name+desc
+						// there's no need to wrap the visitor in AsmAnnotationRemapper without any content to process
+						av = AsmAnnotationRemapper.this.av.visitArray(((AsmRemapper) remapper).mapMethodNamePrefixDesc(annotationClass, name, "()["));
+					}
+
+					super.visitEnd();
+				}
+
+				private void start(String desc) {
+					assert av == null;
+
+					desc = "["+desc;
+
+					av = createNested(desc, AsmAnnotationRemapper.this.av.visitArray(mapAnnotationName(name, desc)));
+				}
+			};
+		}
+
+		private String mapAnnotationName(String name, String descriptor) {
+			return remapper.mapMethodName(annotationClass, name, "()"+descriptor);
+		}
+
+		private AnnotationVisitor createNested(String descriptor, AnnotationVisitor parent) {
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, parent, remapper);
+		}
+
+		private final String annotationClass;
 	}
 }
