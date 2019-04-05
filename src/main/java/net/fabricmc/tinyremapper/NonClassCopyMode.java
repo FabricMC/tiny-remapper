@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019, Player
+ * Copyright (C) 2016, 2018 Player, asie
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
