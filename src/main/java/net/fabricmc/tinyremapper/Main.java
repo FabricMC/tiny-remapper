@@ -43,6 +43,7 @@ public class Main {
 		boolean resolveMissing = false;
 		boolean rebuildSourceFilenames = false;
 		boolean renameInvalidLocals = false;
+		NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
 
 		for (String arg : rawArgs) {
 			if (arg.startsWith("--")) {
@@ -76,6 +77,17 @@ public class Main {
 					break;
 				case "renameinvalidlocals":
 					renameInvalidLocals = true;
+					break;
+				case "nonclasscopymode":
+					switch (arg.substring(valueSepPos + 1).toLowerCase(Locale.ENGLISH)) {
+					case "unchanged": ncCopyMode = NonClassCopyMode.UNCHANGED; break;
+					case "fixmeta": ncCopyMode = NonClassCopyMode.FIX_META_INF; break;
+					case "skipmeta": ncCopyMode = NonClassCopyMode.SKIP_META_INF; break;
+					default:
+						System.out.println("invalid nonClassCopyMode: "+arg.substring(valueSepPos + 1));
+						System.exit(1);
+					}
+
 					break;
 				default:
 					System.out.println("invalid argument: "+arg+".");
@@ -156,7 +168,7 @@ public class Main {
 				.build();
 
 		try (OutputConsumerPath outputConsumer = new OutputConsumerPath(output)) {
-			outputConsumer.addNonClassFiles(input);
+			outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
 
 			remapper.read(input);
 			remapper.read(classpath);
