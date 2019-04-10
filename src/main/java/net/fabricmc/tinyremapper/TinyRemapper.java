@@ -268,7 +268,7 @@ public class TinyRemapper {
 
 		ClassReader reader = new ClassReader(data);
 
-		reader.accept(new ClassVisitor(Opcodes.ASM7) {
+		reader.accept(new ClassVisitor(Opcodes.ASM6) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 				ret.name = mapClass(name);
@@ -434,7 +434,7 @@ public class TinyRemapper {
 		ClassVisitor visitor = writer;
 
 		if (rebuildSourceFilenames) {
-			visitor = new SourceNameRebuildVisitor(Opcodes.ASM7, visitor);
+			visitor = new SourceNameRebuildVisitor(Opcodes.ASM6, visitor);
 		}
 
 		if (check) {
