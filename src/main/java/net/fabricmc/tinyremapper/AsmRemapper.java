@@ -17,11 +17,9 @@
 
 package net.fabricmc.tinyremapper;
 
-import java.util.Map;
-
 import org.objectweb.asm.commons.Remapper;
 
-import net.fabricmc.tinyremapper.TinyRemapper.RClass;
+import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 
 class AsmRemapper extends Remapper {
 	public AsmRemapper(TinyRemapper remapper) {
@@ -37,11 +35,15 @@ class AsmRemapper extends Remapper {
 
 	@Override
 	public String mapFieldName(String owner, String name, String desc) {
-		RClass cls = getClass(owner);
+		ClassInstance cls = getClass(owner);
 		if (cls == null) return name;
 
-		String ret = cls.fieldsToMap.get(name + ";;" + desc);
-		if (ret != null) return ret;
+		MemberInstance member = cls.resolve(MemberType.FIELD, MemberInstance.getFieldId(name, desc));
+		String newName;
+
+		if (member != null && (newName = member.getNewName()) != null) {
+			return newName;
+		}
 
 		assert remapper.fieldMap.get(owner+"/"+name+";;"+desc) == null;
 
@@ -50,34 +52,32 @@ class AsmRemapper extends Remapper {
 
 	@Override
 	public String mapMethodName(String owner, String name, String desc) {
-		RClass cls = getClass(owner);
+		ClassInstance cls = getClass(owner);
 		if (cls == null) return name;
 
-		String ret = cls.methodsToMap.get(name+desc);
-		if (ret != null) return ret;
+		MemberInstance member = cls.resolve(MemberType.METHOD, MemberInstance.getMethodId(name, desc));
+		String newName;
+
+		if (member != null && (newName = member.getNewName()) != null) {
+			return newName;
+		}
 
 		assert remapper.methodMap.get(owner+"/"+name+desc) == null;
 		return name;
 	}
 
 	public String mapMethodNamePrefixDesc(String owner, String name, String descPrefix) {
-		RClass cls = getClass(owner);
+		ClassInstance cls = getClass(owner);
 		if (cls == null) return name;
 
-		String prefix = name+descPrefix;
-		String result = null;
+		MemberInstance member = cls.resolvePartial(MemberType.METHOD, name,descPrefix);
+		String newName;
 
-		for (Map.Entry<String, String> entry : cls.methodsToMap.entrySet()) {
-			if (entry.getKey().startsWith(prefix)) {
-				if (result == null) {
-					result = entry.getValue();
-				} else {
-					return name; // no unique match
-				}
-			}
+		if (member != null && (newName = member.getNewName()) != null) {
+			return newName;
 		}
 
-		return result != null ? result : name;
+		return name;
 	}
 
 	public String mapLambdaInvokeDynamicMethodName(String owner, String name, String desc) {
@@ -85,41 +85,11 @@ class AsmRemapper extends Remapper {
 	}
 
 	public String mapArbitraryInvokeDynamicMethodName(String owner, String name) {
-		RClass cls = getClass(owner);
-		if (cls == null) return name;
-
-		String match = null;
-
-		for (Map.Entry<String, String> entry : cls.methodsToMap.entrySet()) {
-			String src = entry.getKey();
-			int descStart = src.indexOf('(');
-
-			if (name.length() == descStart && name.equals(src.substring(0, descStart))) {
-				if (match != null) { // mapping conflict
-					match = null;
-					break;
-				}
-
-				String dst = entry.getValue();
-				match = dst.substring(0, dst.indexOf('('));
-			}
-		}
-
-		if (match != null) {
-			return match;
-		} else {
-			return name;
-		}
+		return mapMethodNamePrefixDesc(owner, name, null);
 	}
 
-	private RClass getClass(String owner) {
-		RClass ret = remapper.nodes.get(owner);
-		if (ret != null) return ret;
-
-		owner = remapper.classMap.get(owner);
-		if (owner == null) return null;
-
-		return remapper.nodes.get(owner);
+	private ClassInstance getClass(String owner) {
+		return remapper.classes.get(owner);
 	}
 
 	private final TinyRemapper remapper;

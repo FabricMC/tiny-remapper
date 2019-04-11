@@ -40,7 +40,6 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -55,6 +54,8 @@ import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.util.CheckClassAdapter;
+
+import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 
 public class TinyRemapper {
 	public static class Builder {
@@ -158,21 +159,21 @@ public class TinyRemapper {
 	}
 
 	public void read(final Path... inputs) {
-		List<Future<List<TinyRemapper.RClass>>> futures = new ArrayList<>();
+		List<Future<List<ClassInstance>>> futures = new ArrayList<>();
 		List<FileSystem> fsToClose = Collections.synchronizedList(new ArrayList<>());
 
 		try {
 			for (Path input : inputs) {
-				futures.addAll(read(input, TinyRemapper.Namespace.Unknown, true, fsToClose));
+				futures.addAll(read(input, true, fsToClose));
 			}
 
 			if (futures.size() > 0) {
 				dirty = true;
 			}
 
-			for (Future<List<TinyRemapper.RClass> > future : futures) {
-				for (TinyRemapper.RClass node : future.get()) {
-					nodes.put(node.name, node);
+			for (Future<List<ClassInstance> > future : futures) {
+				for (ClassInstance node : future.get()) {
+					classes.put(node.getName(), node);
 				}
 			}
 		} catch (InterruptedException | ExecutionException e) {
@@ -186,16 +187,16 @@ public class TinyRemapper {
 		}
 	}
 
-	private List<Future<List<RClass>>> read(final Path file, final Namespace namespace, boolean saveData, final List<FileSystem> fsToClose) {
+	private List<Future<List<ClassInstance>>> read(final Path file, boolean saveData, final List<FileSystem> fsToClose) {
 		try {
-			return read(file, namespace, file, saveData, fsToClose);
+			return read(file, file, saveData, fsToClose);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
 
-	private List<Future<List<RClass>>> read(final Path file, final Namespace namespace, final Path srcPath, final boolean saveData, final List<FileSystem> fsToClose) throws IOException {
-		List<Future<List<RClass>>> ret = new ArrayList<>();
+	private List<Future<List<ClassInstance>>> read(final Path file, final Path srcPath, final boolean saveData, final List<FileSystem> fsToClose) throws IOException {
+		List<Future<List<ClassInstance>>> ret = new ArrayList<>();
 
 		Files.walkFileTree(file, new SimpleFileVisitor<Path>() {
 			@Override
@@ -205,11 +206,11 @@ public class TinyRemapper {
 				if (name.endsWith(".jar") ||
 						name.endsWith(".zip") ||
 						name.endsWith(".class")) {
-					ret.add(threadPool.submit(new Callable<List<RClass>>() {
+					ret.add(threadPool.submit(new Callable<List<ClassInstance>>() {
 						@Override
-						public List<RClass> call() {
+						public List<ClassInstance> call() {
 							try {
-								return readFile(file, namespace, srcPath, saveData, fsToClose);
+								return readFile(file, srcPath, saveData, fsToClose);
 							} catch (URISyntaxException e) {
 								throw new RuntimeException(e);
 							} catch (IOException e) {
@@ -228,8 +229,8 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private List<RClass> readFile(Path file, Namespace namespace, final Path srcPath, boolean saveData, List<FileSystem> fsToClose) throws IOException, URISyntaxException {
-		List<RClass> ret = new ArrayList<RClass>();
+	private List<ClassInstance> readFile(Path file, final Path srcPath, boolean saveData, List<FileSystem> fsToClose) throws IOException, URISyntaxException {
+		List<ClassInstance> ret = new ArrayList<ClassInstance>();
 
 		if (file.toString().endsWith(".class")) {
 			ret.add(analyze(srcPath, Files.readAllBytes(file), saveData));
@@ -263,31 +264,27 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private RClass analyze(Path srcPath, byte[] data, boolean saveData) {
-		final RClass ret = new RClass(srcPath, saveData ? data : null);
+	private ClassInstance analyze(Path srcPath, byte[] data, boolean saveData) {
+		final ClassInstance ret = new ClassInstance(srcPath, saveData ? data : null);
 
 		ClassReader reader = new ClassReader(data);
 
 		reader.accept(new ClassVisitor(Opcodes.ASM7) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-				ret.name = mapClass(name);
-				ret.superName = mapClass(superName);
-				ret.isInterface = (access & Opcodes.ACC_INTERFACE) != 0;
-				ret.interfaces = new String[interfaces.length];
-				for (int i = 0; i < interfaces.length; i++) ret.interfaces[i] = mapClass(interfaces[i]);
+				ret.init(name, superName, (access & Opcodes.ACC_INTERFACE) != 0, interfaces);
 			}
 
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-				ret.methods.put(name + desc, new Member(name, desc, access));
+				ret.addMember(new MemberInstance(MemberType.METHOD, ret, name, desc, access));
 
 				return null;
 			}
 
 			@Override
 			public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
-				ret.fields.put(name + ";;" + desc, new Member(name, desc, access));
+				ret.addMember(new MemberInstance(MemberType.FIELD, ret, name, desc, access));
 
 				return null;
 			}
@@ -303,18 +300,18 @@ public class TinyRemapper {
 	}
 
 	private void merge() {
-		for (RClass node : nodes.values()) {
-			assert node.superName != null;
+		for (ClassInstance node : classes.values()) {
+			assert node.getSuperName() != null;
 
-			RClass parent = nodes.get(node.superName);
+			ClassInstance parent = classes.get(node.getSuperName());
 
 			if (parent != null) {
 				node.parents.add(parent);
 				parent.children.add(node);
 			}
 
-			for (String iface : node.interfaces) {
-				parent = nodes.get(iface);
+			for (String iface : node.getInterfaces()) {
+				parent = classes.get(iface);
 
 				if (parent != null) {
 					node.parents.add(parent);
@@ -364,25 +361,24 @@ public class TinyRemapper {
 		System.out.println("Mapping conflicts detected:");
 		boolean unfixableConflicts = false;
 
-		for (Map.Entry<TypedMember, Set<String>> entry : conflicts.entrySet()) {
-			TypedMember tmember = entry.getKey();
-			Member member = tmember.cls.getMember(tmember.type, tmember.id);
-			String newName = (tmember.type == MemberType.METHOD ? tmember.cls.methodsToMap : tmember.cls.fieldsToMap).get(tmember.id);
+		for (Map.Entry<MemberInstance, Set<String>> entry : conflicts.entrySet()) {
+			MemberInstance member = entry.getKey();
+			String newName = member.getNewName();
 			Set<String> names = entry.getValue();
-			names.add(tmember.cls.name+"/"+newName);
+			names.add(member.cls.getName()+"/"+newName);
 
-			System.out.printf("  %s %s %s (%s) -> %s%n", tmember.cls.name, tmember.type.name(), member.name, member.desc, names);
+			System.out.printf("  %s %s %s (%s) -> %s%n", member.cls.getName(), member.type.name(), member.name, member.desc, names);
 
 			if (ignoreConflicts) {
-				Map<String, String> mappings = tmember.type == MemberType.METHOD ? methodMap : fieldMap;
-				String mappingName = mappings.get(tmember.cls.name+"/"+tmember.id);
+				Map<String, String> mappings = member.type == MemberType.METHOD ? methodMap : fieldMap;
+				String mappingName = mappings.get(member.cls.getName()+"/"+member.getId());
 
 				if (mappingName == null) { // no direct mapping match, try parents
-					Queue<RClass> queue = new ArrayDeque<>(tmember.cls.parents);
-					RClass cls;
+					Queue<ClassInstance> queue = new ArrayDeque<>(member.cls.parents);
+					ClassInstance cls;
 
 					while ((cls = queue.poll()) != null) {
-						mappingName = mappings.get(cls.name+"/"+tmember.id);
+						mappingName = mappings.get(cls.getName()+"/"+member.getId());
 						if (mappingName != null) break;
 
 						queue.addAll(cls.parents);
@@ -392,9 +388,8 @@ public class TinyRemapper {
 				if (mappingName == null) {
 					unfixableConflicts = true;
 				} else {
-					mappingName = stripClassName(mappingName, tmember.type);
-					ConcurrentMap<String, String> outputMap = (tmember.type == MemberType.METHOD) ? tmember.cls.methodsToMap : tmember.cls.fieldsToMap;
-					outputMap.put(tmember.id, mappingName);
+					mappingName = stripClassName(mappingName, member.type);
+					member.forceSetNewName(mappingName);
 					System.out.println("    fixable: replaced with "+mappingName);
 				}
 			}
@@ -417,16 +412,16 @@ public class TinyRemapper {
 
 		List<Future<?>> futures = new ArrayList<>();
 
-		for (final RClass cls : nodes.values()) {
+		for (final ClassInstance cls : classes.values()) {
 			if (cls.srcPath != srcPath) continue; // TODO: use a more elegant way to filter files to process (whether they were an input)
 
-			futures.add(threadPool.submit(() -> outputConsumer.accept(cls.name, apply(cls))));
+			futures.add(threadPool.submit(() -> outputConsumer.accept(mapClass(cls.getName()), apply(cls))));
 		}
 
 		waitForAll(futures);
 	}
 
-	private byte[] apply(final RClass cls) {
+	private byte[] apply(final ClassInstance cls) {
 		ClassReader reader = new ClassReader(cls.data);
 		ClassWriter writer = new ClassWriter(0);
 		int flags = removeFrames ? ClassReader.SKIP_FRAMES : ClassReader.EXPAND_FRAMES;
@@ -492,238 +487,10 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	enum Namespace {
-		Unknown
-	}
-
-	class RClass {
-		RClass(Path srcFile, byte[] data) {
-			this.srcPath = srcFile;
-			this.data = data;
-		}
-
-		Member getMember(MemberType type, String id) {
-			if (type == MemberType.METHOD) {
-				return methods.get(id);
-			} else {
-				return fields.get(id);
-			}
-		}
-
-		/**
-		 * Rename the member src to dst and continue propagating in dir.
-		 *
-		 * @param type Member type.
-		 * @param idSrc Existing name.
-		 * @param idDst New name.
-		 * @param dir Futher propagation direction.
-		 */
-		void propagate(MemberType type, String originatingCls, String idSrc, String idDst, Direction dir, boolean isVirtual, boolean first, Set<RClass> visitedUp, Set<RClass> visitedDown) {
-			/*
-			 * initial private member or static method in interface: only local
-			 * non-virtual: up to matching member (if not already in this), then down until matching again (exclusive)
-			 * virtual: all across the hierarchy, only non-private|static can change direction - skip private|static in interfaces
-			 */
-
-			Member member = getMember(type, idSrc);
-
-			if (member != null) {
-				if (!first && !isVirtual) { // down propagation from non-virtual (static) member matching the signature again, which starts its own namespace
-					return;
-				}
-
-				if (first // directly mapped
-						|| (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0 // not private and not static
-						|| propagatePrivate
-						|| !forcePropagation.isEmpty() && forcePropagation.contains(name.replace('/', '.')+"."+member.name)) { // don't rename private members unless forced or initial (=dir any)
-					ConcurrentMap<String, String> outputMap = (type == MemberType.METHOD) ? methodsToMap : fieldsToMap;
-					String prev = outputMap.putIfAbsent(idSrc, idDst);
-
-					if (prev != null && !prev.equals(idDst)) {
-						conflicts.computeIfAbsent(new TypedMember(this, type, idSrc), x -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(originatingCls+"/"+idDst);
-					}
-					//System.out.printf("%s: %s %s -> %s\n", name, (type == Type.METHOD) ? "Method" : "Field", idSrc, idDst);
-				}
-
-				if (first
-						&& ((member.access & Opcodes.ACC_PRIVATE) != 0 // private members don't propagate, but they may get skipped over by overriding virtual methods
-						|| type == MemberType.METHOD && isInterface && !isVirtual)) { // non-virtual interface methods don't propagate either, the jvm only resolves direct accesses to them
-					return;
-				}
-			} else { // member == null
-				assert !first && (type == MemberType.FIELD || !isInterface || isVirtual);
-
-				// Java likes/allows to access members in a super class by querying the "this"
-				// class directly. To cover this, outputMap is being populated regardless.
-
-				ConcurrentMap<String, String> outputMap = (type == MemberType.METHOD) ? methodsToMap : fieldsToMap;
-				outputMap.putIfAbsent(idSrc, idDst);
-			}
-
-			assert isVirtual || dir == Direction.DOWN;
-
-			/*
-			 * Propagate the mapping along the hierarchy tree.
-			 *
-			 * The mapping ensures that overriding and shadowing behaviors remains the same.
-			 *
-			 * Direction.ANY is from where the current element was the initial node as specified
-			 * in the mappings. The member == null + dir checks above already verified that the
-			 * member exists in the current node.
-			 *
-			 * Direction.UP/DOWN handle propagation skipping across nodes which don't contain the
-			 * specific member, thus having no direct reference.
-			 *
-			 * isVirtual && ... handles propagation to an existing matching virtual member, which
-			 * spawns a new initial node from the propagation perspective. This is necessary as
-			 * different branches of the hierarchy tree that were not visited before may access it.
-			 */
-
-			if (dir == Direction.ANY || dir == Direction.UP || isVirtual && member != null && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0) {
-				for (RClass node : parents) {
-					if (visitedUp.add(node)) {
-						node.propagate(type, originatingCls, idSrc, idDst, Direction.UP, isVirtual, false, visitedUp, visitedDown);
-					}
-				}
-			}
-
-			if (dir == Direction.ANY || dir == Direction.DOWN || isVirtual && member != null && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0) {
-				for (RClass node : children) {
-					if (visitedDown.add(node)) {
-						node.propagate(type, originatingCls, idSrc, idDst, Direction.DOWN, isVirtual, false, visitedUp, visitedDown);
-					}
-				}
-			}
-		}
-
-		RClass resolve(MemberType type, String id, Set<RClass> visited, Queue<RClass> queue) {
-			Member member = getMember(type, id);
-			if (member != null) return this;
-
-			queue.add(this);
-			visited.add(this);
-			RClass cls;
-
-			// step 1
-			// method: search in all super classes recursively
-			// field: search in all direct super interfaces recursively
-
-			while ((cls = queue.poll()) != null) {
-				for (RClass parent : cls.parents) {
-					if (parent.isInterface == (type == MemberType.FIELD) && visited.add(parent)) {
-						if (parent.getMember(type, id) != null) return parent;
-
-						queue.add(parent);
-					}
-				}
-			}
-
-			visited.clear();
-			queue.add(this);
-			visited.add(this);
-			RClass secondaryMatch = null;
-
-			// step 2
-			// method: search for non-static, non-private, non-abstract in all super interfaces recursively
-			//         (breadth first search to obtain the potentially maximally-specific superinterface directly)
-			// field: search in all super classes recursively
-			// step 3
-			// method: search for non-static, non-private in all super interfaces recursively
-
-			// step 3 is a super set of step 2 with any option being able to be "arbitrarily chosen" as per the jvm
-			// spec, so step 2 ignoring the "exactly one" match requirement doesn't matter and >potentially<
-			// maximally-specific superinterface is good enough
-
-			while ((cls = queue.poll()) != null) {
-				for (RClass parent : cls.parents) {
-					if (parent.isInterface != (type == MemberType.FIELD) && visited.add(parent)) {
-						Member parentMember = parent.getMember(type, id);
-
-						if (parentMember != null
-								&& (type == MemberType.FIELD || (parentMember.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0)) {
-							if (type == MemberType.METHOD && (parentMember.access & (Opcodes.ACC_ABSTRACT)) != 0) {
-								secondaryMatch = parent;
-							} else {
-								return parent;
-							}
-						}
-
-						queue.add(parent);
-					}
-				}
-			}
-
-			return secondaryMatch;
-		}
-
-		@Override
-		public String toString() {
-			return name;
-		}
-
-		private final Path srcPath;
-		private final byte[] data;
-		private final Map<String, Member> methods = new HashMap<String, Member>();
-		private final Map<String, Member> fields = new HashMap<String, Member>();
-		private final Set<RClass> parents = new HashSet<RClass>();
-		private final Set<RClass> children = new HashSet<RClass>();
-		final ConcurrentMap<String, String> methodsToMap = new ConcurrentHashMap<String, String>();
-		final ConcurrentMap<String, String> fieldsToMap = new ConcurrentHashMap<String, String>();
-		String name;
-		String superName;
-		boolean isInterface;
-		String[] interfaces;
-	}
-
-	class Member {
-		Member(String name, String desc, int access) {
-			this.name = name;
-			this.desc = desc;
-			this.access = access;
-		}
-
-		String name;
-		String desc;
-		int access;
-	}
-
 	enum Direction {
 		ANY,
 		UP,
 		DOWN
-	}
-
-	enum MemberType {
-		METHOD,
-		FIELD
-	}
-
-	class TypedMember {
-		public TypedMember(RClass cls, MemberType type, String id) {
-			this.cls = cls;
-			this.type = type;
-			this.id = id;
-		}
-
-		@Override
-		public boolean equals(Object obj) {
-			if (!(obj instanceof TypedMember)) return false;
-
-			TypedMember o = (TypedMember) obj;
-
-			return cls == o.cls &&
-					type == o.type &&
-					id.equals(o.id);
-		}
-
-		@Override
-		public int hashCode() {
-			return (cls.hashCode() * 31 + type.hashCode()) * 31 + id.hashCode();
-		}
-
-		final RClass cls;
-		final MemberType type;
-		final String id;
 	}
 
 	class Propagation implements Runnable {
@@ -734,49 +501,35 @@ public class TinyRemapper {
 
 		@Override
 		public void run() {
-			Set<RClass> visitedUp = Collections.newSetFromMap(new IdentityHashMap<>());
-			Set<RClass> visitedDown = Collections.newSetFromMap(new IdentityHashMap<>());
-			Queue<RClass> queue = new ArrayDeque<>();
+			Set<ClassInstance> visitedUp = Collections.newSetFromMap(new IdentityHashMap<>());
+			Set<ClassInstance> visitedDown = Collections.newSetFromMap(new IdentityHashMap<>());
 
 			for (Map.Entry<String, String> entry : tasks) {
-				String className = getClassName(entry.getValue(), type);
-				RClass node = nodes.get(className);
-				if (node == null) continue; // not available for this Side
+				String className = getClassName(entry.getKey(), type);
+				ClassInstance cls = classes.get(className);
+				if (cls == null) continue; // not available for this Side
 
 				String idSrc = stripClassName(entry.getKey(), type);
-				String idDst = stripClassName(entry.getValue(), type);
-				if (idSrc.equals(idDst)) continue; // no name change
+				String nameDst = entry.getValue();
+				assert nameDst.indexOf('/') < 0;
 
-				Member member = node.getMember(type, idSrc);
-
-				if (member == null) {
-					if (resolveMissing) {
-						// resolve real owner in case the mapping doesn't reference the actual class
-						node = node.resolve(type, idSrc, visitedUp, queue);
-						visitedUp.clear();
-						queue.clear();
-
-						// at this point node is null or the member must exist in node
-
-						if (node == null) {
-							// not available for this Side
-							//System.out.println("Unknown "+(type == MemberType.METHOD ? "method" : "field")+" referenced: "+entry.getKey());
-							continue;
-						} else {
-							member = node.getMember(type, idSrc);
-							assert member != null;
-						}
-					} else {
-						// not available for this Side
-						continue;
-					}
+				if (stripDesc(idSrc, type).equals(nameDst)) {
+					continue; // no name change
 				}
 
-				boolean isVirtual = type == MemberType.METHOD && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
+				MemberInstance member = resolveMissing ? cls.resolve(type, idSrc) : cls.getMember(type, idSrc);
 
-				visitedUp.add(node);
-				visitedDown.add(node);
-				node.propagate(type, className, idSrc, idDst, isVirtual ? Direction.ANY : Direction.DOWN, isVirtual, true, visitedUp, visitedDown);
+				if (member == null) {
+					// not available for this Side
+					continue;
+				}
+
+				cls = member.cls;
+				boolean isVirtual = member.isVirtual();
+
+				visitedUp.add(cls);
+				visitedDown.add(cls);
+				cls.propagate(TinyRemapper.this, type, className, idSrc, nameDst, isVirtual ? Direction.ANY : Direction.DOWN, isVirtual, true, visitedUp, visitedDown);
 				visitedUp.clear();
 				visitedDown.clear();
 			}
@@ -788,8 +541,8 @@ public class TinyRemapper {
 
 	private final boolean check = false;
 
-	private final Set<String> forcePropagation;
-	private final boolean propagatePrivate;
+	final Set<String> forcePropagation;
+	final boolean propagatePrivate;
 	private final boolean removeFrames;
 	private final boolean ignoreConflicts;
 	private final boolean resolveMissing;
@@ -798,8 +551,8 @@ public class TinyRemapper {
 	final Map<String, String> classMap = new HashMap<>();
 	final Map<String, String> methodMap = new HashMap<>();
 	final Map<String, String> fieldMap = new HashMap<>();
-	final Map<String, RClass> nodes = new HashMap<>();
-	private final Map<TypedMember, Set<String>> conflicts = new ConcurrentHashMap<>();
+	final Map<String, ClassInstance> classes = new HashMap<>();
+	final Map<MemberInstance, Set<String>> conflicts = new ConcurrentHashMap<>();
 	private final int threadCount;
 	private final ExecutorService threadPool;
 	private final AsmRemapper remapper = new AsmRemapper(this);

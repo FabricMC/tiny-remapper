@@ -284,7 +284,16 @@ class AsmClassRemapper extends ClassRemapper {
 					if (av == null) {
 						// no element to infer from, try to find a mapping with a suitable owner+name+desc
 						// there's no need to wrap the visitor in AsmAnnotationRemapper without any content to process
-						av = AsmAnnotationRemapper.this.av.visitArray(((AsmRemapper) remapper).mapMethodNamePrefixDesc(annotationClass, name, "()["));
+
+						String newName;
+
+						if (name == null) { // used for default annotation values
+							newName = null;
+						} else {
+							newName = ((AsmRemapper) remapper).mapMethodNamePrefixDesc(annotationClass, name, "()[");
+						}
+
+						av = AsmAnnotationRemapper.this.av.visitArray(newName);
 					}
 
 					super.visitEnd();
@@ -301,6 +310,8 @@ class AsmClassRemapper extends ClassRemapper {
 		}
 
 		private String mapAnnotationName(String name, String descriptor) {
+			if (name == null) return null; // used for default annotation values
+
 			return remapper.mapMethodName(annotationClass, name, "()"+descriptor);
 		}
 

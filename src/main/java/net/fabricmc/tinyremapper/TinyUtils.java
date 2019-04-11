@@ -47,7 +47,7 @@ public final class TinyUtils {
 				return false;
 			} else {
 				Mapping otherM = (Mapping) other;
-				return owner.equals(otherM.owner) && name.equals(otherM.name) && desc.equals(otherM.desc);
+				return owner.equals(otherM.owner) && name.equals(otherM.name) && Objects.equals(desc, otherM.desc);
 			}
 		}
 
@@ -111,18 +111,18 @@ public final class TinyUtils {
 	private static void readInternal(BufferedReader reader, String fromM, String toM, Map<String, String> classMap, Map<String, String> fieldMap, Map<String, String> methodMap) throws IOException {
 		TinyUtils.read(reader, fromM, toM, (classFrom, classTo) -> {
 			classMap.put(classFrom, classTo);
-		}, (fieldFrom, fieldTo) -> {
-			fieldMap.put(fieldFrom.owner + "/" + fieldFrom.name + ";;" + fieldFrom.desc, fieldTo.owner + "/" + fieldTo.name);
-		}, (methodFrom, methodTo) -> {
-			methodMap.put(methodFrom.owner + "/" + methodFrom.name + methodFrom.desc, methodTo.owner + "/" + methodTo.name);
+		}, (fieldFrom, nameTo) -> {
+			fieldMap.put(fieldFrom.owner + "/" + MemberInstance.getFieldId(fieldFrom.name, fieldFrom.desc), nameTo);
+		}, (methodFrom, nameTo) -> {
+			methodMap.put(methodFrom.owner + "/" + MemberInstance.getMethodId(methodFrom.name, methodFrom.desc), nameTo);
 		});
 	}
 
 	public static void read(BufferedReader reader, String from, String to,
-							BiConsumer<String, String> classMappingConsumer,
-							BiConsumer<Mapping, Mapping> fieldMappingConsumer,
-							BiConsumer<Mapping, Mapping> methodMappingConsumer)
-			throws IOException {
+			BiConsumer<String, String> classMappingConsumer,
+			BiConsumer<Mapping, String> fieldMappingConsumer,
+			BiConsumer<Mapping, String> methodMappingConsumer)
+					throws IOException {
 		String[] header = reader.readLine().split("\t");
 		if (header.length <= 1
 				|| !header[0].equals("v1")) {
@@ -137,17 +137,16 @@ public final class TinyUtils {
 		if (toIndex < 0) throw new IOException("Could not find mapping '" + to + "'!");
 
 		Map<String, String> obfFrom = new HashMap<>();
-		Map<String, String> obfTo = new HashMap<>();
 		List<String[]> linesStageTwo = new ArrayList<>();
 
 		String line;
 		while ((line = reader.readLine()) != null) {
 			String[] splitLine = line.split("\t");
+
 			if (splitLine.length >= 2) {
 				if ("CLASS".equals(splitLine[0])) {
 					classMappingConsumer.accept(splitLine[1 + fromIndex], splitLine[1 + toIndex]);
 					obfFrom.put(splitLine[1], splitLine[1 + fromIndex]);
-					obfTo.put(splitLine[1], splitLine[1 + toIndex]);
 				} else {
 					linesStageTwo.add(splitLine);
 				}
@@ -155,28 +154,27 @@ public final class TinyUtils {
 		}
 
 		SimpleClassMapper descObfFrom = new SimpleClassMapper(obfFrom);
-		SimpleClassMapper descObfTo = new SimpleClassMapper(obfTo);
 
 		for (String[] splitLine : linesStageTwo) {
-			if ("FIELD".equals(splitLine[0])) {
-				String owner = obfFrom.getOrDefault(splitLine[1], splitLine[1]);
-				String desc = descObfFrom.mapDesc(splitLine[2]);
-				String tOwner = obfTo.getOrDefault(splitLine[1], splitLine[1]);
-				String tDesc = descObfTo.mapDesc(splitLine[2]);
-				fieldMappingConsumer.accept(
-						new Mapping(owner, splitLine[3 + fromIndex], desc),
-						new Mapping(tOwner, splitLine[3 + toIndex], tDesc)
-				);
-			} else if ("METHOD".equals(splitLine[0])) {
-				String owner = obfFrom.getOrDefault(splitLine[1], splitLine[1]);
-				String desc = descObfFrom.mapMethodDesc(splitLine[2]);
-				String tOwner = obfTo.getOrDefault(splitLine[1], splitLine[1]);
-				String tDesc = descObfTo.mapMethodDesc(splitLine[2]);
-				methodMappingConsumer.accept(
-						new Mapping(owner, splitLine[3 + fromIndex], desc),
-						new Mapping(tOwner, splitLine[3 + toIndex], tDesc)
-				);
+			String type = splitLine[0];
+			BiConsumer<Mapping, String> consumer;
+
+			if ("FIELD".equals(type)) {
+				consumer = fieldMappingConsumer;
+			} else if ("METHOD".equals(type)) {
+				consumer = methodMappingConsumer;
+			} else {
+				continue;
 			}
+
+			String owner = obfFrom.getOrDefault(splitLine[1], splitLine[1]);
+			String name = splitLine[3 + fromIndex];
+			String desc = descObfFrom.mapDesc(splitLine[2]);
+
+			Mapping mapping = new Mapping(owner, name, desc);
+			String nameTo = splitLine[3 + toIndex];
+
+			consumer.accept(mapping, nameTo);
 		}
 	}
 }
