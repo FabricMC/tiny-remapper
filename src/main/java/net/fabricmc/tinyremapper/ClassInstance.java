@@ -2,6 +2,7 @@ package net.fabricmc.tinyremapper;
 
 import java.nio.file.Path;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
@@ -30,8 +31,8 @@ public final class ClassInstance {
 		this.interfaces = interfaces;
 	}
 
-	void addMember(MemberInstance member) {
-		members.put(member.getId(), member);
+	MemberInstance addMember(MemberInstance member) {
+		return members.put(member.getId(), member);
 	}
 
 	public String getName() {
@@ -48,6 +49,10 @@ public final class ClassInstance {
 
 	public String[] getInterfaces() {
 		return interfaces;
+	}
+
+	public Collection<MemberInstance> getMembers() {
+		return members.values();
 	}
 
 	public MemberInstance getMember(MemberType type, String id) {

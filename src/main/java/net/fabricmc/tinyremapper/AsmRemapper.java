@@ -45,7 +45,7 @@ class AsmRemapper extends Remapper {
 			return newName;
 		}
 
-		assert remapper.fieldMap.get(owner+"/"+name+";;"+desc) == null;
+		assert (newName = remapper.fieldMap.get(owner+"/"+MemberInstance.getFieldId(name, desc))) == null || newName.equals(name);
 
 		return name;
 	}
@@ -62,7 +62,8 @@ class AsmRemapper extends Remapper {
 			return newName;
 		}
 
-		assert remapper.methodMap.get(owner+"/"+name+desc) == null;
+		assert (newName = remapper.methodMap.get(owner+"/"+MemberInstance.getMethodId(name, desc))) == null || newName.equals(name);
+
 		return name;
 	}
 

@@ -14,11 +14,7 @@ public final class MemberInstance {
 	}
 
 	public String getId() {
-		if (type == MemberType.METHOD) {
-			return getMethodId(name, desc);
-		} else {
-			return getFieldId(name, desc);
-		}
+		return getId(type, name, desc);
 	}
 
 	public boolean isVirtual() {

@@ -173,7 +173,8 @@ public class TinyRemapper {
 
 			for (Future<List<ClassInstance> > future : futures) {
 				for (ClassInstance node : future.get()) {
-					classes.put(node.getName(), node);
+					ClassInstance prev = classes.put(node.getName(), node);
+					if (prev != null) throw new RuntimeException("duplicate class "+node.getName()+" in inputs");
 				}
 			}
 		} catch (InterruptedException | ExecutionException e) {
@@ -277,14 +278,16 @@ public class TinyRemapper {
 
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-				ret.addMember(new MemberInstance(MemberType.METHOD, ret, name, desc, access));
+				MemberInstance prev = ret.addMember(new MemberInstance(MemberType.METHOD, ret, name, desc, access));
+				if (prev != null) throw new RuntimeException(String.format("duplicate method %s/%s%s in inputs", ret.getName(), name, desc));
 
 				return null;
 			}
 
 			@Override
 			public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
-				ret.addMember(new MemberInstance(MemberType.FIELD, ret, name, desc, access));
+				MemberInstance prev = ret.addMember(new MemberInstance(MemberType.FIELD, ret, name, desc, access));
+				if (prev != null) throw new RuntimeException(String.format("duplicate field %s/%s;;%s in inputs", ret.getName(), name, desc));
 
 				return null;
 			}
@@ -297,6 +300,22 @@ public class TinyRemapper {
 		String ret = classMap.get(className);
 
 		return ret != null ? ret : className;
+	}
+
+	private void checkClassMappings() {
+		Set<String> testSet = new HashSet<>(classMap.values());
+
+		if (testSet.size() != classMap.size()) {
+			System.out.println("non-unique class target name mappings:");
+
+			for (Map.Entry<String, String> e : classMap.entrySet()) {
+				if (!testSet.remove(e.getValue())) {
+					System.out.printf("  %s -> %s%n", e.getKey(), e.getValue());
+				}
+			}
+
+			throw new RuntimeException("duplicate class target name mappings detected");
+		}
 	}
 
 	private void merge() {
@@ -356,47 +375,102 @@ public class TinyRemapper {
 	}
 
 	private void handleConflicts() {
-		if (conflicts.isEmpty()) return;
+		Set<String> testSet = new HashSet<>();
+		boolean targetNameCheckFailed = false;
 
-		System.out.println("Mapping conflicts detected:");
-		boolean unfixableConflicts = false;
+		for (ClassInstance cls : classes.values()) {
+			for (MemberInstance member : cls.getMembers()) {
+				String name = member.getNewName();
+				if (name == null) name = member.name;
 
-		for (Map.Entry<MemberInstance, Set<String>> entry : conflicts.entrySet()) {
-			MemberInstance member = entry.getKey();
-			String newName = member.getNewName();
-			Set<String> names = entry.getValue();
-			names.add(member.cls.getName()+"/"+newName);
+				testSet.add(MemberInstance.getId(member.type, name, member.desc));
+			}
 
-			System.out.printf("  %s %s %s (%s) -> %s%n", member.cls.getName(), member.type.name(), member.name, member.desc, names);
-
-			if (ignoreConflicts) {
-				Map<String, String> mappings = member.type == MemberType.METHOD ? methodMap : fieldMap;
-				String mappingName = mappings.get(member.cls.getName()+"/"+member.getId());
-
-				if (mappingName == null) { // no direct mapping match, try parents
-					Queue<ClassInstance> queue = new ArrayDeque<>(member.cls.parents);
-					ClassInstance cls;
-
-					while ((cls = queue.poll()) != null) {
-						mappingName = mappings.get(cls.getName()+"/"+member.getId());
-						if (mappingName != null) break;
-
-						queue.addAll(cls.parents);
-					}
+			if (testSet.size() != cls.getMembers().size()) {
+				if (!targetNameCheckFailed) {
+					targetNameCheckFailed = true;
+					System.out.println("Mapping target name conflicts detected:");
 				}
 
-				if (mappingName == null) {
-					unfixableConflicts = true;
-				} else {
-					mappingName = stripClassName(mappingName, member.type);
-					member.forceSetNewName(mappingName);
-					System.out.println("    fixable: replaced with "+mappingName);
+				Map<String, List<MemberInstance>> duplicates = new HashMap<>();
+
+				for (MemberInstance member : cls.getMembers()) {
+					String name = member.getNewName();
+					if (name == null) name = member.name;
+
+					duplicates.computeIfAbsent(MemberInstance.getId(member.type, name, member.desc), ignore -> new ArrayList<>()).add(member);
+				}
+
+				for (Map.Entry<String, List<MemberInstance>> e : duplicates.entrySet()) {
+					String nameDesc = e.getKey();
+					List<MemberInstance> members = e.getValue();
+					if (members.size() < 2) continue;
+
+					MemberInstance anyMember = members.get(0);
+					System.out.printf("  %ss %s/[", anyMember.type, cls.getName());
+
+					for (int i = 0; i < members.size(); i++) {
+						if (i != 0) System.out.print(", ");
+
+						MemberInstance member = members.get(i);
+
+						if (member.newNameOriginatingCls != null && !member.newNameOriginatingCls.equals(cls.getName())) {
+							System.out.print(member.newNameOriginatingCls);
+							System.out.print('/');
+						}
+
+						System.out.print(member.name);
+					}
+
+					System.out.printf("]%s -> %s%n", MemberInstance.getId(anyMember.type, "", anyMember.desc), stripDesc(nameDesc, anyMember.type));
+				}
+			}
+
+			testSet.clear();
+		}
+
+		boolean unfixableConflicts = false;
+
+		if (!conflicts.isEmpty()) {
+			System.out.println("Mapping source name conflicts detected:");
+
+			for (Map.Entry<MemberInstance, Set<String>> entry : conflicts.entrySet()) {
+				MemberInstance member = entry.getKey();
+				String newName = member.getNewName();
+				Set<String> names = entry.getValue();
+				names.add(member.cls.getName()+"/"+newName);
+
+				System.out.printf("  %s %s %s (%s) -> %s%n", member.cls.getName(), member.type.name(), member.name, member.desc, names);
+
+				if (ignoreConflicts) {
+					Map<String, String> mappings = member.type == MemberType.METHOD ? methodMap : fieldMap;
+					String mappingName = mappings.get(member.cls.getName()+"/"+member.getId());
+
+					if (mappingName == null) { // no direct mapping match, try parents
+						Queue<ClassInstance> queue = new ArrayDeque<>(member.cls.parents);
+						ClassInstance cls;
+
+						while ((cls = queue.poll()) != null) {
+							mappingName = mappings.get(cls.getName()+"/"+member.getId());
+							if (mappingName != null) break;
+
+							queue.addAll(cls.parents);
+						}
+					}
+
+					if (mappingName == null) {
+						unfixableConflicts = true;
+					} else {
+						mappingName = stripClassName(mappingName, member.type);
+						member.forceSetNewName(mappingName);
+						System.out.println("    fixable: replaced with "+mappingName);
+					}
 				}
 			}
 		}
 
-		if (!ignoreConflicts || unfixableConflicts) {
-			if (ignoreConflicts) System.out.println("There were unfixable conflicts.");
+		if (!ignoreConflicts || unfixableConflicts || targetNameCheckFailed) {
+			if (ignoreConflicts || targetNameCheckFailed) System.out.println("There were unfixable conflicts.");
 
 			System.exit(1);
 		}
@@ -404,6 +478,7 @@ public class TinyRemapper {
 
 	public void apply(Path srcPath, final BiConsumer<String, byte[]> outputConsumer) {
 		if (dirty) {
+			checkClassMappings();
 			merge();
 			propagate();
 
