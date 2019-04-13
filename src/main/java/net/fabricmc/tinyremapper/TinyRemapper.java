@@ -158,23 +158,38 @@ public class TinyRemapper {
 		}
 	}
 
-	public void read(final Path... inputs) {
+	public void readInputs(final Path... inputs) {
+		read(inputs, true);
+	}
+
+	public void readClassPath(final Path... inputs) {
+		read(inputs, false);
+	}
+
+	private void read(Path[] inputs, boolean isInput) {
 		List<Future<List<ClassInstance>>> futures = new ArrayList<>();
 		List<FileSystem> fsToClose = Collections.synchronizedList(new ArrayList<>());
 
 		try {
 			for (Path input : inputs) {
-				futures.addAll(read(input, true, fsToClose));
+				futures.addAll(read(input, isInput, true, fsToClose));
 			}
 
 			if (futures.size() > 0) {
 				dirty = true;
 			}
 
-			for (Future<List<ClassInstance> > future : futures) {
+			for (Future<List<ClassInstance>> future : futures) {
 				for (ClassInstance node : future.get()) {
 					ClassInstance prev = classes.put(node.getName(), node);
-					if (prev != null) throw new RuntimeException("duplicate class "+node.getName()+" in inputs");
+
+					if (prev != null) {
+						if (isInput && !prev.isInput) {
+							System.out.printf("duplicate input class %s, from %s and %s", node.getName(), prev.srcPath, node.srcPath);
+						} else if (!isInput && prev.isInput) { // give the input class priority
+							classes.put(prev.getName(), prev);
+						}
+					}
 				}
 			}
 		} catch (InterruptedException | ExecutionException e) {
@@ -188,15 +203,15 @@ public class TinyRemapper {
 		}
 	}
 
-	private List<Future<List<ClassInstance>>> read(final Path file, boolean saveData, final List<FileSystem> fsToClose) {
+	private List<Future<List<ClassInstance>>> read(final Path file, boolean isInput, boolean saveData, final List<FileSystem> fsToClose) {
 		try {
-			return read(file, file, saveData, fsToClose);
+			return read(file, isInput, file, saveData, fsToClose);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
 
-	private List<Future<List<ClassInstance>>> read(final Path file, final Path srcPath, final boolean saveData, final List<FileSystem> fsToClose) throws IOException {
+	private List<Future<List<ClassInstance>>> read(final Path file, boolean isInput, final Path srcPath, final boolean saveData, final List<FileSystem> fsToClose) throws IOException {
 		List<Future<List<ClassInstance>>> ret = new ArrayList<>();
 
 		Files.walkFileTree(file, new SimpleFileVisitor<Path>() {
@@ -211,7 +226,7 @@ public class TinyRemapper {
 						@Override
 						public List<ClassInstance> call() {
 							try {
-								return readFile(file, srcPath, saveData, fsToClose);
+								return readFile(file, isInput, srcPath, saveData, fsToClose);
 							} catch (URISyntaxException e) {
 								throw new RuntimeException(e);
 							} catch (IOException e) {
@@ -230,11 +245,11 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private List<ClassInstance> readFile(Path file, final Path srcPath, boolean saveData, List<FileSystem> fsToClose) throws IOException, URISyntaxException {
+	private List<ClassInstance> readFile(Path file, boolean isInput, final Path srcPath, boolean saveData, List<FileSystem> fsToClose) throws IOException, URISyntaxException {
 		List<ClassInstance> ret = new ArrayList<ClassInstance>();
 
 		if (file.toString().endsWith(".class")) {
-			ret.add(analyze(srcPath, Files.readAllBytes(file), saveData));
+			ret.add(analyze(isInput, srcPath, Files.readAllBytes(file), saveData));
 		} else {
 			URI uri = new URI("jar:"+file.toUri().toString());
 			FileSystem fs = null;
@@ -254,7 +269,7 @@ public class TinyRemapper {
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					if (file.toString().endsWith(".class")) {
-						ret.add(analyze(srcPath, Files.readAllBytes(file), saveData));
+						ret.add(analyze(isInput, srcPath, Files.readAllBytes(file), saveData));
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -265,8 +280,8 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private ClassInstance analyze(Path srcPath, byte[] data, boolean saveData) {
-		final ClassInstance ret = new ClassInstance(srcPath, saveData ? data : null);
+	private ClassInstance analyze(boolean isInput, Path srcPath, byte[] data, boolean saveData) {
+		final ClassInstance ret = new ClassInstance(isInput, srcPath, saveData ? data : null);
 
 		ClassReader reader = new ClassReader(data);
 
@@ -469,14 +484,14 @@ public class TinyRemapper {
 			}
 		}
 
-		if (!ignoreConflicts || unfixableConflicts || targetNameCheckFailed) {
+		if (!conflicts.isEmpty() && !ignoreConflicts || unfixableConflicts || targetNameCheckFailed) {
 			if (ignoreConflicts || targetNameCheckFailed) System.out.println("There were unfixable conflicts.");
 
 			System.exit(1);
 		}
 	}
 
-	public void apply(Path srcPath, final BiConsumer<String, byte[]> outputConsumer) {
+	public void apply(final BiConsumer<String, byte[]> outputConsumer) {
 		if (dirty) {
 			checkClassMappings();
 			merge();
@@ -488,7 +503,7 @@ public class TinyRemapper {
 		List<Future<?>> futures = new ArrayList<>();
 
 		for (final ClassInstance cls : classes.values()) {
-			if (cls.srcPath != srcPath) continue; // TODO: use a more elegant way to filter files to process (whether they were an input)
+			if (!cls.isInput) continue;
 
 			futures.add(threadPool.submit(() -> outputConsumer.accept(mapClass(cls.getName()), apply(cls))));
 		}

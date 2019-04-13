@@ -36,7 +36,8 @@ import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
 
 public final class ClassInstance {
-	ClassInstance(Path srcFile, byte[] data) {
+	ClassInstance(boolean isInput, Path srcFile, byte[] data) {
+		this.isInput = isInput;
 		this.srcPath = srcFile;
 		this.data = data;
 	}
@@ -370,6 +371,7 @@ public final class ClassInstance {
 
 	private static final MemberInstance nullMember = new MemberInstance(null, null, null, null, 0);
 
+	final boolean isInput;
 	final Path srcPath;
 	final byte[] data;
 	private final Map<String, MemberInstance> members = new HashMap<>(); // methods and fields are distinct due to their different desc separators

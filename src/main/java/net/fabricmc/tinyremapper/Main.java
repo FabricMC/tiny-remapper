@@ -170,10 +170,10 @@ public class Main {
 		try (OutputConsumerPath outputConsumer = new OutputConsumerPath(output)) {
 			outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
 
-			remapper.read(input);
-			remapper.read(classpath);
+			remapper.readInputs(input);
+			remapper.readClassPath(classpath);
 
-			remapper.apply(input, outputConsumer);
+			remapper.apply(outputConsumer);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		} finally {
