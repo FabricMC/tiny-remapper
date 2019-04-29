@@ -167,7 +167,7 @@ public class Main {
 				.renameInvalidLocals(renameInvalidLocals)
 				.build();
 
-		try (OutputConsumerPath outputConsumer = new OutputConsumerPath(output)) {
+		try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
 			outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
 
 			remapper.readInputs(input);
