@@ -18,6 +18,7 @@
 package net.fabricmc.tinyremapper;
 
 import java.io.BufferedReader;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -27,34 +28,21 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.zip.GZIPInputStream;
 
 import org.objectweb.asm.commons.Remapper;
 
 public final class TinyUtils {
-	public static class Mapping {
-		public final String owner, name, desc;
-
-		public Mapping(String owner, String name, String desc) {
+	private static class Mapping {
+		public Mapping(String owner, String name, String desc, String newName) {
 			this.owner = owner;
 			this.name = name;
 			this.desc = desc;
+			this.newName = newName;
 		}
 
-		@Override
-		public boolean equals(Object other) {
-			if (other == null || !(other instanceof Mapping)) {
-				return false;
-			} else {
-				Mapping otherM = (Mapping) other;
-				return owner.equals(otherM.owner) && name.equals(otherM.name) && Objects.equals(desc, otherM.desc);
-			}
-		}
-
-		@Override
-		public int hashCode() {
-			return Objects.hash(owner, name, desc);
-		}
+		public String owner, name, desc, newName;
 	}
 
 	private static class SimpleClassMapper extends Remapper {
@@ -109,72 +97,267 @@ public final class TinyUtils {
 	}
 
 	private static void readInternal(BufferedReader reader, String fromM, String toM, Map<String, String> classMap, Map<String, String> fieldMap, Map<String, String> methodMap) throws IOException {
-		TinyUtils.read(reader, fromM, toM, (classFrom, classTo) -> {
-			classMap.put(classFrom, classTo);
-		}, (fieldFrom, nameTo) -> {
-			fieldMap.put(fieldFrom.owner + "/" + MemberInstance.getFieldId(fieldFrom.name, fieldFrom.desc), nameTo);
-		}, (methodFrom, nameTo) -> {
-			methodMap.put(methodFrom.owner + "/" + MemberInstance.getMethodId(methodFrom.name, methodFrom.desc), nameTo);
-		});
+		List<Mapping> fieldMappings = new ArrayList<>();
+		List<Mapping> methodMappings = new ArrayList<>();
+
+		TinyUtils.read(reader, fromM, toM,
+				classMap::put,
+				fieldMappings::add,
+				methodMappings::add,
+				(remapClasses, classMapper) -> {
+					boolean fixOwner = remapClasses;
+
+					for (int i = 0; i < 2; i++) {
+						List<Mapping> mappings = i == 0 ? fieldMappings : methodMappings;
+
+						for (Mapping m : mappings) {
+							if (fixOwner) m.owner = classMapper.map(m.owner);
+							m.desc = classMapper.mapDesc(m.desc);
+						}
+					}
+				});
+
+		for (Mapping m : fieldMappings) {
+			fieldMap.put(m.owner + "/" + MemberInstance.getFieldId(m.name, m.desc), m.newName);
+		}
+
+		for (Mapping m : methodMappings) {
+			methodMap.put(m.owner + "/" + MemberInstance.getMethodId(m.name, m.desc), m.newName);
+		}
 	}
 
 	public static void read(BufferedReader reader, String from, String to,
 			BiConsumer<String, String> classMappingConsumer,
-			BiConsumer<Mapping, String> fieldMappingConsumer,
-			BiConsumer<Mapping, String> methodMappingConsumer)
+			Consumer<Mapping> fieldMappingConsumer,
+			Consumer<Mapping> methodMappingConsumer,
+			BiConsumer<Boolean, SimpleClassMapper> postProcessor)
 					throws IOException {
-		String[] header = reader.readLine().split("\t");
-		if (header.length <= 1
-				|| !header[0].equals("v1")) {
+		String headerLine = reader.readLine();
+
+		if (headerLine == null) {
+			throw new EOFException();
+		} else if (headerLine.startsWith("v1\t")) {
+			readV1(reader, from, to, headerLine, classMappingConsumer, fieldMappingConsumer, methodMappingConsumer, postProcessor);
+		} else if (headerLine.startsWith("tiny\t2\t")) {
+			readV2(reader, from, to, headerLine, classMappingConsumer, fieldMappingConsumer, methodMappingConsumer, postProcessor);
+		} else {
 			throw new IOException("Invalid mapping version!");
 		}
+	}
 
-		List<String> headerList = Arrays.asList(header);
+	private static void readV1(BufferedReader reader, String from, String to,
+			String headerLine,
+			BiConsumer<String, String> classMappingConsumer,
+			Consumer<Mapping> fieldMappingConsumer,
+			Consumer<Mapping> methodMappingConsumer,
+			BiConsumer<Boolean, SimpleClassMapper> postProcessor)
+					throws IOException {
+		List<String> headerList = Arrays.asList(headerLine.split("\t"));
 		int fromIndex = headerList.indexOf(from) - 1;
 		int toIndex = headerList.indexOf(to) - 1;
 
 		if (fromIndex < 0) throw new IOException("Could not find mapping '" + from + "'!");
 		if (toIndex < 0) throw new IOException("Could not find mapping '" + to + "'!");
 
-		Map<String, String> obfFrom = new HashMap<>();
-		List<String[]> linesStageTwo = new ArrayList<>();
+		Map<String, String> obfFrom = fromIndex != 1 ? new HashMap<>() : null;
 
 		String line;
 		while ((line = reader.readLine()) != null) {
 			String[] splitLine = line.split("\t");
+			if (splitLine.length < 2) continue;
 
-			if (splitLine.length >= 2) {
-				if ("CLASS".equals(splitLine[0])) {
-					classMappingConsumer.accept(splitLine[1 + fromIndex], splitLine[1 + toIndex]);
-					obfFrom.put(splitLine[1], splitLine[1 + fromIndex]);
+			String type = splitLine[0];
+
+			if ("CLASS".equals(type)) {
+				classMappingConsumer.accept(splitLine[1 + fromIndex], splitLine[1 + toIndex]);
+				if (obfFrom != null) obfFrom.put(splitLine[1], splitLine[1 + fromIndex]);
+			} else {
+				Consumer<Mapping> consumer;
+
+				if ("FIELD".equals(type)) {
+					consumer = fieldMappingConsumer;
+				} else if ("METHOD".equals(type)) {
+					consumer = methodMappingConsumer;
 				} else {
-					linesStageTwo.add(splitLine);
+					continue;
 				}
+
+				String owner = splitLine[1];
+				String name = splitLine[3 + fromIndex];
+				String desc = splitLine[2];
+				String nameTo = splitLine[3 + toIndex];
+
+				consumer.accept(new Mapping(owner, name, desc, nameTo));
 			}
 		}
 
-		SimpleClassMapper descObfFrom = new SimpleClassMapper(obfFrom);
-
-		for (String[] splitLine : linesStageTwo) {
-			String type = splitLine[0];
-			BiConsumer<Mapping, String> consumer;
-
-			if ("FIELD".equals(type)) {
-				consumer = fieldMappingConsumer;
-			} else if ("METHOD".equals(type)) {
-				consumer = methodMappingConsumer;
-			} else {
-				continue;
-			}
-
-			String owner = obfFrom.getOrDefault(splitLine[1], splitLine[1]);
-			String name = splitLine[3 + fromIndex];
-			String desc = descObfFrom.mapDesc(splitLine[2]);
-
-			Mapping mapping = new Mapping(owner, name, desc);
-			String nameTo = splitLine[3 + toIndex];
-
-			consumer.accept(mapping, nameTo);
+		if (obfFrom != null) {
+			postProcessor.accept(true, new SimpleClassMapper(obfFrom));
 		}
 	}
+
+	private static void readV2(BufferedReader reader, String from, String to,
+			String headerLine,
+			BiConsumer<String, String> classMappingConsumer,
+			Consumer<Mapping> fieldMappingConsumer,
+			Consumer<Mapping> methodMappingConsumer,
+			BiConsumer<Boolean, SimpleClassMapper> postProcessor)
+					throws IOException {
+		String firstLine = reader.readLine();
+		String[] parts;
+
+		if (firstLine == null
+				|| !firstLine.startsWith("tiny\t2\t")
+				|| (parts = splitAtTab(firstLine, 0, 5)).length < 5) { //min. tiny + major version + minor version + 2 name spaces
+			throw new IOException("invalid/unsupported tiny file (incorrect header)");
+		}
+
+		List<String> namespaces = Arrays.asList(parts).subList(3, parts.length);
+		int nsA = namespaces.indexOf(from);
+		int nsB = namespaces.indexOf(to);
+		Map<String, String> obfFrom = nsA != 0 ? new HashMap<>() : null;
+		int partCountHint = 2 + namespaces.size(); // suitable for members, which should be the majority
+		int lineNumber = 1;
+
+		boolean inHeader = true;
+		boolean inClass = false;
+		boolean inMethod = false;
+
+		boolean escapedNames = false;
+
+		String className = null;
+		String memberName = null;
+		String memberDesc = null;
+		int varLvIndex = 0;
+		int varStartOpIdx = 0;
+		int varLvtIndex = 0;
+		String line = headerLine;
+
+		do {
+			lineNumber++;
+			if (line.isEmpty()) continue;
+
+			int indent = 0;
+
+			while (indent < line.length() && line.charAt(indent) == '\t') {
+				indent++;
+			}
+
+			parts = splitAtTab(line, indent, partCountHint);
+			String section = parts[0];
+
+			if (indent == 0) {
+				inHeader = inClass = inMethod = false;
+
+				if (section.equals("c")) { // class: c <names>...
+					if (parts.length != namespaces.size() + 1) throw new IOException("invalid class decl in line "+lineNumber);
+
+					className = unescapeOpt(parts[1 + nsA], escapedNames);
+					String mappedName = unescapeOpt(parts[1 + nsB], escapedNames);
+
+					if (!mappedName.isEmpty()) {
+						classMappingConsumer.accept(className, mappedName);
+						if (obfFrom != null) obfFrom.put(unescapeOpt(parts[1], escapedNames), mappedName);
+					}
+
+					inClass = true;
+				}
+			} else if (indent == 1) {
+				inMethod = false;
+
+				if (inHeader) { // header k/v
+					if (section.equals("escaped-names")) {
+						escapedNames = true;
+					}
+				} else if (inClass && (section.equals("m") || section.equals("f"))) { // method/field: m/f <descA> <names>...
+					boolean isMethod = section.equals("m");
+					if (parts.length != namespaces.size() + 2) throw new IOException("invalid "+(isMethod ? "method" : "field")+" decl in line "+lineNumber);
+
+					memberDesc = unescapeOpt(parts[1], escapedNames);
+					memberName = unescapeOpt(parts[2 + nsA], escapedNames);
+					String mappedName = unescapeOpt(parts[2 + nsB], escapedNames);
+					Mapping mapping = new Mapping(className, mappedName, memberDesc, mappedName);
+
+					if (isMethod) {
+						if (!mappedName.isEmpty()) methodMappingConsumer.accept(mapping);
+						inMethod = true;
+					} else {
+						if (!mappedName.isEmpty()) fieldMappingConsumer.accept(mapping);
+					}
+				}
+			} else if (indent == 2) {
+				if (inMethod && section.equals("p")) { // method parameter: p <lv-index> <names>...
+					if (parts.length != namespaces.size() + 2) throw new IOException("invalid method parameter decl in line "+lineNumber);
+
+					varLvIndex = Integer.parseInt(parts[1]);
+					String mappedName = unescapeOpt(parts[2 + nsB], escapedNames);
+					//if (!mappedName.isEmpty()) mappingAcceptor.acceptMethodArg(className, memberName, memberDesc, -1, varLvIndex, null, mappedName);
+				} else if (inMethod && section.equals("v")) { // method variable: v <lv-index> <lv-start-offset> <optional-lvt-index> <names>...
+					if (parts.length != namespaces.size() + 4) throw new IOException("invalid method variable decl in line "+lineNumber);
+
+					varLvIndex = Integer.parseInt(parts[1]);
+					varStartOpIdx = Integer.parseInt(parts[2]);
+					varLvtIndex = Integer.parseInt(parts[3]);
+					String mappedName = unescapeOpt(parts[4 + nsB], escapedNames);
+					//if (!mappedName.isEmpty()) mappingAcceptor.acceptMethodVar(className, memberName, memberDesc, -1, varLvIndex, varStartOpIdx, varLvtIndex, null, mappedName);
+				}
+			}
+		} while ((line = reader.readLine()) != null);
+
+		if (obfFrom != null) {
+			postProcessor.accept(false, new SimpleClassMapper(obfFrom));
+		}
+	}
+
+	private static String[] splitAtTab(String s, int offset, int partCountHint) {
+		String[] ret = new String[Math.max(1, partCountHint)];
+		int partCount = 0;
+		int pos;
+
+		while ((pos = s.indexOf('\t', offset)) >= 0) {
+			if (partCount == ret.length) ret = Arrays.copyOf(ret, ret.length * 2);
+			ret[partCount++] = s.substring(offset, pos);
+			offset = pos + 1;
+		}
+
+		if (partCount == ret.length) ret = Arrays.copyOf(ret, ret.length + 1);
+		ret[partCount++] = s.substring(offset);
+
+		return partCount == ret.length ? ret : Arrays.copyOf(ret, partCount);
+	}
+
+	private static String unescapeOpt(String str, boolean escapedNames) {
+		return escapedNames ? unescape(str) : str;
+	}
+
+	private static String unescape(String str) {
+		int pos = str.indexOf('\\');
+		if (pos < 0) return str;
+
+		StringBuilder ret = new StringBuilder(str.length() - 1);
+		int start = 0;
+
+		do {
+			ret.append(str, start, pos);
+			pos++;
+			int type;
+
+			if (pos >= str.length()) {
+				throw new RuntimeException("incomplete escape sequence at the end");
+			} else if ((type = escaped.indexOf(str.charAt(pos))) < 0) {
+				throw new RuntimeException("invalid escape character: \\"+str.charAt(pos));
+			} else {
+				ret.append(toEscape.charAt(type));
+			}
+
+			start = pos + 1;
+		} while ((pos = str.indexOf('\\', start)) >= 0);
+
+		ret.append(str, start, str.length());
+
+		return ret.toString();
+	}
+
+	private static final String toEscape = "\\\n\r\0\t";
+	private static final String escaped = "\\nr0t";
 }
