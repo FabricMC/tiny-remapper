@@ -476,7 +476,9 @@ public class TinyRemapper {
 					if (mappingName == null) {
 						unfixableConflicts = true;
 					} else {
-						mappingName = stripClassName(mappingName, member.type);
+						if (mappingName.indexOf('/') >= 0) {
+							mappingName = stripClassName(mappingName, member.type);
+						}
 						member.forceSetNewName(mappingName);
 						System.out.println("    fixable: replaced with "+mappingName);
 					}
