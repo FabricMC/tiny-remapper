@@ -203,12 +203,10 @@ public final class TinyUtils {
 			Consumer<Mapping> methodMappingConsumer,
 			BiConsumer<Boolean, SimpleClassMapper> postProcessor)
 					throws IOException {
-		String firstLine = reader.readLine();
 		String[] parts;
 
-		if (firstLine == null
-				|| !firstLine.startsWith("tiny\t2\t")
-				|| (parts = splitAtTab(firstLine, 0, 5)).length < 5) { //min. tiny + major version + minor version + 2 name spaces
+		if (!headerLine.startsWith("tiny\t2\t")
+				|| (parts = splitAtTab(headerLine, 0, 5)).length < 5) { //min. tiny + major version + minor version + 2 name spaces
 			throw new IOException("invalid/unsupported tiny file (incorrect header)");
 		}
 
@@ -231,9 +229,9 @@ public final class TinyUtils {
 		int varLvIndex = 0;
 		int varStartOpIdx = 0;
 		int varLvtIndex = 0;
-		String line = headerLine;
+		String line;
 
-		do {
+		while ((line = reader.readLine()) != null) {
 			lineNumber++;
 			if (line.isEmpty()) continue;
 
@@ -276,7 +274,7 @@ public final class TinyUtils {
 					memberDesc = unescapeOpt(parts[1], escapedNames);
 					memberName = unescapeOpt(parts[2 + nsA], escapedNames);
 					String mappedName = unescapeOpt(parts[2 + nsB], escapedNames);
-					Mapping mapping = new Mapping(className, mappedName, memberDesc, mappedName);
+					Mapping mapping = new Mapping(className, memberName, memberDesc, mappedName);
 
 					if (isMethod) {
 						if (!mappedName.isEmpty()) methodMappingConsumer.accept(mapping);
@@ -302,7 +300,7 @@ public final class TinyUtils {
 					//if (!mappedName.isEmpty()) mappingAcceptor.acceptMethodVar(className, memberName, memberDesc, -1, varLvIndex, varStartOpIdx, varLvtIndex, null, mappedName);
 				}
 			}
-		} while ((line = reader.readLine()) != null);
+		}
 
 		if (obfFrom != null) {
 			postProcessor.accept(false, new SimpleClassMapper(obfFrom));
