@@ -203,12 +203,11 @@ public final class TinyUtils {
 			Consumer<Mapping> methodMappingConsumer,
 			BiConsumer<Boolean, SimpleClassMapper> postProcessor)
 					throws IOException {
-		String firstLine = reader.readLine();
 		String[] parts;
 
-		if (firstLine == null
-				|| !firstLine.startsWith("tiny\t2\t")
-				|| (parts = splitAtTab(firstLine, 0, 5)).length < 5) { //min. tiny + major version + minor version + 2 name spaces
+		if (headerLine == null
+				|| !headerLine.startsWith("tiny\t2\t")
+				|| (parts = splitAtTab(headerLine, 0, 5)).length < 5) { //min. tiny + major version + minor version + 2 name spaces
 			throw new IOException("invalid/unsupported tiny file (incorrect header)");
 		}
 
