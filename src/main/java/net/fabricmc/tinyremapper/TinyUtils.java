@@ -159,7 +159,7 @@ public final class TinyUtils {
 		if (fromIndex < 0) throw new IOException("Could not find mapping '" + from + "'!");
 		if (toIndex < 0) throw new IOException("Could not find mapping '" + to + "'!");
 
-		Map<String, String> obfFrom = fromIndex != 1 ? new HashMap<>() : null;
+		Map<String, String> obfFrom = fromIndex != 0 ? new HashMap<>() : null;
 
 		String line;
 		while ((line = reader.readLine()) != null) {
