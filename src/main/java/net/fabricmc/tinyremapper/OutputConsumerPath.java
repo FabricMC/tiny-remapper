@@ -51,6 +51,11 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 			this.destination = destination;
 		}
 
+		public Builder assumeArchive(boolean value) {
+			this.assumeArchive = value;
+			return this;
+		}
+
 		public Builder keepFsOpen(boolean value) {
 			this.keepFsOpen = value;
 			return this;
@@ -62,28 +67,29 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 		}
 
 		public OutputConsumerPath build() throws IOException {
-			return new OutputConsumerPath(destination, keepFsOpen, threadSyncWrites);
+			boolean isJar = assumeArchive == null || Files.exists(destination) ? isJar(destination) : assumeArchive;
+
+			return new OutputConsumerPath(destination, isJar, keepFsOpen, threadSyncWrites);
 		}
 
 		private final Path destination;
+		private Boolean assumeArchive;
 		private boolean keepFsOpen = false;
 		private boolean threadSyncWrites = false;
 	}
 
 	@Deprecated
 	public OutputConsumerPath(Path dstFile) throws IOException {
-		this(dstFile, false, false);
+		this(dstFile, true);
 	}
 
 	@Deprecated
 	public OutputConsumerPath(Path dstDir, boolean closeFs) throws IOException {
-		this(dstDir, !closeFs, false);
+		this(dstDir, isJar(dstDir), !closeFs, false);
 	}
 
-	private OutputConsumerPath(Path destination, boolean keepFsOpen, boolean threadSyncWrites) throws IOException {
-		boolean isJarFs = isJar(destination);
-
-		if (!isJarFs) {
+	private OutputConsumerPath(Path destination, boolean isJar, boolean keepFsOpen, boolean threadSyncWrites) throws IOException {
+		if (!isJar) {
 			Files.createDirectories(destination);
 		} else {
 			createParentDirs(destination);
@@ -102,8 +108,8 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 		}
 
 		this.dstDir = destination;
-		this.closeFs = isJarFs && !keepFsOpen;
-		this.isJarFs = isJarFs;
+		this.closeFs = isJar && !keepFsOpen;
+		this.isJarFs = isJar;
 		this.lock = threadSyncWrites ? new ReentrantLock() : null;
 	}
 
