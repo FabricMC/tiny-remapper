@@ -24,9 +24,14 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.zip.GZIPInputStream;
 
@@ -73,6 +78,7 @@ public final class TinyUtils {
 	}
 
 	private static class SimpleClassMapper extends Remapper {
+
 		final Map<String, String> classMap;
 
 		public SimpleClassMapper(Map<String, String> map) {
@@ -123,50 +129,176 @@ public final class TinyUtils {
 		};
 	}
 
-	private static void readInternal(BufferedReader reader, String fromM, String toM, MappingAcceptor out) throws IOException {
-		List<MemberMapping> methodMappings = new ArrayList<>();
-		List<MethodArgMapping> methodArgMappings = new ArrayList<>();
-		List<MethodVarMapping> methodVarMappings = new ArrayList<>();
-		List<MemberMapping> fieldMappings = new ArrayList<>();
-		Set<Member> members = Collections.newSetFromMap(new IdentityHashMap<>()); // for remapping members exactly once in postprocessing
-
-		MappingAcceptor tmp = new MappingAcceptor() {
-			@Override
-			public void acceptClass(String srcName, String dstName) {
-				out.acceptClass(srcName, dstName);
+	public static IMappingProvider createProguardOutputMappingProvider(final Path mappings) {
+		return (classMap, fieldMap, methodMap) -> {
+			try (BufferedReader reader = getMappingReader(mappings.toFile())) {
+				readProguard(reader, classMap, fieldMap, methodMap);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
 			}
 
-			@Override
-			public void acceptMethod(Member method, String dstName) {
-				methodMappings.add(new MemberMapping(method, dstName));
-				members.add(method);
-			}
-
-			@Override
-			public void acceptMethodArg(Member method, int lvIndex, String dstName) {
-				methodArgMappings.add(new MethodArgMapping(method, lvIndex, dstName));
-				members.add(method);
-			}
-
-			@Override
-			public void acceptMethodVar(Member method, int lvIndex, int startOpIdx, int asmIndex, String dstName) {
-				methodVarMappings.add(new MethodVarMapping(method, lvIndex, startOpIdx, asmIndex, dstName));
-				members.add(method);
-			}
-
-			@Override
-			public void acceptField(Member field, String dstName) {
-				fieldMappings.add(new MemberMapping(field, dstName));
-				members.add(field);
-			}
+			System.out.printf("%s: %d classes, %d methods, %d fields%n", mappings.getFileName().toString(), classMap.size(), methodMap.size(),
+					fieldMap.size());
 		};
+	}
+
+	public static IMappingProvider createProguardOutputMappingProvider(final BufferedReader reader) {
+		return (classMap, fieldMap, methodMap) -> {
+			try {
+				readProguard(reader, classMap, fieldMap, methodMap);
+			} catch (IOException e) {
+				throw new UncheckedIOException(e);
+			}
+
+			System.out.printf("%d classes, %d methods, %d fields%n", classMap.size(), methodMap.size(), fieldMap.size());
+		};
+	}
+
+	private static void readProguard(final BufferedReader reader, Map<String, String> classMap, Map<String, String> fieldMap,
+									 Map<String, String> methodMap) throws IOException {
+		Map<String, String> inversedClassMap = new HashMap<>();
+		List<Mapping> fieldMappings = new ArrayList<>();
+		List<Mapping> methodMappings = new ArrayList<>();
+
+		String line;
+		String inClass = null;
+		while ((line = reader.readLine()) != null) {
+			if (line.startsWith("#")) {
+				continue; // Ignore comments
+			}
+			if (line.startsWith(PROGUARD_MEMBER_INDENT)) {
+				String[] parts = line.substring(PROGUARD_MEMBER_INDENT.length()).split(" -> ");
+				if (parts.length != 2 || inClass == null) {
+					throw new IOException("Invalid member line " + line);
+				}
+				System.out.println("Member \"" + parts[0] + "\" <- \"" + parts[1] + "\"");
+
+				String[] descAndName = parts[0].split(" ");
+				if (descAndName.length != 2) {
+					throw new IOException("Invalid member line " + line);
+				}
+
+				boolean method = descAndName[0].indexOf(':') != -1;
+				if (method) {
+					descAndName[0] = fixProguardDescriptors(descAndName[1].substring(descAndName[1].indexOf('('))) + fixProguardType(
+							descAndName[0].substring(descAndName[0].lastIndexOf(':') + 1));
+					descAndName[1] = descAndName[1].substring(0, descAndName[1].indexOf('('));
+					methodMappings.add(new Mapping(inClass, parts[1], descAndName[0], descAndName[1]));
+				} else {
+					descAndName[0] = fixProguardType(descAndName[0]);
+					fieldMappings.add(new Mapping(inClass, parts[1], descAndName[0], descAndName[1]));
+				}
+			} else {
+				String[] parts = line.split(" -> ");
+				if (parts.length != 2 || !parts[1].endsWith(":")) {
+					throw new IOException("Invalid class line " + line);
+				}
+				parts[1] = parts[1].substring(0, parts[1].length() - 1);
+				System.out.println("Class \"" + parts[0] + "\" <- \"" + parts[1] + "\"");
+				inClass = parts[1].replace('.', '/');
+				String outClass = parts[0].replace('.', '/');
+				classMap.put(inClass, outClass);
+				inversedClassMap.put(outClass, inClass);
+			}
+		}
+
+		SimpleClassMapper mapper = new SimpleClassMapper(inversedClassMap);
+		for (Mapping m : methodMappings) {
+			m.desc = mapper.mapDesc(m.desc);
+			methodMap.put(m.owner + "/" + MemberInstance.getMethodId(m.name, m.desc), m.newName);
+		}
+
+		for (Mapping m : fieldMappings) {
+			m.desc = mapper.mapDesc(m.desc);
+			fieldMap.put(m.owner + "/" + MemberInstance.getFieldId(m.name, m.desc), m.newName);
+		}
+	}
+
+	private static String fixProguardDescriptors(String param) {
+		if (param.length() == 2)
+			return param;
+		String[] parts = param.substring(1, param.length() - 1).split(",");
+		StringBuilder sb = new StringBuilder();
+		sb.append('(');
+		for (String part : parts) {
+			sb.append(fixProguardType(part));
+		}
+		sb.append(')');
+		return sb.toString();
+	}
+
+	private static String fixProguardType(String proguardType) {
+		int arrayLevel = 0;
+		int len = proguardType.length();
+		while (len - 2 > arrayLevel * 2 && proguardType.charAt(len - arrayLevel * 2 - 1) == ']' && proguardType.charAt(len - arrayLevel * 2 - 2) == '[') {
+			arrayLevel++;
+		}
+
+		String body;
+		String check = arrayLevel == 0 ? proguardType : proguardType.substring(0, len - arrayLevel * 2);
+		switch (check) {
+			case "byte":
+				body = "B";
+				break;
+			case "char":
+				body = "C";
+				break;
+			case "double":
+				body = "D";
+				break;
+			case "float":
+				body = "F";
+				break;
+			case "int":
+				body = "I";
+				break;
+			case "long":
+				body = "J";
+				break;
+			case "short":
+				body = "S";
+				break;
+			case "boolean":
+				body = "Z";
+				break;
+			case "void":
+				body = "V";
+				break;
+			default:
+				body = "L" + check.replace('.', '/') + ";";
+				break;
+		}
+		if (arrayLevel == 0) {
+			return body;
+		}
+
+		StringBuilder sb = new StringBuilder(arrayLevel + body.length());
+		for (int i = 0; i < arrayLevel; i++) {
+			sb.append('[');
+		}
+		sb.append(body);
+		return sb.toString();
+	}
+
+	private static void readInternal(BufferedReader reader, String fromM, String toM, Map<String, String> classMap, Map<String, String> fieldMap,
+									 Map<String, String> methodMap) throws IOException {
+		List<Mapping> fieldMappings = new ArrayList<>();
+		List<Mapping> methodMappings = new ArrayList<>();
 
 		TinyUtils.read(reader, fromM, toM,
 				tmp,
 				(remapClasses, classMapper) -> {
-					for (Member m : members) {
-						if (remapClasses) m.owner = classMapper.map(m.owner);
-						m.desc = classMapper.mapDesc(m.desc);
+					boolean fixOwner = remapClasses;
+
+					for (int i = 0; i < 2; i++) {
+						List<Mapping> mappings = i == 0 ? fieldMappings : methodMappings;
+
+						for (Mapping m : mappings) {
+							if (fixOwner) {
+								m.owner = classMapper.map(m.owner);
+							}
+							m.desc = classMapper.mapDesc(m.desc);
+						}
 					}
 				});
 
@@ -213,15 +345,21 @@ public final class TinyUtils {
 		int fromIndex = headerList.indexOf(from) - 1;
 		int toIndex = headerList.indexOf(to) - 1;
 
-		if (fromIndex < 0) throw new IOException("Could not find mapping '" + from + "'!");
-		if (toIndex < 0) throw new IOException("Could not find mapping '" + to + "'!");
+		if (fromIndex < 0) {
+			throw new IOException("Could not find mapping '" + from + "'!");
+		}
+		if (toIndex < 0) {
+			throw new IOException("Could not find mapping '" + to + "'!");
+		}
 
 		Map<String, String> obfFrom = fromIndex != 0 ? new HashMap<>() : null;
 
 		String line;
 		while ((line = reader.readLine()) != null) {
 			String[] splitLine = line.split("\t");
-			if (splitLine.length < 2) continue;
+			if (splitLine.length < 2) {
+				continue;
+			}
 
 			String type = splitLine[0];
 
@@ -292,7 +430,9 @@ public final class TinyUtils {
 
 		while ((line = reader.readLine()) != null) {
 			lineNumber++;
-			if (line.isEmpty()) continue;
+			if (line.isEmpty()) {
+				continue;
+			}
 
 			int indent = 0;
 
@@ -307,7 +447,9 @@ public final class TinyUtils {
 				inHeader = inClass = inMethod = false;
 
 				if (section.equals("c")) { // class: c <names>...
-					if (parts.length != namespaces.size() + 1) throw new IOException("invalid class decl in line "+lineNumber);
+					if (parts.length != namespaces.size() + 1) {
+						throw new IOException("invalid class decl in line " + lineNumber);
+					}
 
 					className = unescapeOpt(parts[1 + nsA], escapedNames);
 					String mappedName = unescapeOpt(parts[1 + nsB], escapedNames);
@@ -346,13 +488,17 @@ public final class TinyUtils {
 				}
 			} else if (indent == 2) {
 				if (inMethod && section.equals("p")) { // method parameter: p <lv-index> <names>...
-					if (parts.length != namespaces.size() + 2) throw new IOException("invalid method parameter decl in line "+lineNumber);
+					if (parts.length != namespaces.size() + 2) {
+						throw new IOException("invalid method parameter decl in line " + lineNumber);
+					}
 
 					varLvIndex = Integer.parseInt(parts[1]);
 					String mappedName = unescapeOpt(parts[2 + nsB], escapedNames);
 					if (!mappedName.isEmpty()) out.acceptMethodArg(member, varLvIndex, mappedName);
 				} else if (inMethod && section.equals("v")) { // method variable: v <lv-index> <lv-start-offset> <optional-lvt-index> <names>...
-					if (parts.length != namespaces.size() + 4) throw new IOException("invalid method variable decl in line "+lineNumber);
+					if (parts.length != namespaces.size() + 4) {
+						throw new IOException("invalid method variable decl in line " + lineNumber);
+					}
 
 					varLvIndex = Integer.parseInt(parts[1]);
 					varStartOpIdx = Integer.parseInt(parts[2]);
@@ -374,12 +520,16 @@ public final class TinyUtils {
 		int pos;
 
 		while ((pos = s.indexOf('\t', offset)) >= 0) {
-			if (partCount == ret.length) ret = Arrays.copyOf(ret, ret.length * 2);
+			if (partCount == ret.length) {
+				ret = Arrays.copyOf(ret, ret.length * 2);
+			}
 			ret[partCount++] = s.substring(offset, pos);
 			offset = pos + 1;
 		}
 
-		if (partCount == ret.length) ret = Arrays.copyOf(ret, ret.length + 1);
+		if (partCount == ret.length) {
+			ret = Arrays.copyOf(ret, ret.length + 1);
+		}
 		ret[partCount++] = s.substring(offset);
 
 		return partCount == ret.length ? ret : Arrays.copyOf(ret, partCount);
@@ -391,7 +541,9 @@ public final class TinyUtils {
 
 	private static String unescape(String str) {
 		int pos = str.indexOf('\\');
-		if (pos < 0) return str;
+		if (pos < 0) {
+			return str;
+		}
 
 		StringBuilder ret = new StringBuilder(str.length() - 1);
 		int start = 0;
@@ -404,7 +556,7 @@ public final class TinyUtils {
 			if (pos >= str.length()) {
 				throw new RuntimeException("incomplete escape sequence at the end");
 			} else if ((type = escaped.indexOf(str.charAt(pos))) < 0) {
-				throw new RuntimeException("invalid escape character: \\"+str.charAt(pos));
+				throw new RuntimeException("invalid escape character: \\" + str.charAt(pos));
 			} else {
 				ret.append(toEscape.charAt(type));
 			}
@@ -419,4 +571,5 @@ public final class TinyUtils {
 
 	private static final String toEscape = "\\\n\r\0\t";
 	private static final String escaped = "\\nr0t";
+	private static final String PROGUARD_MEMBER_INDENT = "    ";
 }
