@@ -171,7 +171,6 @@ public final class TinyUtils {
 				if (parts.length != 2 || inClass == null) {
 					throw new IOException("Invalid member line " + line);
 				}
-				System.out.println("Member \"" + parts[0] + "\" <- \"" + parts[1] + "\"");
 
 				String[] descAndName = parts[0].split(" ");
 				if (descAndName.length != 2) {
@@ -194,7 +193,6 @@ public final class TinyUtils {
 					throw new IOException("Invalid class line " + line);
 				}
 				parts[1] = parts[1].substring(0, parts[1].length() - 1);
-				System.out.println("Class \"" + parts[0] + "\" <- \"" + parts[1] + "\"");
 				inClass = parts[1].replace('.', '/');
 				String outClass = parts[0].replace('.', '/');
 				classMap.put(inClass, outClass);
