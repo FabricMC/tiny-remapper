@@ -91,8 +91,17 @@ class AsmRemapper extends Remapper {
 
 	public String mapMethodArg(String methodOwner, String methodName, String methodDesc, int lvIndex, String name) {
 		String newName = remapper.methodArgMap.get(methodOwner+"/"+MemberInstance.getMethodId(methodName, methodDesc)+lvIndex);
+		if (newName != null) return newName;
 
-		return newName != null ? newName : name;
+		ClassInstance cls = getClass(methodOwner);
+		if (cls == null) return name;
+
+		MemberInstance originatingMethod = cls.resolve(MemberType.METHOD, MemberInstance.getMethodId(methodName, methodDesc));
+		if (originatingMethod == null) return name;
+
+		String originatingNewName = remapper.methodArgMap.get(originatingMethod.newNameOriginatingCls+"/"+MemberInstance.getMethodId(originatingMethod.name, originatingMethod.desc)+lvIndex);
+
+		return originatingNewName != null ? originatingNewName : name;
 	}
 
 	private ClassInstance getClass(String owner) {
