@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Handle;
@@ -36,12 +37,18 @@ import org.objectweb.asm.commons.MethodRemapper;
 import org.objectweb.asm.commons.Remapper;
 
 class AsmClassRemapper extends ClassRemapper {
-
-	private final boolean renameInvalidLocals;
-
 	public AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper, boolean renameInvalidLocals) {
 		super(cv, remapper);
 		this.renameInvalidLocals = renameInvalidLocals;
+	}
+
+	@Override
+	public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+		this.methodAccess = access;
+		this.methodName = name;
+		this.methodDesc = descriptor;
+
+		return super.visitMethod(access, name, descriptor, signature, exceptions);
 	}
 
 	@Override
@@ -51,8 +58,27 @@ class AsmClassRemapper extends ClassRemapper {
 
 	@Override
 	protected MethodVisitor createMethodRemapper(MethodVisitor mv) {
-		return new AsmMethodRemapper(mv, remapper, className, renameInvalidLocals);
+		return new AsmMethodRemapper(mv, remapper, className, methodName, methodDesc, methodAccess, renameInvalidLocals);
 	}
+
+	@Override
+	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+		return createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+	}
+
+	@Override
+	public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
+		return createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
+	}
+
+	public static AnnotationRemapper createAsmAnnotationRemapper(String desc, AnnotationVisitor annotationVisitor, Remapper remapper) {
+		return annotationVisitor == null ? null : new AsmAnnotationRemapper(annotationVisitor, remapper, desc);
+	}
+
+	private final boolean renameInvalidLocals;
+	private int methodAccess;
+	private String methodName;
+	private String methodDesc;
 
 	private static class AsmFieldRemapper extends FieldRemapper {
 		public AsmFieldRemapper(FieldVisitor fieldVisitor, Remapper remapper) {
@@ -71,31 +97,93 @@ class AsmClassRemapper extends ClassRemapper {
 	}
 
 	private static class AsmMethodRemapper extends MethodRemapper {
-		public AsmMethodRemapper(MethodVisitor methodVisitor, Remapper remapper, String className, boolean renameInvalidLocals) {
+		public AsmMethodRemapper(MethodVisitor methodVisitor, Remapper remapper, String className, String name, String desc, int access, boolean renameInvalidLocals) {
 			super(methodVisitor, remapper);
 
-			this.className = className;
+			this.owner = className;
+			this.name = name;
+			this.desc = desc;
+			this.isStatic = (access & Opcodes.ACC_STATIC) != 0;
+			this.argLvSize = getLvIndex(desc, isStatic, Integer.MAX_VALUE);
 			this.renameInvalidLocals = renameInvalidLocals;
+		}
+
+		private static int getLvIndex(String desc, boolean isStatic, int asmIndex) {
+			int ret = 0;
+
+			if (!isStatic) ret++;
+
+			if (!desc.startsWith("()") && asmIndex > 0) {
+				Type[] args = Type.getArgumentTypes(desc);
+
+				for (int i = 0, max = Math.min(args.length, asmIndex); i < max; i++) {
+					ret += args[i].getSize();
+				}
+			}
+
+			return ret;
+		}
+
+		@Override
+		public void visitParameter(String name, int access) {
+			name = ((AsmRemapper) remapper).mapMethodArg(this.owner, this.name, this.desc, getLvIndex(this.desc, isStatic, argsVisited), name);
+			argsVisited++;
+			super.visitParameter(name, access);
+		}
+
+		private void checkParameters() {
+			if (argsVisited > 0 || this.desc.startsWith("()")) return;
+
+			/* visitParameter() hasn't been called. checkParameters() gets called for every visit method that may
+			 * follow visitParameters(), but never earlier, in accordance with the visit order constraints specified in
+			 * MethodVistor.
+			 * The first call to checkParameters() also happens before any super.visit* that must follow
+			 * visitParameter(). The preceding check ensures in combination with the visitParameter implementation
+			 * ensures being in this first call.
+			 * This means it's now safe to recreate the MethodParameters attribute with dummy values by calling
+			 * visitParameter() directly and letting its implementation fill any known arg names in. */
+
+			int argCount = Type.getArgumentTypes(this.desc).length;
+
+			for (int i = 0; i < argCount; i++) {
+				visitParameter(null, 0);
+			}
 		}
 
 		@Override
 		public AnnotationVisitor visitAnnotationDefault() {
-			return AsmClassRemapper.createAsmAnnotationRemapper(Type.getObjectType(className).getDescriptor(), super.visitAnnotationDefault(), remapper);
+			checkParameters();
+			return AsmClassRemapper.createAsmAnnotationRemapper(Type.getObjectType(owner).getDescriptor(), super.visitAnnotationDefault(), remapper);
 		}
 
 		@Override
 		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
+			checkParameters();
 			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
 		}
 
 		@Override
 		public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
+			checkParameters();
 			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
 		}
 
 		@Override
 		public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {
+			checkParameters();
 			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitParameterAnnotation(parameter, descriptor, visible), remapper);
+		}
+
+		@Override
+		public void visitAttribute(Attribute attribute) {
+			checkParameters();
+			super.visitAttribute(attribute);
+		}
+
+		@Override
+		public void visitCode() {
+			checkParameters();
+			super.visitCode();
 		}
 
 		@Override
@@ -103,6 +191,10 @@ class AsmClassRemapper extends ClassRemapper {
 			if (mv == null) return;
 
 			descriptor = remapper.mapDesc(descriptor);
+
+			if (index < argLvSize) {
+				name = ((AsmRemapper) remapper).mapMethodArg(this.owner, this.name, this.desc, index, name);
+			}
 
 			if (renameInvalidLocals && !isValidJavaIdentifier(name)) {
 				Type type = Type.getType(descriptor);
@@ -188,23 +280,20 @@ class AsmClassRemapper extends ClassRemapper {
 					&& !bsm.isInterface();
 		}
 
-		private final String className;
+		@Override
+		public void visitEnd() {
+			checkParameters();
+			super.visitEnd();
+		}
+
+		private final String owner;
+		private final String name;
+		private final String desc;
+		private final boolean isStatic;
+		private final int argLvSize;
 		private final Map<String, Integer> nameCounts = new HashMap<>();
 		private final boolean renameInvalidLocals;
-	}
-
-	@Override
-	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-		return createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
-	}
-
-	@Override
-	public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
-		return createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
-	}
-
-	public static AnnotationRemapper createAsmAnnotationRemapper(String desc, AnnotationVisitor annotationVisitor, Remapper remapper) {
-		return annotationVisitor == null ? null : new AsmAnnotationRemapper(annotationVisitor, remapper, desc);
+		private int argsVisited;
 	}
 
 	private static class AsmAnnotationRemapper extends AnnotationRemapper {

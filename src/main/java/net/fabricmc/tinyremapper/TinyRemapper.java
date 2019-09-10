@@ -30,6 +30,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -55,6 +56,8 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.util.CheckClassAdapter;
 
+import net.fabricmc.tinyremapper.IMappingProvider.MappingAcceptor;
+import net.fabricmc.tinyremapper.IMappingProvider.Member;
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 
 public class TinyRemapper {
@@ -107,11 +110,9 @@ public class TinyRemapper {
 		}
 
 		public TinyRemapper build() {
-			TinyRemapper remapper = new TinyRemapper(threadCount, forcePropagation, propagatePrivate, removeFrames, ignoreConflicts, resolveMissing, rebuildSourceFilenames, renameInvalidLocals);
-
-			for (IMappingProvider provider : mappingProviders) {
-				provider.load(remapper.classMap, remapper.fieldMap, remapper.methodMap);
-			}
+			TinyRemapper remapper = new TinyRemapper(mappingProviders, threadCount,
+					forcePropagation, propagatePrivate,
+					removeFrames, ignoreConflicts, resolveMissing, rebuildSourceFilenames, renameInvalidLocals);
 
 			return remapper;
 		}
@@ -127,13 +128,15 @@ public class TinyRemapper {
 		private boolean renameInvalidLocals = false;
 	}
 
-	private TinyRemapper(int threadCount, Set<String> forcePropagation,
-			boolean propagatePrivate,
+	private TinyRemapper(Collection<IMappingProvider> mappingProviders,
+			int threadCount,
+			Set<String> forcePropagation, boolean propagatePrivate,
 			boolean removeFrames,
 			boolean ignoreConflicts,
 			boolean resolveMissing,
 			boolean rebuildSourceFilenames,
 			boolean renameInvalidLocals) {
+		this.mappingProviders = mappingProviders;
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
 		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
 		this.forcePropagation = forcePropagation;
@@ -317,6 +320,40 @@ public class TinyRemapper {
 		return ret != null ? ret : className;
 	}
 
+	private void loadMappings() {
+		MappingAcceptor acceptor = new MappingAcceptor() {
+			@Override
+			public void acceptClass(String srcName, String dstName) {
+				classMap.put(srcName, dstName);
+			}
+
+			@Override
+			public void acceptMethod(Member method, String dstName) {
+				methodMap.put(method.owner+"/"+MemberInstance.getMethodId(method.name, method.desc), dstName);
+			}
+
+			@Override
+			public void acceptMethodArg(Member method, int lvIndex, String dstName) {
+				methodArgMap.put(method.owner+"/"+MemberInstance.getMethodId(method.name, method.desc)+lvIndex, dstName);
+			}
+
+			@Override
+			public void acceptMethodVar(Member method, int lvIndex, int startOpIdx, int asmIndex, String dstName) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void acceptField(Member field, String dstName) {
+				fieldMap.put(field.owner+"/"+MemberInstance.getFieldId(field.name, field.desc), dstName);
+			}
+		};
+
+		for (IMappingProvider provider : mappingProviders) {
+			provider.load(acceptor);
+		}
+	}
+
 	private void checkClassMappings() {
 		Set<String> testSet = new HashSet<>(classMap.values());
 
@@ -492,6 +529,7 @@ public class TinyRemapper {
 
 	public void apply(final BiConsumer<String, byte[]> outputConsumer) {
 		if (dirty) {
+			loadMappings();
 			checkClassMappings();
 			merge();
 			propagate();
@@ -639,9 +677,11 @@ public class TinyRemapper {
 	private final boolean renameInvalidLocals;
 	final Map<String, String> classMap = new HashMap<>();
 	final Map<String, String> methodMap = new HashMap<>();
+	final Map<String, String> methodArgMap = new HashMap<>();
 	final Map<String, String> fieldMap = new HashMap<>();
 	final Map<String, ClassInstance> classes = new HashMap<>();
 	final Map<MemberInstance, Set<String>> conflicts = new ConcurrentHashMap<>();
+	private final Collection<IMappingProvider> mappingProviders;
 	private final int threadCount;
 	private final ExecutorService threadPool;
 	private final AsmRemapper remapper = new AsmRemapper(this);

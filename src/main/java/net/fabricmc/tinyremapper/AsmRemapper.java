@@ -89,6 +89,12 @@ class AsmRemapper extends Remapper {
 		return mapMethodNamePrefixDesc(owner, name, null);
 	}
 
+	public String mapMethodArg(String methodOwner, String methodName, String methodDesc, int lvIndex, String name) {
+		String newName = remapper.methodArgMap.get(methodOwner+"/"+MemberInstance.getMethodId(methodName, methodDesc)+lvIndex);
+
+		return newName != null ? newName : name;
+	}
+
 	private ClassInstance getClass(String owner) {
 		return remapper.classes.get(owner);
 	}

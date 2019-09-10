@@ -28,21 +28,48 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 import java.util.zip.GZIPInputStream;
 
 import org.objectweb.asm.commons.Remapper;
 
+import net.fabricmc.tinyremapper.IMappingProvider.MappingAcceptor;
+import net.fabricmc.tinyremapper.IMappingProvider.Member;
+
 public final class TinyUtils {
-	private static class Mapping {
-		public Mapping(String owner, String name, String desc, String newName) {
-			this.owner = owner;
-			this.name = name;
-			this.desc = desc;
+	private static final class MemberMapping {
+		public MemberMapping(Member member, String newName) {
+			this.member = member;
 			this.newName = newName;
 		}
 
-		public String owner, name, desc, newName;
+		public Member member;
+		public String newName;
+	}
+
+	private static final class MethodArgMapping {
+		public MethodArgMapping(Member method, int lvIndex, String newName) {
+			this.method = method;
+			this.lvIndex = lvIndex;
+			this.newName = newName;
+		}
+
+		public Member method;
+		public int lvIndex;
+		public String newName;
+	}
+
+	private static final class MethodVarMapping {
+		public MethodVarMapping(Member method, int lvIndex, int startOpIdx, int asmIndex, String newName) {
+			this.method = method;
+			this.lvIndex = lvIndex;
+			this.startOpIdx = startOpIdx;
+			this.asmIndex = asmIndex;
+			this.newName = newName;
+		}
+
+		public Member method;
+		public int lvIndex, startOpIdx, asmIndex;
+		public String newName;
 	}
 
 	private static class SimpleClassMapper extends Remapper {
@@ -63,14 +90,14 @@ public final class TinyUtils {
 	}
 
 	public static IMappingProvider createTinyMappingProvider(final Path mappings, String fromM, String toM) {
-		return (classMap, fieldMap, methodMap) -> {
+		return out -> {
 			try (BufferedReader reader = getMappingReader(mappings.toFile())) {
-				readInternal(reader, fromM, toM, classMap, fieldMap, methodMap);
+				readInternal(reader, fromM, toM, out);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
 
-			System.out.printf("%s: %d classes, %d methods, %d fields%n", mappings.getFileName().toString(), classMap.size(), methodMap.size(), fieldMap.size());
+			//System.out.printf("%s: %d classes, %d methods, %d fields%n", mappings.getFileName().toString(), classMap.size(), methodMap.size(), fieldMap.size());
 		};
 	}
 
@@ -85,51 +112,83 @@ public final class TinyUtils {
 	}
 
 	public static IMappingProvider createTinyMappingProvider(final BufferedReader reader, String fromM, String toM) {
-		return (classMap, fieldMap, methodMap) -> {
+		return out -> {
 			try {
-				readInternal(reader, fromM, toM, classMap, fieldMap, methodMap);
+				readInternal(reader, fromM, toM, out);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
 
-			System.out.printf("%d classes, %d methods, %d fields%n", classMap.size(), methodMap.size(), fieldMap.size());
+			//System.out.printf("%d classes, %d methods, %d fields%n", classMap.size(), methodMap.size(), fieldMap.size());
 		};
 	}
 
-	private static void readInternal(BufferedReader reader, String fromM, String toM, Map<String, String> classMap, Map<String, String> fieldMap, Map<String, String> methodMap) throws IOException {
-		List<Mapping> fieldMappings = new ArrayList<>();
-		List<Mapping> methodMappings = new ArrayList<>();
+	private static void readInternal(BufferedReader reader, String fromM, String toM, MappingAcceptor out) throws IOException {
+		List<MemberMapping> methodMappings = new ArrayList<>();
+		List<MethodArgMapping> methodArgMappings = new ArrayList<>();
+		List<MethodVarMapping> methodVarMappings = new ArrayList<>();
+		List<MemberMapping> fieldMappings = new ArrayList<>();
+		Set<Member> members = Collections.newSetFromMap(new IdentityHashMap<>()); // for remapping members exactly once in postprocessing
+
+		MappingAcceptor tmp = new MappingAcceptor() {
+			@Override
+			public void acceptClass(String srcName, String dstName) {
+				out.acceptClass(srcName, dstName);
+			}
+
+			@Override
+			public void acceptMethod(Member method, String dstName) {
+				methodMappings.add(new MemberMapping(method, dstName));
+				members.add(method);
+			}
+
+			@Override
+			public void acceptMethodArg(Member method, int lvIndex, String dstName) {
+				methodArgMappings.add(new MethodArgMapping(method, lvIndex, dstName));
+				members.add(method);
+			}
+
+			@Override
+			public void acceptMethodVar(Member method, int lvIndex, int startOpIdx, int asmIndex, String dstName) {
+				methodVarMappings.add(new MethodVarMapping(method, lvIndex, startOpIdx, asmIndex, dstName));
+				members.add(method);
+			}
+
+			@Override
+			public void acceptField(Member field, String dstName) {
+				fieldMappings.add(new MemberMapping(field, dstName));
+				members.add(field);
+			}
+		};
 
 		TinyUtils.read(reader, fromM, toM,
-				classMap::put,
-				fieldMappings::add,
-				methodMappings::add,
+				tmp,
 				(remapClasses, classMapper) -> {
-					boolean fixOwner = remapClasses;
-
-					for (int i = 0; i < 2; i++) {
-						List<Mapping> mappings = i == 0 ? fieldMappings : methodMappings;
-
-						for (Mapping m : mappings) {
-							if (fixOwner) m.owner = classMapper.map(m.owner);
-							m.desc = classMapper.mapDesc(m.desc);
-						}
+					for (Member m : members) {
+						if (remapClasses) m.owner = classMapper.map(m.owner);
+						m.desc = classMapper.mapDesc(m.desc);
 					}
 				});
 
-		for (Mapping m : fieldMappings) {
-			fieldMap.put(m.owner + "/" + MemberInstance.getFieldId(m.name, m.desc), m.newName);
+		for (MemberMapping m : methodMappings) {
+			out.acceptMethod(m.member, m.newName);
 		}
 
-		for (Mapping m : methodMappings) {
-			methodMap.put(m.owner + "/" + MemberInstance.getMethodId(m.name, m.desc), m.newName);
+		for (MethodArgMapping m : methodArgMappings) {
+			out.acceptMethodArg(m.method, m.lvIndex, m.newName);
+		}
+
+		for (MethodVarMapping m : methodVarMappings) {
+			out.acceptMethodVar(m.method, m.lvIndex, m.startOpIdx, m.asmIndex, m.newName);
+		}
+
+		for (MemberMapping m : fieldMappings) {
+			out.acceptField(m.member, m.newName);
 		}
 	}
 
 	public static void read(BufferedReader reader, String from, String to,
-			BiConsumer<String, String> classMappingConsumer,
-			Consumer<Mapping> fieldMappingConsumer,
-			Consumer<Mapping> methodMappingConsumer,
+			MappingAcceptor out,
 			BiConsumer<Boolean, SimpleClassMapper> postProcessor)
 					throws IOException {
 		String headerLine = reader.readLine();
@@ -137,9 +196,9 @@ public final class TinyUtils {
 		if (headerLine == null) {
 			throw new EOFException();
 		} else if (headerLine.startsWith("v1\t")) {
-			readV1(reader, from, to, headerLine, classMappingConsumer, fieldMappingConsumer, methodMappingConsumer, postProcessor);
+			readV1(reader, from, to, headerLine, out, postProcessor);
 		} else if (headerLine.startsWith("tiny\t2\t")) {
-			readV2(reader, from, to, headerLine, classMappingConsumer, fieldMappingConsumer, methodMappingConsumer, postProcessor);
+			readV2(reader, from, to, headerLine, out, postProcessor);
 		} else {
 			throw new IOException("Invalid mapping version!");
 		}
@@ -147,9 +206,7 @@ public final class TinyUtils {
 
 	private static void readV1(BufferedReader reader, String from, String to,
 			String headerLine,
-			BiConsumer<String, String> classMappingConsumer,
-			Consumer<Mapping> fieldMappingConsumer,
-			Consumer<Mapping> methodMappingConsumer,
+			MappingAcceptor out,
 			BiConsumer<Boolean, SimpleClassMapper> postProcessor)
 					throws IOException {
 		List<String> headerList = Arrays.asList(headerLine.split("\t"));
@@ -169,15 +226,15 @@ public final class TinyUtils {
 			String type = splitLine[0];
 
 			if ("CLASS".equals(type)) {
-				classMappingConsumer.accept(splitLine[1 + fromIndex], splitLine[1 + toIndex]);
+				out.acceptClass(splitLine[1 + fromIndex], splitLine[1 + toIndex]);
 				if (obfFrom != null) obfFrom.put(splitLine[1], splitLine[1 + fromIndex]);
 			} else {
-				Consumer<Mapping> consumer;
+				boolean isMethod;
 
 				if ("FIELD".equals(type)) {
-					consumer = fieldMappingConsumer;
+					isMethod = false;
 				} else if ("METHOD".equals(type)) {
-					consumer = methodMappingConsumer;
+					isMethod = true;
 				} else {
 					continue;
 				}
@@ -186,8 +243,13 @@ public final class TinyUtils {
 				String name = splitLine[3 + fromIndex];
 				String desc = splitLine[2];
 				String nameTo = splitLine[3 + toIndex];
+				Member member = new Member(owner, name, desc);
 
-				consumer.accept(new Mapping(owner, name, desc, nameTo));
+				if (isMethod) {
+					out.acceptMethod(member, nameTo);
+				} else {
+					out.acceptField(member, nameTo);
+				}
 			}
 		}
 
@@ -198,9 +260,7 @@ public final class TinyUtils {
 
 	private static void readV2(BufferedReader reader, String from, String to,
 			String headerLine,
-			BiConsumer<String, String> classMappingConsumer,
-			Consumer<Mapping> fieldMappingConsumer,
-			Consumer<Mapping> methodMappingConsumer,
+			MappingAcceptor out,
 			BiConsumer<Boolean, SimpleClassMapper> postProcessor)
 					throws IOException {
 		String[] parts;
@@ -224,8 +284,7 @@ public final class TinyUtils {
 		boolean escapedNames = false;
 
 		String className = null;
-		String memberName = null;
-		String memberDesc = null;
+		Member member = null;
 		int varLvIndex = 0;
 		int varStartOpIdx = 0;
 		int varLvtIndex = 0;
@@ -254,7 +313,7 @@ public final class TinyUtils {
 					String mappedName = unescapeOpt(parts[1 + nsB], escapedNames);
 
 					if (!mappedName.isEmpty()) {
-						classMappingConsumer.accept(className, mappedName);
+						out.acceptClass(className, mappedName);
 						if (obfFrom != null) obfFrom.put(unescapeOpt(parts[1], escapedNames), mappedName);
 					}
 
@@ -271,16 +330,18 @@ public final class TinyUtils {
 					boolean isMethod = section.equals("m");
 					if (parts.length != namespaces.size() + 2) throw new IOException("invalid "+(isMethod ? "method" : "field")+" decl in line "+lineNumber);
 
-					memberDesc = unescapeOpt(parts[1], escapedNames);
-					memberName = unescapeOpt(parts[2 + nsA], escapedNames);
+					String memberDesc = unescapeOpt(parts[1], escapedNames);
+					String memberName = unescapeOpt(parts[2 + nsA], escapedNames);
 					String mappedName = unescapeOpt(parts[2 + nsB], escapedNames);
-					Mapping mapping = new Mapping(className, memberName, memberDesc, mappedName);
+					member = new Member(className, memberName, memberDesc);
+					inMethod = isMethod;
 
-					if (isMethod) {
-						if (!mappedName.isEmpty()) methodMappingConsumer.accept(mapping);
-						inMethod = true;
-					} else {
-						if (!mappedName.isEmpty()) fieldMappingConsumer.accept(mapping);
+					if (!mappedName.isEmpty()) {
+						if (isMethod) {
+							out.acceptMethod(member, mappedName);
+						} else {
+							out.acceptField(member, mappedName);
+						}
 					}
 				}
 			} else if (indent == 2) {
@@ -289,7 +350,7 @@ public final class TinyUtils {
 
 					varLvIndex = Integer.parseInt(parts[1]);
 					String mappedName = unescapeOpt(parts[2 + nsB], escapedNames);
-					//if (!mappedName.isEmpty()) mappingAcceptor.acceptMethodArg(className, memberName, memberDesc, -1, varLvIndex, null, mappedName);
+					if (!mappedName.isEmpty()) out.acceptMethodArg(member, varLvIndex, mappedName);
 				} else if (inMethod && section.equals("v")) { // method variable: v <lv-index> <lv-start-offset> <optional-lvt-index> <names>...
 					if (parts.length != namespaces.size() + 4) throw new IOException("invalid method variable decl in line "+lineNumber);
 
@@ -297,7 +358,7 @@ public final class TinyUtils {
 					varStartOpIdx = Integer.parseInt(parts[2]);
 					varLvtIndex = Integer.parseInt(parts[3]);
 					String mappedName = unescapeOpt(parts[4 + nsB], escapedNames);
-					//if (!mappedName.isEmpty()) mappingAcceptor.acceptMethodVar(className, memberName, memberDesc, -1, varLvIndex, varStartOpIdx, varLvtIndex, null, mappedName);
+					if (!mappedName.isEmpty()) out.acceptMethodVar(member, varLvIndex, varStartOpIdx, varLvtIndex, mappedName);
 				}
 			}
 		}
