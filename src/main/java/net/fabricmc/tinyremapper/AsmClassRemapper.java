@@ -129,14 +129,12 @@ class AsmClassRemapper extends ClassRemapper {
 		public void visitParameter(String name, int access) {
 			name = ((AsmRemapper) remapper).mapMethodArg(this.owner, this.name, this.desc, getLvIndex(this.desc, isStatic, argsVisited), name);
 
-			if (renameInvalidLocals) {
-				if (!isValidJavaIdentifier(name)) {
-					name = renamedInvalidLocals.getOrDefault(argsVisited, name);
-				}
-
-				if (this.isAbstract && !isValidJavaIdentifier(name)) {
+			if (renameInvalidLocals && !isValidJavaIdentifier(name)) {
+				if (this.isAbstract) {
 					Type type = Type.getArgumentTypes(this.desc)[argsVisited];
 					name = getGeneratedName(type);
+				} else {
+					name = renamedInvalidLocals.getOrDefault(argsVisited, name);
 				}
 			}
 
@@ -161,7 +159,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 			int argCount = Type.getArgumentTypes(this.desc).length;
 
-			for (int i = argsVisited; i < argCount; i++) {
+			for (int i = argsVisited; i < argCount && argsVisited == i; i++) {
 				visitParameter(null, 0);
 			}
 		}
@@ -300,9 +298,9 @@ class AsmClassRemapper extends ClassRemapper {
 			return bsm.getTag() == Opcodes.H_INVOKESTATIC
 					&& bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")
 					&& (bsm.getName().equals("metafactory")
-							&& bsm.getDesc().equals("(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;")
-							|| bsm.getName().equals("altMetafactory")
-							&& bsm.getDesc().equals("(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;"))
+					&& bsm.getDesc().equals("(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;")
+					|| bsm.getName().equals("altMetafactory")
+					&& bsm.getDesc().equals("(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;"))
 					&& !bsm.isInterface();
 		}
 
