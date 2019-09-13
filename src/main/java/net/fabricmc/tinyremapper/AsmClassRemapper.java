@@ -126,21 +126,23 @@ class AsmClassRemapper extends ClassRemapper {
 		}
 
 		@Override
-		public void visitParameter(final String name, int access) {
-			String newName = ((AsmRemapper) remapper).mapMethodArg(this.owner, this.name, this.desc, getLvIndex(this.desc, isStatic, argsVisited), name);
+		public void visitParameter(String name, int access) {
+			name = ((AsmRemapper) remapper).mapMethodArg(this.owner, this.name, this.desc, getLvIndex(this.desc, isStatic, argsVisited), name);
 
-			if (newName == null || newName.equals(name)) {
-				newName = renamedInvalidLocals.get(argsVisited);
+			if (renameInvalidLocals) {
+				if (!isValidJavaIdentifier(name)) {
+					name = renamedInvalidLocals.getOrDefault(argsVisited, name);
+				}
+
+				if (this.isAbstract && !isValidJavaIdentifier(name)) {
+					Type type = Type.getArgumentTypes(this.desc)[argsVisited];
+					name = getGeneratedName(type);
+				}
 			}
 
-			if(this.isAbstract && renameInvalidLocals && (newName == null || newName.equals(name))) {
-				Type type = Type.getArgumentTypes(this.desc)[argsVisited];
-				newName = getGeneratedName(type);
-			}
-
-			if(newName != null || this.isAbstract) {
+			if(!renameInvalidLocals || isValidJavaIdentifier(name)) {
 				argsVisited++;
-				super.visitParameter(newName, access);
+				super.visitParameter(name, access);
 			}
 		}
 
@@ -248,7 +250,7 @@ class AsmClassRemapper extends ClassRemapper {
 		}
 
 		private static boolean isValidJavaIdentifier(String s) {
-			if (s.isEmpty()) return false;
+			if (s == null || s.isEmpty()) return false;
 
 			int cp = s.codePointAt(0);
 			if (!Character.isJavaIdentifierStart(cp)) return false;
