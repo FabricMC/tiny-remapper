@@ -106,7 +106,8 @@ class AsmClassRemapper extends ClassRemapper {
 			this.isStatic = (access & Opcodes.ACC_STATIC) != 0;
 			this.argLvSize = getLvIndex(desc, isStatic, Integer.MAX_VALUE);
 			this.renameInvalidLocals = renameInvalidLocals;
-			this.renamedInvalidParameters = new String[argLvSize];
+			this.parameterNames = new String[argLvSize];
+			this.parameterAccess = new int[argLvSize];
 		}
 
 		private static int getLvIndex(String desc, boolean isStatic, int asmIndex) {
@@ -127,70 +128,37 @@ class AsmClassRemapper extends ClassRemapper {
 
 		@Override
 		public void visitParameter(String name, int access) {
-			final int lvIndex = getLvIndex(this.desc, isStatic, argsVisited);
-			name = ((AsmRemapper) remapper).mapMethodArg(this.owner, this.name, this.desc, lvIndex, name);
-
-			if (renameInvalidLocals && !isValidJavaIdentifier(name)) {
-				final Type type = Type.getArgumentTypes(this.desc)[argsVisited];
-				name = getNameFromType(type, lvIndex);
-			}
-
-			argsVisited++;
-			super.visitParameter(name, access);
-		}
-
-		private void checkParameters() {
-			if (argsVisited > 0 || this.desc.startsWith("()")) return;
-
-			/* visitParameter() hasn't been called. checkParameters() gets called for every visit method that may
-			 * follow visitParameters(), but never earlier, in accordance with the visit order constraints specified in
-			 * MethodVistor.
-			 * The first call to checkParameters() also happens before any super.visit* that must follow
-			 * visitParameter(). The preceding check ensures in combination with the visitParameter implementation
-			 * ensures being in this first call.
-			 * This means it's now safe to recreate the MethodParameters attribute with dummy values by calling
-			 * visitParameter() directly and letting its implementation fill any known arg names in. */
-
-			int argCount = Type.getArgumentTypes(this.desc).length;
-
-			for (int i = 0; i < argCount; i++) {
-				visitParameter(null, 0);
-			}
+			parameterNames[argsVisited] = name;
+			parameterAccess[argsVisited++] = access;
 		}
 
 		@Override
 		public AnnotationVisitor visitAnnotationDefault() {
-			checkParameters();
 			return AsmClassRemapper.createAsmAnnotationRemapper(Type.getObjectType(owner).getDescriptor(), super.visitAnnotationDefault(), remapper);
 		}
 
 		@Override
 		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-			checkParameters();
 			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
 		}
 
 		@Override
 		public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
-			checkParameters();
 			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
 		}
 
 		@Override
 		public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {
-			checkParameters();
 			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitParameterAnnotation(parameter, descriptor, visible), remapper);
 		}
 
 		@Override
 		public void visitAttribute(Attribute attribute) {
-			checkParameters();
 			super.visitAttribute(attribute);
 		}
 
 		@Override
 		public void visitCode() {
-			checkParameters();
 			super.visitCode();
 		}
 
@@ -201,12 +169,20 @@ class AsmClassRemapper extends ClassRemapper {
 			descriptor = remapper.mapDesc(descriptor);
 
 			if (index < argLvSize) {
+				if(isValidJavaIdentifier(parameterNames[index])) { //look for valid parameter name
+					name = parameterNames[index];
+				}
+
 				name = ((AsmRemapper) remapper).mapMethodArg(this.owner, this.name, this.desc, index, name);
 			}
 
 			if (renameInvalidLocals && !isValidJavaIdentifier(name)) {
 				Type type = Type.getType(descriptor);
-				name = getNameFromType(type, index);
+				name = getNameFromType(type);
+			}
+
+			if (index < argLvSize) {
+				parameterNames[index] = name;
 			}
 
 			mv.visitLocalVariable(
@@ -218,11 +194,7 @@ class AsmClassRemapper extends ClassRemapper {
 					index);
 		}
 
-		private String getNameFromType(Type type, int index) {
-			if(index < argLvSize && renamedInvalidParameters[index] != null) {
-				return renamedInvalidParameters[index];
-			}
-
+		private String getNameFromType(Type type) {
 			boolean plural = false;
 
 			if (type.getSort() == Type.ARRAY) {
@@ -236,13 +208,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 			varName = Character.toLowerCase(varName.charAt(0)) + varName.substring(1);
 			if (plural) varName += "s";
-			String name = varName + "_" + nameCounts.compute(varName, (k, v) -> (v == null) ? 1 : v + 1);
-
-			if(index < argLvSize) {
-				renamedInvalidParameters[index] = name;
-			}
-
-			return name;
+			return varName + "_" + nameCounts.compute(varName, (k, v) -> (v == null) ? 1 : v + 1);
 		}
 
 		private static boolean isValidJavaIdentifier(String s) {
@@ -304,7 +270,21 @@ class AsmClassRemapper extends ClassRemapper {
 
 		@Override
 		public void visitEnd() {
-			checkParameters();
+			final Type[] paramTypes = Type.getArgumentTypes(this.desc);
+
+			for (int i = 0; i < paramTypes.length; i++) {
+				final int lvIndex = getLvIndex(this.desc, this.isStatic, i);
+
+				//If LVT is not present, for example in an abstract method, the name will not be set in the array.
+				//So simply map the method arg with the parameter name form LVT set as default and remap if invalid
+				String name = ((AsmRemapper) remapper).mapMethodArg(this.owner, this.name, this.desc, lvIndex, parameterNames[lvIndex]);
+
+				if(renameInvalidLocals && !isValidJavaIdentifier(name)) {
+					name = getNameFromType(paramTypes[i]);
+				}
+
+				super.visitParameter(name, parameterAccess[i]);
+			}
 			super.visitEnd();
 		}
 
@@ -315,7 +295,8 @@ class AsmClassRemapper extends ClassRemapper {
 		private final int argLvSize;
 		private final Map<String, Integer> nameCounts = new HashMap<>();
 		private final boolean renameInvalidLocals;
-		private final String[] renamedInvalidParameters;
+		private final String[] parameterNames;
+		private final int[] parameterAccess;
 		private int argsVisited;
 	}
 
