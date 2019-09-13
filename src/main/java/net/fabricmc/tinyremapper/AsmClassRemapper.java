@@ -104,6 +104,7 @@ class AsmClassRemapper extends ClassRemapper {
 			this.name = name;
 			this.desc = desc;
 			this.isStatic = (access & Opcodes.ACC_STATIC) != 0;
+			this.isAbstract = (access & Opcodes.ACC_ABSTRACT) != 0;
 			this.argLvSize = getLvIndex(desc, isStatic, Integer.MAX_VALUE);
 			this.renameInvalidLocals = renameInvalidLocals;
 		}
@@ -125,14 +126,26 @@ class AsmClassRemapper extends ClassRemapper {
 		}
 
 		@Override
-		public void visitParameter(String name, int access) {
-			name = ((AsmRemapper) remapper).mapMethodArg(this.owner, this.name, this.desc, getLvIndex(this.desc, isStatic, argsVisited), name);
-			argsVisited++;
-			super.visitParameter(name, access);
+		public void visitParameter(final String name, int access) {
+			String newName = ((AsmRemapper) remapper).mapMethodArg(this.owner, this.name, this.desc, getLvIndex(this.desc, isStatic, argsVisited), name);
+
+			if (newName == null || newName.equals(name)) {
+				newName = renamedInvalidLocals.get(argsVisited);
+			}
+
+			if(this.isAbstract && (newName == null || newName.equals(name))) {
+				newName = "p_" + nameCounts.compute("p", (k, v) -> (v == null) ? 1 : v + 1);
+			}
+
+			if(newName != null) {
+				argsVisited++;
+				super.visitParameter(newName, access);
+			}
 		}
 
-		private void checkParameters() {
-			if (argsVisited > 0 || this.desc.startsWith("()")) return;
+		private void checkParameters(boolean forceCheck) {
+			if ((checkedParams || this.desc.startsWith("()")) && !forceCheck) return;
+			checkedParams = true;
 
 			/* visitParameter() hasn't been called. checkParameters() gets called for every visit method that may
 			 * follow visitParameters(), but never earlier, in accordance with the visit order constraints specified in
@@ -145,44 +158,44 @@ class AsmClassRemapper extends ClassRemapper {
 
 			int argCount = Type.getArgumentTypes(this.desc).length;
 
-			for (int i = 0; i < argCount; i++) {
+			for (int i = argsVisited; i < argCount; i++) {
 				visitParameter(null, 0);
 			}
 		}
 
 		@Override
 		public AnnotationVisitor visitAnnotationDefault() {
-			checkParameters();
+			checkParameters(false);
 			return AsmClassRemapper.createAsmAnnotationRemapper(Type.getObjectType(owner).getDescriptor(), super.visitAnnotationDefault(), remapper);
 		}
 
 		@Override
 		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-			checkParameters();
+			checkParameters(false);
 			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
 		}
 
 		@Override
 		public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
-			checkParameters();
+			checkParameters(false);
 			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
 		}
 
 		@Override
 		public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {
-			checkParameters();
+			checkParameters(false);
 			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitParameterAnnotation(parameter, descriptor, visible), remapper);
 		}
 
 		@Override
 		public void visitAttribute(Attribute attribute) {
-			checkParameters();
+			checkParameters(false);
 			super.visitAttribute(attribute);
 		}
 
 		@Override
 		public void visitCode() {
-			checkParameters();
+			checkParameters(false);
 			super.visitCode();
 		}
 
@@ -212,6 +225,12 @@ class AsmClassRemapper extends ClassRemapper {
 				varName = Character.toLowerCase(varName.charAt(0)) + varName.substring(1);
 				if (plural) varName += "s";
 				name = varName + "_" + nameCounts.compute(varName, (k, v) -> (v == null) ? 1 : v + 1);
+
+				//make sure parameter name matches LVT
+				if (index < argLvSize) {
+					renamedInvalidLocals.put(index, name);
+					checkParameters(true);
+				}
 			}
 
 			mv.visitLocalVariable(
@@ -282,7 +301,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 		@Override
 		public void visitEnd() {
-			checkParameters();
+			checkParameters(false);
 			super.visitEnd();
 		}
 
@@ -290,10 +309,13 @@ class AsmClassRemapper extends ClassRemapper {
 		private final String name;
 		private final String desc;
 		private final boolean isStatic;
+		private final boolean isAbstract;
 		private final int argLvSize;
 		private final Map<String, Integer> nameCounts = new HashMap<>();
 		private final boolean renameInvalidLocals;
+		private final Map<Integer, String> renamedInvalidLocals = new HashMap<>();
 		private int argsVisited;
+		private boolean checkedParams = false;
 	}
 
 	private static class AsmAnnotationRemapper extends AnnotationRemapper {
