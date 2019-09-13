@@ -106,6 +106,7 @@ class AsmClassRemapper extends ClassRemapper {
 			this.isStatic = (access & Opcodes.ACC_STATIC) != 0;
 			this.argLvSize = getLvIndex(desc, isStatic, Integer.MAX_VALUE);
 			this.renameInvalidLocals = renameInvalidLocals;
+			this.renamedInvalidParameters = new String[argLvSize];
 		}
 
 		private static int getLvIndex(String desc, boolean isStatic, int asmIndex) {
@@ -152,7 +153,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 			int argCount = Type.getArgumentTypes(this.desc).length;
 
-			for (int i = 0; i < argCount && argsVisited == i; i++) {
+			for (int i = 0; i < argCount; i++) {
 				visitParameter(null, 0);
 			}
 		}
@@ -218,8 +219,8 @@ class AsmClassRemapper extends ClassRemapper {
 		}
 
 		private String getNameFromType(Type type, int index) {
-			if(renamedInvalidLocals.containsKey(index)) {
-				return renamedInvalidLocals.get(index);
+			if(index < argLvSize && renamedInvalidParameters[index] != null) {
+				return renamedInvalidParameters[index];
 			}
 
 			boolean plural = false;
@@ -236,7 +237,10 @@ class AsmClassRemapper extends ClassRemapper {
 			varName = Character.toLowerCase(varName.charAt(0)) + varName.substring(1);
 			if (plural) varName += "s";
 			String name = varName + "_" + nameCounts.compute(varName, (k, v) -> (v == null) ? 1 : v + 1);
-			renamedInvalidLocals.put(index, name);
+
+			if(index < argLvSize) {
+				renamedInvalidParameters[index] = name;
+			}
 
 			return name;
 		}
@@ -292,9 +296,9 @@ class AsmClassRemapper extends ClassRemapper {
 			return bsm.getTag() == Opcodes.H_INVOKESTATIC
 					&& bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")
 					&& (bsm.getName().equals("metafactory")
-					&& bsm.getDesc().equals("(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;")
-					|| bsm.getName().equals("altMetafactory")
-					&& bsm.getDesc().equals("(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;"))
+							&& bsm.getDesc().equals("(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;")
+							|| bsm.getName().equals("altMetafactory")
+							&& bsm.getDesc().equals("(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;"))
 					&& !bsm.isInterface();
 		}
 
@@ -311,7 +315,7 @@ class AsmClassRemapper extends ClassRemapper {
 		private final int argLvSize;
 		private final Map<String, Integer> nameCounts = new HashMap<>();
 		private final boolean renameInvalidLocals;
-		private final Map<Integer, String> renamedInvalidLocals = new HashMap<>();
+		private final String[] renamedInvalidParameters;
 		private int argsVisited;
 	}
 
