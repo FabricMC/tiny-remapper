@@ -133,11 +133,12 @@ class AsmClassRemapper extends ClassRemapper {
 				newName = renamedInvalidLocals.get(argsVisited);
 			}
 
-			if(this.isAbstract && (newName == null || newName.equals(name))) {
-				newName = "p_" + nameCounts.compute("p", (k, v) -> (v == null) ? 1 : v + 1);
+			if(this.isAbstract && renameInvalidLocals && (newName == null || newName.equals(name))) {
+				Type type = Type.getArgumentTypes(this.desc)[argsVisited];
+				newName = getGeneratedName(type);
 			}
 
-			if(newName != null) {
+			if(newName != null || this.isAbstract) {
 				argsVisited++;
 				super.visitParameter(newName, access);
 			}
@@ -211,20 +212,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 			if (renameInvalidLocals && !isValidJavaIdentifier(name)) {
 				Type type = Type.getType(descriptor);
-				boolean plural = false;
-
-				if (type.getSort() == Type.ARRAY) {
-					plural = true;
-					type = type.getElementType();
-				}
-
-				String varName = type.getClassName();
-				int dotIdx = varName.lastIndexOf('.');
-				if (dotIdx != -1) varName = varName.substring(dotIdx + 1);
-
-				varName = Character.toLowerCase(varName.charAt(0)) + varName.substring(1);
-				if (plural) varName += "s";
-				name = varName + "_" + nameCounts.compute(varName, (k, v) -> (v == null) ? 1 : v + 1);
+				name = getGeneratedName(type);
 
 				//make sure parameter name matches LVT
 				if (index < argLvSize) {
@@ -240,6 +228,23 @@ class AsmClassRemapper extends ClassRemapper {
 					start,
 					end,
 					index);
+		}
+
+		private String getGeneratedName(Type type) {
+			boolean plural = false;
+
+			if (type.getSort() == Type.ARRAY) {
+				plural = true;
+				type = type.getElementType();
+			}
+
+			String varName = type.getClassName();
+			int dotIdx = varName.lastIndexOf('.');
+			if (dotIdx != -1) varName = varName.substring(dotIdx + 1);
+
+			varName = Character.toLowerCase(varName.charAt(0)) + varName.substring(1);
+			if (plural) varName += "s";
+			return varName + "_" + nameCounts.compute(varName, (k, v) -> (v == null) ? 1 : v + 1);
 		}
 
 		private static boolean isValidJavaIdentifier(String s) {
