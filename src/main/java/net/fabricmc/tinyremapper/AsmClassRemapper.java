@@ -20,6 +20,7 @@ package net.fabricmc.tinyremapper;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassVisitor;
@@ -44,9 +45,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 	@Override
 	public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-		this.methodAccess = access;
-		this.methodName = name;
-		this.methodDesc = descriptor;
+		methodNode = new MethodNode(api, access, name, descriptor, signature, exceptions);
 
 		return super.visitMethod(access, name, descriptor, signature, exceptions);
 	}
@@ -58,7 +57,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 	@Override
 	protected MethodVisitor createMethodRemapper(MethodVisitor mv) {
-		return new AsmMethodRemapper(mv, remapper, className, methodName, methodDesc, methodAccess, renameInvalidLocals);
+		return new AsmMethodRemapper(mv, remapper, className, methodNode, renameInvalidLocals);
 	}
 
 	@Override
@@ -76,9 +75,7 @@ class AsmClassRemapper extends ClassRemapper {
 	}
 
 	private final boolean renameInvalidLocals;
-	private int methodAccess;
-	private String methodName;
-	private String methodDesc;
+	private MethodNode methodNode;
 
 	private static class AsmFieldRemapper extends FieldRemapper {
 		public AsmFieldRemapper(FieldVisitor fieldVisitor, Remapper remapper) {
@@ -97,14 +94,14 @@ class AsmClassRemapper extends ClassRemapper {
 	}
 
 	private static class AsmMethodRemapper extends MethodRemapper {
-		public AsmMethodRemapper(MethodVisitor methodVisitor, Remapper remapper, String className, String name, String desc, int access, boolean renameInvalidLocals) {
-			super(methodVisitor, remapper);
+		public AsmMethodRemapper(MethodVisitor methodVisitor, Remapper remapper, String owner, MethodNode methodNode, boolean renameInvalidLocals) {
+			super(methodNode, remapper);
 
-			this.owner = className;
-			this.name = name;
-			this.desc = desc;
-			this.isStatic = (access & Opcodes.ACC_STATIC) != 0;
-			this.argLvSize = getLvIndex(desc, isStatic, Integer.MAX_VALUE);
+			this.owner = owner;
+			this.methodNode = methodNode;
+			this.methodVisitor = methodVisitor;
+			this.isStatic = (methodNode.access & Opcodes.ACC_STATIC) != 0;
+			this.argLvSize = getLvIndex(methodNode.desc, isStatic, Integer.MAX_VALUE);
 			this.renameInvalidLocals = renameInvalidLocals;
 			this.parameterNames = new String[argLvSize];
 			this.parameterAccess = new int[argLvSize];
@@ -128,8 +125,9 @@ class AsmClassRemapper extends ClassRemapper {
 
 		@Override
 		public void visitParameter(String name, int access) {
-			parameterNames[argsVisited] = name;
-			parameterAccess[argsVisited++] = access;
+			final int lvIndex = getLvIndex(methodNode.desc, isStatic, argsVisited++);
+			parameterNames[lvIndex] = name;
+			parameterAccess[lvIndex] = access;
 		}
 
 		@Override
@@ -153,18 +151,8 @@ class AsmClassRemapper extends ClassRemapper {
 		}
 
 		@Override
-		public void visitAttribute(Attribute attribute) {
-			super.visitAttribute(attribute);
-		}
-
-		@Override
-		public void visitCode() {
-			super.visitCode();
-		}
-
-		@Override
 		public void visitLocalVariable(String name, String descriptor, String signature, Label start, Label end, int index) {
-			if (mv == null) return;
+			if (methodNode == null) return;
 
 			descriptor = remapper.mapDesc(descriptor);
 
@@ -173,7 +161,7 @@ class AsmClassRemapper extends ClassRemapper {
 					name = parameterNames[index];
 				}
 
-				name = ((AsmRemapper) remapper).mapMethodArg(this.owner, this.name, this.desc, index, name);
+				name = ((AsmRemapper) remapper).mapMethodArg(owner, methodNode.name, methodNode.desc, index, name);
 			}
 
 			if (renameInvalidLocals && !isValidJavaIdentifier(name)) {
@@ -185,7 +173,7 @@ class AsmClassRemapper extends ClassRemapper {
 				parameterNames[index] = name;
 			}
 
-			mv.visitLocalVariable(
+			methodNode.visitLocalVariable(
 					name,
 					descriptor,
 					remapper.mapSignature(signature, true),
@@ -227,7 +215,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 		@Override
 		public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
-			if (mv == null) return;
+			if (methodNode == null) return;
 
 			Handle implemented = getLambdaImplementedMethod(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
 
@@ -241,7 +229,7 @@ class AsmClassRemapper extends ClassRemapper {
 				bootstrapMethodArguments[i] = remapper.mapValue(bootstrapMethodArguments[i]);
 			}
 
-			mv.visitInvokeDynamicInsn(
+			methodNode.visitInvokeDynamicInsn(
 					name,
 					remapper.mapMethodDesc(descriptor), (Handle) remapper.mapValue(bootstrapMethodHandle),
 					bootstrapMethodArguments);
@@ -270,27 +258,31 @@ class AsmClassRemapper extends ClassRemapper {
 
 		@Override
 		public void visitEnd() {
-			final Type[] paramTypes = Type.getArgumentTypes(this.desc);
+			final Type[] paramTypes = Type.getArgumentTypes(methodNode.desc);
 
 			for (int i = 0; i < paramTypes.length; i++) {
-				final int lvIndex = getLvIndex(this.desc, this.isStatic, i);
+				final int lvIndex = getLvIndex(methodNode.desc, isStatic, i);
 
 				//If LVT is not present, for example in an abstract method, the name will not be set in the array.
 				//So simply map the method arg with the parameter name form LVT set as default and remap if invalid
-				String name = ((AsmRemapper) remapper).mapMethodArg(this.owner, this.name, this.desc, lvIndex, parameterNames[lvIndex]);
+				String name = ((AsmRemapper) remapper).mapMethodArg(owner, methodNode.name, methodNode.desc, lvIndex, parameterNames[lvIndex]);
 
 				if(renameInvalidLocals && !isValidJavaIdentifier(name)) {
 					name = getNameFromType(paramTypes[i]);
 				}
 
-				super.visitParameter(name, parameterAccess[i]);
+				methodNode.visitParameter(name, parameterAccess[i]);
 			}
+
+			methodNode.visitEnd();
+			methodNode.accept(methodVisitor);
+
 			super.visitEnd();
 		}
 
 		private final String owner;
-		private final String name;
-		private final String desc;
+		private final MethodNode methodNode;
+		private final MethodVisitor methodVisitor;
 		private final boolean isStatic;
 		private final int argLvSize;
 		private final Map<String, Integer> nameCounts = new HashMap<>();
