@@ -152,7 +152,7 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 
 					if (!fileName.endsWith(classSuffix)) {
 						Path relativePath = srcDir.relativize(file);
-						Path dstFile = dstDir.resolve(relativePath);
+						Path dstFile = dstDir.resolve(relativePath.toString()); // toString bypasses resolve requiring identical fs providers
 
 						if (copyMode == NonClassCopyMode.UNCHANGED
 								|| !relativePath.startsWith("META-INF")
