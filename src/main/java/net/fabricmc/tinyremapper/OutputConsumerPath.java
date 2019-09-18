@@ -17,6 +17,7 @@
 
 package net.fabricmc.tinyremapper;
 
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.Closeable;
@@ -171,7 +172,7 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 
 								fixManifest(manifest, remapper);
 
-								try (OutputStream os = Files.newOutputStream(dstFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+								try (OutputStream os = new BufferedOutputStream(Files.newOutputStream(dstFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE))) {
 									manifest.write(os);
 								}
 							} else if (remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services")) {
