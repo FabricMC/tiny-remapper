@@ -29,9 +29,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.zip.GZIPInputStream;
 
@@ -130,35 +133,33 @@ public final class TinyUtils {
 	}
 
 	public static IMappingProvider createProguardOutputMappingProvider(final Path mappings) {
-		return (classMap, fieldMap, methodMap) -> {
+		return out -> {
 			try (BufferedReader reader = getMappingReader(mappings.toFile())) {
-				readProguard(reader, classMap, fieldMap, methodMap);
+				readProguard(reader, out);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
 
-			System.out.printf("%s: %d classes, %d methods, %d fields%n", mappings.getFileName().toString(), classMap.size(), methodMap.size(),
-					fieldMap.size());
+//			System.out.printf("%s: %d classes, %d methods, %d fields%n", mappings.getFileName().toString(), classMap.size(), methodMap.size(), fieldMap.size());
 		};
 	}
 
 	public static IMappingProvider createProguardOutputMappingProvider(final BufferedReader reader) {
-		return (classMap, fieldMap, methodMap) -> {
+		return out -> {
 			try {
-				readProguard(reader, classMap, fieldMap, methodMap);
+				readProguard(reader, out);
 			} catch (IOException e) {
 				throw new UncheckedIOException(e);
 			}
 
-			System.out.printf("%d classes, %d methods, %d fields%n", classMap.size(), methodMap.size(), fieldMap.size());
+//			System.out.printf("%d classes, %d methods, %d fields%n", classMap.size(), methodMap.size(), fieldMap.size());
 		};
 	}
 
-	private static void readProguard(final BufferedReader reader, Map<String, String> classMap, Map<String, String> fieldMap,
-									 Map<String, String> methodMap) throws IOException {
+	private static void readProguard(final BufferedReader reader, MappingAcceptor out) throws IOException {
 		Map<String, String> inversedClassMap = new HashMap<>();
-		List<Mapping> fieldMappings = new ArrayList<>();
-		List<Mapping> methodMappings = new ArrayList<>();
+		List<MemberMapping> fieldMappings = new ArrayList<>();
+		List<MemberMapping> methodMappings = new ArrayList<>();
 
 		String line;
 		String inClass = null;
@@ -182,10 +183,10 @@ public final class TinyUtils {
 					descAndName[0] = fixProguardDescriptors(descAndName[1].substring(descAndName[1].indexOf('('))) + fixProguardType(
 							descAndName[0].substring(descAndName[0].lastIndexOf(':') + 1));
 					descAndName[1] = descAndName[1].substring(0, descAndName[1].indexOf('('));
-					methodMappings.add(new Mapping(inClass, parts[1], descAndName[0], descAndName[1]));
+					methodMappings.add(new MemberMapping(new Member(inClass, parts[1], descAndName[0]), descAndName[1]));
 				} else {
 					descAndName[0] = fixProguardType(descAndName[0]);
-					fieldMappings.add(new Mapping(inClass, parts[1], descAndName[0], descAndName[1]));
+					fieldMappings.add(new MemberMapping(new Member(inClass, parts[1], descAndName[0]), descAndName[1]));
 				}
 			} else {
 				String[] parts = line.split(" -> ");
@@ -195,20 +196,20 @@ public final class TinyUtils {
 				parts[1] = parts[1].substring(0, parts[1].length() - 1);
 				inClass = parts[1].replace('.', '/');
 				String outClass = parts[0].replace('.', '/');
-				classMap.put(inClass, outClass);
+				out.acceptClass(inClass, outClass);
 				inversedClassMap.put(outClass, inClass);
 			}
 		}
 
 		SimpleClassMapper mapper = new SimpleClassMapper(inversedClassMap);
-		for (Mapping m : methodMappings) {
-			m.desc = mapper.mapDesc(m.desc);
-			methodMap.put(m.owner + "/" + MemberInstance.getMethodId(m.name, m.desc), m.newName);
+		for (MemberMapping m : methodMappings) {
+			m.member.desc = mapper.mapDesc(m.member.desc);
+			out.acceptMethod(m.member, m.newName);
 		}
 
-		for (Mapping m : fieldMappings) {
-			m.desc = mapper.mapDesc(m.desc);
-			fieldMap.put(m.owner + "/" + MemberInstance.getFieldId(m.name, m.desc), m.newName);
+		for (MemberMapping m : fieldMappings) {
+			m.member.desc = mapper.mapDesc(m.member.desc);
+			out.acceptField(m.member, m.newName);
 		}
 	}
 
@@ -278,10 +279,42 @@ public final class TinyUtils {
 		return sb.toString();
 	}
 
-	private static void readInternal(BufferedReader reader, String fromM, String toM, Map<String, String> classMap, Map<String, String> fieldMap,
-									 Map<String, String> methodMap) throws IOException {
-		List<Mapping> fieldMappings = new ArrayList<>();
-		List<Mapping> methodMappings = new ArrayList<>();
+	private static void readInternal(BufferedReader reader, String fromM, String toM, MappingAcceptor out) throws IOException {
+		List<MemberMapping> methodMappings = new ArrayList<>();
+		List<MethodArgMapping> methodArgMappings = new ArrayList<>();
+		List<MethodVarMapping> methodVarMappings = new ArrayList<>();
+		List<MemberMapping> fieldMappings = new ArrayList<>();
+		Set<Member> members = Collections.newSetFromMap(new IdentityHashMap<>()); // for remapping members exactly once in postprocessing
+
+		MappingAcceptor tmp = new MappingAcceptor() {
+			@Override
+			public void acceptClass(String srcName, String dstName) {
+				out.acceptClass(srcName, dstName);
+			}
+
+			@Override
+			public void acceptMethod(Member method, String dstName) {
+				methodMappings.add(new MemberMapping(method, dstName));
+				members.add(method);
+			}
+			@Override
+			public void acceptMethodArg(Member method, int lvIndex, String dstName) {
+				methodArgMappings.add(new MethodArgMapping(method, lvIndex, dstName));
+				members.add(method);
+			}
+
+			@Override
+			public void acceptMethodVar(Member method, int lvIndex, int startOpIdx, int asmIndex, String dstName) {
+				methodVarMappings.add(new MethodVarMapping(method, lvIndex, startOpIdx, asmIndex, dstName));
+				members.add(method);
+			}
+
+			@Override
+			public void acceptField(Member field, String dstName) {
+				fieldMappings.add(new MemberMapping(field, dstName));
+				members.add(field);
+			}
+		};
 
 		TinyUtils.read(reader, fromM, toM,
 				tmp,
@@ -289,13 +322,13 @@ public final class TinyUtils {
 					boolean fixOwner = remapClasses;
 
 					for (int i = 0; i < 2; i++) {
-						List<Mapping> mappings = i == 0 ? fieldMappings : methodMappings;
+						List<MemberMapping> mappings = i == 0 ? fieldMappings : methodMappings;
 
-						for (Mapping m : mappings) {
+						for (MemberMapping m : mappings) {
 							if (fixOwner) {
-								m.owner = classMapper.map(m.owner);
+								m.member.owner = classMapper.map(m.member.owner);
 							}
-							m.desc = classMapper.mapDesc(m.desc);
+							m.member.desc = classMapper.mapDesc(m.member.desc);
 						}
 					}
 				});
