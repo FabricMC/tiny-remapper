@@ -21,8 +21,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.objectweb.asm.tree.MethodNode;
+
+import net.fabricmc.tinyremapper.MemberInstance.MemberType;
+
 import org.objectweb.asm.AnnotationVisitor;
-import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Handle;
@@ -38,8 +40,10 @@ import org.objectweb.asm.commons.MethodRemapper;
 import org.objectweb.asm.commons.Remapper;
 
 class AsmClassRemapper extends ClassRemapper {
-	public AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper, boolean renameInvalidLocals) {
+	public AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper, boolean checkPackageAccess, boolean renameInvalidLocals) {
 		super(cv, remapper);
+
+		this.checkPackageAccess = checkPackageAccess;
 		this.renameInvalidLocals = renameInvalidLocals;
 	}
 
@@ -57,7 +61,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 	@Override
 	protected MethodVisitor createMethodRemapper(MethodVisitor mv) {
-		return new AsmMethodRemapper(mv, remapper, className, methodNode, renameInvalidLocals);
+		return new AsmMethodRemapper(mv, remapper, className, methodNode, checkPackageAccess, renameInvalidLocals);
 	}
 
 	@Override
@@ -74,6 +78,7 @@ class AsmClassRemapper extends ClassRemapper {
 		return annotationVisitor == null ? null : new AsmAnnotationRemapper(annotationVisitor, remapper, desc);
 	}
 
+	private final boolean checkPackageAccess;
 	private final boolean renameInvalidLocals;
 	private MethodNode methodNode;
 
@@ -94,7 +99,7 @@ class AsmClassRemapper extends ClassRemapper {
 	}
 
 	private static class AsmMethodRemapper extends MethodRemapper {
-		public AsmMethodRemapper(MethodVisitor methodVisitor, Remapper remapper, String owner, MethodNode methodNode, boolean renameInvalidLocals) {
+		public AsmMethodRemapper(MethodVisitor methodVisitor, Remapper remapper, String owner, MethodNode methodNode, boolean checkPackageAccess, boolean renameInvalidLocals) {
 			super(methodNode, remapper);
 
 			this.owner = owner;
@@ -102,6 +107,7 @@ class AsmClassRemapper extends ClassRemapper {
 			this.methodVisitor = methodVisitor;
 			this.isStatic = (methodNode.access & Opcodes.ACC_STATIC) != 0;
 			this.argLvSize = getLvIndex(methodNode.desc, isStatic, Integer.MAX_VALUE);
+			this.checkPackageAccess = checkPackageAccess;
 			this.renameInvalidLocals = renameInvalidLocals;
 			this.parameterNames = new String[argLvSize];
 			this.parameterAccess = new int[argLvSize];
@@ -214,6 +220,24 @@ class AsmClassRemapper extends ClassRemapper {
 		}
 
 		@Override
+		public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
+			if (checkPackageAccess) {
+				((AsmRemapper) remapper).checkPackageAccess(this.owner, owner, name, descriptor, MemberType.FIELD);
+			}
+
+			super.visitFieldInsn(opcode, owner, name, descriptor);
+		}
+
+		@Override
+		public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
+			if (checkPackageAccess) {
+				((AsmRemapper) remapper).checkPackageAccess(this.owner, owner, name, descriptor, MemberType.METHOD);
+			}
+
+			super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+		}
+
+		@Override
 		public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
 			if (methodNode == null) return;
 
@@ -286,6 +310,7 @@ class AsmClassRemapper extends ClassRemapper {
 		private final boolean isStatic;
 		private final int argLvSize;
 		private final Map<String, Integer> nameCounts = new HashMap<>();
+		private final boolean checkPackageAccess;
 		private final boolean renameInvalidLocals;
 		private final String[] parameterNames;
 		private final int[] parameterAccess;

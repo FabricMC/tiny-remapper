@@ -99,6 +99,16 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public Builder checkPackageAccess(boolean value) {
+			checkPackageAccess = value;
+			return this;
+		}
+
+		public Builder fixPackageAccess(boolean value) {
+			fixPackageAccess = value;
+			return this;
+		}
+
 		public Builder rebuildSourceFilenames(boolean value) {
 			rebuildSourceFilenames = value;
 			return this;
@@ -112,7 +122,8 @@ public class TinyRemapper {
 		public TinyRemapper build() {
 			TinyRemapper remapper = new TinyRemapper(mappingProviders, threadCount,
 					forcePropagation, propagatePrivate,
-					removeFrames, ignoreConflicts, resolveMissing, rebuildSourceFilenames, renameInvalidLocals);
+					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
+					rebuildSourceFilenames, renameInvalidLocals);
 
 			return remapper;
 		}
@@ -124,6 +135,8 @@ public class TinyRemapper {
 		private boolean removeFrames = false;
 		private boolean ignoreConflicts = false;
 		private boolean resolveMissing = false;
+		private boolean checkPackageAccess = false;
+		private boolean fixPackageAccess = false;
 		private boolean rebuildSourceFilenames = false;
 		private boolean renameInvalidLocals = false;
 	}
@@ -134,6 +147,8 @@ public class TinyRemapper {
 			boolean removeFrames,
 			boolean ignoreConflicts,
 			boolean resolveMissing,
+			boolean checkPackageAccess,
+			boolean fixPackageAccess,
 			boolean rebuildSourceFilenames,
 			boolean renameInvalidLocals) {
 		this.mappingProviders = mappingProviders;
@@ -144,6 +159,8 @@ public class TinyRemapper {
 		this.removeFrames = removeFrames;
 		this.ignoreConflicts = ignoreConflicts;
 		this.resolveMissing = resolveMissing;
+		this.checkPackageAccess = checkPackageAccess;
+		this.fixPackageAccess = fixPackageAccess;
 		this.rebuildSourceFilenames = rebuildSourceFilenames;
 		this.renameInvalidLocals = renameInvalidLocals;
 	}
@@ -291,7 +308,7 @@ public class TinyRemapper {
 		reader.accept(new ClassVisitor(Opcodes.ASM7) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-				ret.init(name, superName, (access & Opcodes.ACC_INTERFACE) != 0, interfaces);
+				ret.init(name, superName, access, interfaces);
 			}
 
 			@Override
@@ -537,15 +554,50 @@ public class TinyRemapper {
 			dirty = false;
 		}
 
+		Map<ClassInstance, byte[]> outputBuffer;
+		BiConsumer<ClassInstance, byte[]> immediateOutputConsumer;
+
+		if (fixPackageAccess) {
+			outputBuffer = new ConcurrentHashMap<>();
+			immediateOutputConsumer = outputBuffer::put;
+		} else {
+			outputBuffer = null;
+			immediateOutputConsumer = (cls, data) -> outputConsumer.accept(mapClass(cls.getName()), data);
+		}
+
 		List<Future<?>> futures = new ArrayList<>();
 
 		for (final ClassInstance cls : classes.values()) {
 			if (!cls.isInput) continue;
 
-			futures.add(threadPool.submit(() -> outputConsumer.accept(mapClass(cls.getName()), apply(cls))));
+			futures.add(threadPool.submit(() -> immediateOutputConsumer.accept(cls, apply(cls))));
 		}
 
 		waitForAll(futures);
+
+		boolean needsFixes = !classesToMakePublic.isEmpty() || !membersToMakePublic.isEmpty();
+
+		if (fixPackageAccess) {
+			if (needsFixes) {
+				System.out.printf("Fixing access for %d classes and %d members.%n", classesToMakePublic.size(), membersToMakePublic.size());
+			}
+
+			for (Map.Entry<ClassInstance, byte[]> entry : outputBuffer.entrySet()) {
+				ClassInstance cls = entry.getKey();
+				byte[] data = entry.getValue();
+
+				if (needsFixes) {
+					data = fixClass(cls, data);
+				}
+
+				outputConsumer.accept(mapClass(cls.getName()), data);
+			}
+
+			classesToMakePublic.clear();
+			membersToMakePublic.clear();
+		} else if (needsFixes) {
+			throw new RuntimeException(String.format("%d classes and %d members need access fixes", classesToMakePublic.size(), membersToMakePublic.size()));
+		}
 	}
 
 	private byte[] apply(final ClassInstance cls) {
@@ -564,8 +616,71 @@ public class TinyRemapper {
 			visitor = new CheckClassAdapter(visitor);
 		}
 
-		reader.accept(new AsmClassRemapper(visitor, remapper, renameInvalidLocals), flags);
+		reader.accept(new AsmClassRemapper(visitor, remapper, checkPackageAccess, renameInvalidLocals), flags);
 		// TODO: compute frames (-Xverify:all -XX:-FailOverToOldVerifier)
+
+		return writer.toByteArray();
+	}
+
+	private byte[] fixClass(ClassInstance cls, byte[] data) {
+		boolean makeClsPublic = classesToMakePublic.contains(cls);
+		Set<String> clsMembersToMakePublic = null;
+
+		for (MemberInstance member : cls.getMembers()) {
+			if (membersToMakePublic.contains(member)) {
+				if (clsMembersToMakePublic == null) clsMembersToMakePublic = new HashSet<>();
+
+				String mappedName, mappedDesc;
+
+				if (member.type == MemberType.FIELD) {
+					mappedName = remapper.mapFieldName(cls.getName(), member.name, member.desc);
+					mappedDesc = remapper.mapDesc(member.desc);
+				} else {
+					mappedName = remapper.mapMethodName(cls.getName(), member.name, member.desc);
+					mappedDesc = remapper.mapMethodDesc(member.desc);
+				}
+
+				clsMembersToMakePublic.add(MemberInstance.getId(member.type, mappedName, mappedDesc));
+			}
+		}
+
+		if (!makeClsPublic && clsMembersToMakePublic == null) return data;
+
+		final Set<String> finalClsMembersToMakePublic = clsMembersToMakePublic;
+
+		ClassReader reader = new ClassReader(data);
+		ClassWriter writer = new ClassWriter(0);
+
+		reader.accept(new ClassVisitor(Opcodes.ASM7, writer) {
+			@Override
+			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+				if (makeClsPublic) {
+					access = (access & ~(Opcodes.ACC_PRIVATE | Opcodes.ACC_PROTECTED)) | Opcodes.ACC_PUBLIC;
+				}
+
+				super.visit(version, access, name, signature, superName, interfaces);
+			}
+
+			@Override
+			public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
+				if (finalClsMembersToMakePublic != null
+						&& finalClsMembersToMakePublic.contains(MemberInstance.getFieldId(name, descriptor))) {
+					access = (access & ~(Opcodes.ACC_PRIVATE | Opcodes.ACC_PROTECTED)) | Opcodes.ACC_PUBLIC;
+				}
+
+				return super.visitField(access, name, descriptor, signature, value);
+			}
+
+			@Override
+			public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+				if (finalClsMembersToMakePublic != null
+						&& finalClsMembersToMakePublic.contains(MemberInstance.getMethodId(name, descriptor))) {
+					access = (access & ~(Opcodes.ACC_PRIVATE | Opcodes.ACC_PROTECTED)) | Opcodes.ACC_PUBLIC;
+				}
+
+				return super.visitMethod(access, name, descriptor, signature, exceptions);
+			}
+		}, 0);
 
 		return writer.toByteArray();
 	}
@@ -673,6 +788,8 @@ public class TinyRemapper {
 	private final boolean removeFrames;
 	private final boolean ignoreConflicts;
 	private final boolean resolveMissing;
+	private final boolean checkPackageAccess;
+	private final boolean fixPackageAccess;
 	private final boolean rebuildSourceFilenames;
 	private final boolean renameInvalidLocals;
 	final Map<String, String> classMap = new HashMap<>();
@@ -681,6 +798,8 @@ public class TinyRemapper {
 	final Map<String, String> fieldMap = new HashMap<>();
 	final Map<String, ClassInstance> classes = new HashMap<>();
 	final Map<MemberInstance, Set<String>> conflicts = new ConcurrentHashMap<>();
+	final Set<ClassInstance> classesToMakePublic = Collections.newSetFromMap(new ConcurrentHashMap<>());
+	final Set<MemberInstance> membersToMakePublic = Collections.newSetFromMap(new ConcurrentHashMap<>());
 	private final Collection<IMappingProvider> mappingProviders;
 	private final int threadCount;
 	private final ExecutorService threadPool;

@@ -104,6 +104,78 @@ class AsmRemapper extends Remapper {
 		return originatingNewName != null ? originatingNewName : name;
 	}
 
+	/**
+	 * Check if a class can access a specific member, printing and recording failure for later.
+	 */
+	public void checkPackageAccess(String accessingOwner, String owner, String name, String desc, MemberType type) {
+		ClassInstance cls = getClass(owner);
+		if (cls == null) return;
+
+		String id = MemberInstance.getId(type, name, desc);
+		MemberInstance member = cls.resolve(type, id);
+
+		if (member != null) {
+			cls = member.cls;
+			owner = cls.getName();
+		}
+
+		if (cls.isPublicOrPrivate() && (member == null || member.isPublicOrPrivate()) // public or private - no remapping induced accessibility change)
+				|| accessingOwner.equals(owner)) { // same owner
+			return;
+		}
+
+		// the class and/or member is only reachable from the same package or - if protected - from a sub class
+
+		// check if same package after mapping, if yes return (nothing to do)
+
+		String mappedAccessor = map(accessingOwner);
+		String mappedTarget = map(owner);
+
+		int pos = mappedAccessor.lastIndexOf('/');
+		if (pos < 0 && mappedTarget.indexOf('/') < 0) return; // both empty package
+
+		if (pos >= 0 // both non-empty (considering prev condition)
+				&& pos < mappedTarget.length() // pkg not longer than whole other name
+				&& mappedTarget.charAt(pos) == '/' // potentially same prefix length
+				&& mappedTarget.indexOf('/', pos + 1) < 0 // definitely same prefix length
+				&& mappedAccessor.regionMatches(0, mappedTarget, 0, pos - 1)) { // same prefix -> same package
+			return;
+		}
+
+		// check for access to protected member in a super class
+
+		if (cls.isPublicOrPrivate() && member != null && member.isProtected()) {
+			ClassInstance accessingCls = getClass(accessingOwner);
+
+			while (accessingCls != null && accessingCls.getSuperName() != null) {
+				if (accessingCls.getSuperName().equals(owner)) { // accessor in sub-class of accessed member
+					return;
+				}
+
+				accessingCls = getClass(accessingCls.getSuperName());
+			}
+		}
+
+		// invalid access detected
+
+		String mappedName, mappedDesc;
+
+		if (type == MemberType.FIELD) {
+			mappedName = mapFieldName(owner, name, desc);
+			mappedDesc = mapDesc(desc);
+		} else {
+			mappedName = mapMethodName(owner, name, desc);
+			mappedDesc = mapMethodDesc(desc);
+		}
+
+		System.out.printf("Invalid access from %s to %s/%s after remapping.%n",
+				mappedAccessor,
+				mappedTarget, MemberInstance.getId(type, mappedName, mappedDesc));
+
+		if (!cls.isPublicOrPrivate()) remapper.classesToMakePublic.add(cls);
+		if (member != null && !member.isPublicOrPrivate()) remapper.membersToMakePublic.add(member);
+	}
+
 	private ClassInstance getClass(String owner) {
 		return remapper.classes.get(owner);
 	}

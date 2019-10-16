@@ -40,6 +40,8 @@ public class Main {
 		Set<String> forcePropagation = Collections.emptySet();
 		File forcePropagationFile = null;
 		boolean ignoreConflicts = false;
+		boolean checkPackageAccess = false;
+		boolean fixPackageAccess = false;
 		boolean resolveMissing = false;
 		boolean rebuildSourceFilenames = false;
 		boolean renameInvalidLocals = false;
@@ -68,6 +70,12 @@ public class Main {
 					break;
 				case "ignoreconflicts":
 					ignoreConflicts = true;
+					break;
+				case "checkpackageaccess":
+					checkPackageAccess = true;
+					break;
+				case "fixpackageaccess":
+					fixPackageAccess = true;
 					break;
 				case "resolvemissing":
 					resolveMissing = true;
@@ -162,6 +170,8 @@ public class Main {
 				.propagatePrivate(propagatePrivate)
 				.removeFrames(removeFrames)
 				.ignoreConflicts(ignoreConflicts)
+				.checkPackageAccess(checkPackageAccess)
+				.fixPackageAccess(fixPackageAccess)
 				.resolveMissing(resolveMissing)
 				.rebuildSourceFilenames(rebuildSourceFilenames)
 				.renameInvalidLocals(renameInvalidLocals)

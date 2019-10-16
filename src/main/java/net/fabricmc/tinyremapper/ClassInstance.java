@@ -42,10 +42,10 @@ public final class ClassInstance {
 		this.data = data;
 	}
 
-	void init(String name, String superName, boolean isInterface, String[] interfaces) {
+	void init(String name, String superName, int access, String[] interfaces) {
 		this.name = name;
 		this.superName = superName;
-		this.isInterface = isInterface;
+		this.access = access;
 		this.interfaces = interfaces;
 	}
 
@@ -62,7 +62,11 @@ public final class ClassInstance {
 	}
 
 	public boolean isInterface() {
-		return isInterface;
+		return (access & Opcodes.ACC_INTERFACE) != 0;
+	}
+
+	public boolean isPublicOrPrivate() {
+		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
 	}
 
 	public String[] getInterfaces() {
@@ -113,11 +117,11 @@ public final class ClassInstance {
 
 			if (first
 					&& ((member.access & Opcodes.ACC_PRIVATE) != 0 // private members don't propagate, but they may get skipped over by overriding virtual methods
-					|| type == MemberType.METHOD && isInterface && !isVirtual)) { // non-virtual interface methods don't propagate either, the jvm only resolves direct accesses to them
+					|| type == MemberType.METHOD && isInterface() && !isVirtual)) { // non-virtual interface methods don't propagate either, the jvm only resolves direct accesses to them
 				return;
 			}
 		} else { // member == null
-			assert !first && (type == MemberType.FIELD || !isInterface || isVirtual);
+			assert !first && (type == MemberType.FIELD || !isInterface() || isVirtual);
 
 			// potentially intermediately accessed location, handled through resolution in the remapper
 		}
@@ -195,7 +199,7 @@ public final class ClassInstance {
 
 			do {
 				for (ClassInstance parent : cls.parents) {
-					if (parent.isInterface == isField && visited.add(parent)) {
+					if (parent.isInterface() == isField && visited.add(parent)) {
 						MemberInstance ret = parent.getMember(type, id);
 						if (ret != null) return ret;
 
@@ -224,8 +228,8 @@ public final class ClassInstance {
 
 			do {
 				for (ClassInstance parent : cls.parents) {
-					if ((!isField || !parent.isInterface) && visited.add(parent)) { // field -> class, method -> any
-						if (parent.isInterface != isField) { // field -> class, method -> interface; look in parent
+					if ((!isField || !parent.isInterface()) && visited.add(parent)) { // field -> class, method -> any
+						if (parent.isInterface() != isField) { // field -> class, method -> interface; look in parent
 							MemberInstance parentMember = parent.getMember(type, id);
 
 							if (parentMember != null
@@ -269,7 +273,7 @@ public final class ClassInstance {
 
 			do {
 				for (ClassInstance parent : cls.parents) {
-					if (parent.isInterface == isField && visited.add(parent)) {
+					if (parent.isInterface() == isField && visited.add(parent)) {
 						MemberInstance ret = parent.getMemberPartial(type, idPrefix);
 
 						if (ret != null) {
@@ -307,8 +311,8 @@ public final class ClassInstance {
 
 			do {
 				for (ClassInstance parent : cls.parents) {
-					if ((!isField || !parent.isInterface) && visited.add(parent)) { // field -> class, method -> any
-						if (parent.isInterface != isField) { // field -> class, method -> interface; look in parent
+					if ((!isField || !parent.isInterface()) && visited.add(parent)) { // field -> class, method -> any
+						if (parent.isInterface() != isField) { // field -> class, method -> interface; look in parent
 							MemberInstance parentMember = parent.getMemberPartial(type, idPrefix);
 
 							if (parentMember != null
@@ -380,6 +384,6 @@ public final class ClassInstance {
 	final Set<ClassInstance> children = new HashSet<>();
 	private String name;
 	private String superName;
-	private boolean isInterface;
+	private int access;
 	private String[] interfaces;
 }

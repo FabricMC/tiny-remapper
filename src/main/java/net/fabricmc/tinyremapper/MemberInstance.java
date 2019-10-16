@@ -38,6 +38,14 @@ public final class MemberInstance {
 		return type == MemberType.METHOD && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
 	}
 
+	public boolean isPublicOrPrivate() {
+		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
+	}
+
+	public boolean isProtected() {
+		return (access & Opcodes.ACC_PROTECTED) != 0;
+	}
+
 	public String getNewName() {
 		return newName;
 	}
