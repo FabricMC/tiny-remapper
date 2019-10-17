@@ -48,6 +48,13 @@ class AsmClassRemapper extends ClassRemapper {
 	}
 
 	@Override
+	public void visitSource(String source, String debug) {
+		String mappedClsName = remapper.map(className);
+
+		super.visitSource(mappedClsName.substring(mappedClsName.lastIndexOf('/') + 1).concat(".java"), debug);
+	}
+
+	@Override
 	public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
 		methodNode = new MethodNode(api, access, name, descriptor, signature, exceptions);
 
