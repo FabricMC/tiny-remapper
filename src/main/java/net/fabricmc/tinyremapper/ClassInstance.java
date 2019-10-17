@@ -36,7 +36,8 @@ import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
 
 public final class ClassInstance {
-	ClassInstance(boolean isInput, Path srcFile, byte[] data) {
+	ClassInstance(TinyRemapper context, boolean isInput, Path srcFile, byte[] data) {
+		this.context = context;
 		this.isInput = isInput;
 		this.srcPath = srcFile;
 		this.data = data;
@@ -252,7 +253,7 @@ public final class ClassInstance {
 	}
 
 	public MemberInstance resolvePartial(MemberType type, String name, String descPrefix) {
-		String idPrefix = MemberInstance.getId(type, name, descPrefix != null ? descPrefix : "");
+		String idPrefix = MemberInstance.getId(type, name, descPrefix != null ? descPrefix : "", context.ignoreFieldDesc);
 		boolean isField = type == MemberType.FIELD;
 
 		MemberInstance member = getMemberPartial(type, idPrefix);
@@ -375,6 +376,7 @@ public final class ClassInstance {
 
 	private static final MemberInstance nullMember = new MemberInstance(null, null, null, null, 0);
 
+	final TinyRemapper context;
 	final boolean isInput;
 	final Path srcPath;
 	final byte[] data;

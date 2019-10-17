@@ -35,6 +35,7 @@ public class Main {
 	public static void main(String[] rawArgs) {
 		List<String> args = new ArrayList<String>(rawArgs.length);
 		boolean reverse = false;
+		boolean ignoreFieldDesc = false;
 		boolean propagatePrivate = false;
 		boolean removeFrames = false;
 		Set<String> forcePropagation = Collections.emptySet();
@@ -58,6 +59,9 @@ public class Main {
 				case "reverse":
 					System.err.println("WARNING: --reverse is not currently implemented!");
 					reverse = true;
+					break;
+				case "ignorefielddesc":
+					ignoreFieldDesc = true;
 					break;
 				case "forcepropagation":
 					forcePropagationFile = new File(arg.substring(valueSepPos + 1));
@@ -166,6 +170,7 @@ public class Main {
 
 		TinyRemapper remapper = TinyRemapper.newRemapper()
 				.withMappings(TinyUtils.createTinyMappingProvider(mappings, fromM, toM))
+				.ignoreFieldDesc(ignoreFieldDesc)
 				.withForcedPropagation(forcePropagation)
 				.propagatePrivate(propagatePrivate)
 				.removeFrames(removeFrames)

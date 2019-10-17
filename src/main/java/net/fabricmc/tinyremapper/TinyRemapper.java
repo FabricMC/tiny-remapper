@@ -69,6 +69,11 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public Builder ignoreFieldDesc(boolean value) {
+			this.ignoreFieldDesc = value;
+			return this;
+		}
+
 		public Builder threads(int threadCount) {
 			this.threadCount = threadCount;
 			return this;
@@ -120,7 +125,7 @@ public class TinyRemapper {
 		}
 
 		public TinyRemapper build() {
-			TinyRemapper remapper = new TinyRemapper(mappingProviders, threadCount,
+			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount,
 					forcePropagation, propagatePrivate,
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
 					rebuildSourceFilenames, renameInvalidLocals);
@@ -128,9 +133,10 @@ public class TinyRemapper {
 			return remapper;
 		}
 
+		private final Set<IMappingProvider> mappingProviders = new HashSet<>();
+		private boolean ignoreFieldDesc;
 		private int threadCount;
 		private final Set<String> forcePropagation = new HashSet<>();
-		private final Set<IMappingProvider> mappingProviders = new HashSet<>();
 		private boolean propagatePrivate = false;
 		private boolean removeFrames = false;
 		private boolean ignoreConflicts = false;
@@ -141,7 +147,7 @@ public class TinyRemapper {
 		private boolean renameInvalidLocals = false;
 	}
 
-	private TinyRemapper(Collection<IMappingProvider> mappingProviders,
+	private TinyRemapper(Collection<IMappingProvider> mappingProviders, boolean ignoreFieldDesc,
 			int threadCount,
 			Set<String> forcePropagation, boolean propagatePrivate,
 			boolean removeFrames,
@@ -152,6 +158,7 @@ public class TinyRemapper {
 			boolean rebuildSourceFilenames,
 			boolean renameInvalidLocals) {
 		this.mappingProviders = mappingProviders;
+		this.ignoreFieldDesc = ignoreFieldDesc;
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
 		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
 		this.forcePropagation = forcePropagation;
@@ -301,7 +308,7 @@ public class TinyRemapper {
 	}
 
 	private ClassInstance analyze(boolean isInput, Path srcPath, byte[] data, boolean saveData) {
-		final ClassInstance ret = new ClassInstance(isInput, srcPath, saveData ? data : null);
+		final ClassInstance ret = new ClassInstance(this, isInput, srcPath, saveData ? data : null);
 
 		ClassReader reader = new ClassReader(data);
 
@@ -341,28 +348,55 @@ public class TinyRemapper {
 		MappingAcceptor acceptor = new MappingAcceptor() {
 			@Override
 			public void acceptClass(String srcName, String dstName) {
+				if (srcName == null) throw new NullPointerException("null src name");
+				if (dstName == null) throw new NullPointerException("null dst name");
+
 				classMap.put(srcName, dstName);
 			}
 
 			@Override
 			public void acceptMethod(Member method, String dstName) {
+				if (method == null) throw new NullPointerException("null src method");
+				if (method.owner == null) throw new NullPointerException("null src method owner");
+				if (method.name == null) throw new NullPointerException("null src method name");
+				if (method.desc == null) throw new NullPointerException("null src method desc");
+				if (dstName == null) throw new NullPointerException("null dst name");
+
 				methodMap.put(method.owner+"/"+MemberInstance.getMethodId(method.name, method.desc), dstName);
 			}
 
 			@Override
 			public void acceptMethodArg(Member method, int lvIndex, String dstName) {
+				if (method == null) throw new NullPointerException("null src method");
+				if (method.owner == null) throw new NullPointerException("null src method owner");
+				if (method.name == null) throw new NullPointerException("null src method name");
+				if (method.desc == null) throw new NullPointerException("null src method desc");
+				if (dstName == null) throw new NullPointerException("null dst name");
+
 				methodArgMap.put(method.owner+"/"+MemberInstance.getMethodId(method.name, method.desc)+lvIndex, dstName);
 			}
 
 			@Override
 			public void acceptMethodVar(Member method, int lvIndex, int startOpIdx, int asmIndex, String dstName) {
+				if (method == null) throw new NullPointerException("null src method");
+				if (method.owner == null) throw new NullPointerException("null src method owner");
+				if (method.name == null) throw new NullPointerException("null src method name");
+				if (method.desc == null) throw new NullPointerException("null src method desc");
+				if (dstName == null) throw new NullPointerException("null dst name");
+
 				// TODO Auto-generated method stub
 
 			}
 
 			@Override
 			public void acceptField(Member field, String dstName) {
-				fieldMap.put(field.owner+"/"+MemberInstance.getFieldId(field.name, field.desc), dstName);
+				if (field == null) throw new NullPointerException("null src field");
+				if (field.owner == null) throw new NullPointerException("null src field owner");
+				if (field.name == null) throw new NullPointerException("null src field name");
+				if (field.desc == null && !ignoreFieldDesc) throw new NullPointerException("null src field desc");
+				if (dstName == null) throw new NullPointerException("null dst name");
+
+				fieldMap.put(field.owner+"/"+MemberInstance.getFieldId(field.name, field.desc, ignoreFieldDesc), dstName);
 			}
 		};
 
@@ -452,7 +486,7 @@ public class TinyRemapper {
 				String name = member.getNewName();
 				if (name == null) name = member.name;
 
-				testSet.add(MemberInstance.getId(member.type, name, member.desc));
+				testSet.add(MemberInstance.getId(member.type, name, member.desc, ignoreFieldDesc));
 			}
 
 			if (testSet.size() != cls.getMembers().size()) {
@@ -467,7 +501,7 @@ public class TinyRemapper {
 					String name = member.getNewName();
 					if (name == null) name = member.name;
 
-					duplicates.computeIfAbsent(MemberInstance.getId(member.type, name, member.desc), ignore -> new ArrayList<>()).add(member);
+					duplicates.computeIfAbsent(MemberInstance.getId(member.type, name, member.desc, ignoreFieldDesc), ignore -> new ArrayList<>()).add(member);
 				}
 
 				for (Map.Entry<String, List<MemberInstance>> e : duplicates.entrySet()) {
@@ -491,7 +525,7 @@ public class TinyRemapper {
 						System.out.print(member.name);
 					}
 
-					System.out.printf("]%s -> %s%n", MemberInstance.getId(anyMember.type, "", anyMember.desc), stripDesc(nameDesc, anyMember.type));
+					System.out.printf("]%s -> %s%n", MemberInstance.getId(anyMember.type, "", anyMember.desc, ignoreFieldDesc), MemberInstance.getNameFromId(anyMember.type, nameDesc, ignoreFieldDesc));
 				}
 			}
 
@@ -640,7 +674,7 @@ public class TinyRemapper {
 					mappedDesc = remapper.mapMethodDesc(member.desc);
 				}
 
-				clsMembersToMakePublic.add(MemberInstance.getId(member.type, mappedName, mappedDesc));
+				clsMembersToMakePublic.add(MemberInstance.getId(member.type, mappedName, mappedDesc, ignoreFieldDesc));
 			}
 		}
 
@@ -664,7 +698,7 @@ public class TinyRemapper {
 			@Override
 			public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
 				if (finalClsMembersToMakePublic != null
-						&& finalClsMembersToMakePublic.contains(MemberInstance.getFieldId(name, descriptor))) {
+						&& finalClsMembersToMakePublic.contains(MemberInstance.getFieldId(name, descriptor, ignoreFieldDesc))) {
 					access = (access & ~(Opcodes.ACC_PRIVATE | Opcodes.ACC_PROTECTED)) | Opcodes.ACC_PUBLIC;
 				}
 
@@ -711,10 +745,6 @@ public class TinyRemapper {
 		return nameDesc.substring(nameStart + 1);
 	}
 
-	private static String stripDesc(String nameDesc, MemberType type) {
-		return nameDesc.substring(0, getDescStart(nameDesc, type));
-	}
-
 	private static int getDescStart(String nameDesc, MemberType type) {
 		int ret;
 
@@ -755,7 +785,7 @@ public class TinyRemapper {
 				String nameDst = entry.getValue();
 				assert nameDst.indexOf('/') < 0;
 
-				if (stripDesc(idSrc, type).equals(nameDst)) {
+				if (MemberInstance.getNameFromId(type, idSrc, ignoreFieldDesc).equals(nameDst)) {
 					continue; // no name change
 				}
 
@@ -801,6 +831,7 @@ public class TinyRemapper {
 	final Set<ClassInstance> classesToMakePublic = Collections.newSetFromMap(new ConcurrentHashMap<>());
 	final Set<MemberInstance> membersToMakePublic = Collections.newSetFromMap(new ConcurrentHashMap<>());
 	private final Collection<IMappingProvider> mappingProviders;
+	final boolean ignoreFieldDesc;
 	private final int threadCount;
 	private final ExecutorService threadPool;
 	private final AsmRemapper remapper = new AsmRemapper(this);

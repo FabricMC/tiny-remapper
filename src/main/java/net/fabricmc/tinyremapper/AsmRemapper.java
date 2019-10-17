@@ -38,14 +38,14 @@ class AsmRemapper extends Remapper {
 		ClassInstance cls = getClass(owner);
 		if (cls == null) return name;
 
-		MemberInstance member = cls.resolve(MemberType.FIELD, MemberInstance.getFieldId(name, desc));
+		MemberInstance member = cls.resolve(MemberType.FIELD, MemberInstance.getFieldId(name, desc, remapper.ignoreFieldDesc));
 		String newName;
 
 		if (member != null && (newName = member.getNewName()) != null) {
 			return newName;
 		}
 
-		assert (newName = remapper.fieldMap.get(owner+"/"+MemberInstance.getFieldId(name, desc))) == null || newName.equals(name);
+		assert (newName = remapper.fieldMap.get(owner+"/"+MemberInstance.getFieldId(name, desc, remapper.ignoreFieldDesc))) == null || newName.equals(name);
 
 		return name;
 	}
@@ -71,7 +71,7 @@ class AsmRemapper extends Remapper {
 		ClassInstance cls = getClass(owner);
 		if (cls == null) return name;
 
-		MemberInstance member = cls.resolvePartial(MemberType.METHOD, name,descPrefix);
+		MemberInstance member = cls.resolvePartial(MemberType.METHOD, name, descPrefix);
 		String newName;
 
 		if (member != null && (newName = member.getNewName()) != null) {
@@ -111,7 +111,7 @@ class AsmRemapper extends Remapper {
 		ClassInstance cls = getClass(owner);
 		if (cls == null) return;
 
-		String id = MemberInstance.getId(type, name, desc);
+		String id = MemberInstance.getId(type, name, desc, remapper.ignoreFieldDesc);
 		MemberInstance member = cls.resolve(type, id);
 
 		if (member != null) {
@@ -170,7 +170,7 @@ class AsmRemapper extends Remapper {
 
 		System.out.printf("Invalid access from %s to %s/%s after remapping.%n",
 				mappedAccessor,
-				mappedTarget, MemberInstance.getId(type, mappedName, mappedDesc));
+				mappedTarget, MemberInstance.getId(type, mappedName, mappedDesc, remapper.ignoreFieldDesc));
 
 		if (!cls.isPublicOrPrivate()) remapper.classesToMakePublic.add(cls);
 		if (member != null && !member.isPublicOrPrivate()) remapper.membersToMakePublic.add(member);
