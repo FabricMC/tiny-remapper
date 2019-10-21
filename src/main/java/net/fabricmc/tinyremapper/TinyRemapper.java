@@ -579,14 +579,7 @@ public class TinyRemapper {
 	}
 
 	public void apply(final BiConsumer<String, byte[]> outputConsumer) {
-		if (dirty) {
-			loadMappings();
-			checkClassMappings();
-			merge();
-			propagate();
-
-			dirty = false;
-		}
+		refresh();
 
 		Map<ClassInstance, byte[]> outputBuffer;
 		BiConsumer<ClassInstance, byte[]> immediateOutputConsumer;
@@ -631,6 +624,17 @@ public class TinyRemapper {
 			membersToMakePublic.clear();
 		} else if (needsFixes) {
 			throw new RuntimeException(String.format("%d classes and %d members need access fixes", classesToMakePublic.size(), membersToMakePublic.size()));
+		}
+	}
+
+	private void refresh() {
+		if (dirty) {
+			loadMappings();
+			checkClassMappings();
+			merge();
+			propagate();
+
+			dirty = false;
 		}
 	}
 
@@ -717,6 +721,12 @@ public class TinyRemapper {
 		}, 0);
 
 		return writer.toByteArray();
+	}
+
+	public AsmRemapper getRemapper() {
+		refresh();
+
+		return remapper;
 	}
 
 	private static void waitForAll(Iterable<Future<?>> futures) {
