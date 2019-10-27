@@ -19,7 +19,6 @@ package net.fabricmc.tinyremapper;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 import org.objectweb.asm.tree.MethodNode;
 
