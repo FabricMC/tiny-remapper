@@ -19,6 +19,7 @@ package net.fabricmc.tinyremapper;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.objectweb.asm.tree.MethodNode;
 
@@ -294,26 +295,44 @@ class AsmClassRemapper extends ClassRemapper {
 
 		@Override
 		public void visitEnd() {
-			final Type[] paramTypes = Type.getArgumentTypes(methodNode.desc);
-
-			for (int i = 0; i < paramTypes.length; i++) {
-				final int lvIndex = getLvIndex(methodNode.desc, isStatic, i);
-
-				//If LVT is not present, for example in an abstract method, the name will not be set in the array.
-				//So simply map the method arg with the parameter name form LVT set as default and remap if invalid
-				String name = ((AsmRemapper) remapper).mapMethodArg(owner, methodNode.name, methodNode.desc, lvIndex, parameterNames[lvIndex]);
-
-				if(renameInvalidLocals && !isValidJavaIdentifier(name)) {
-					name = getNameFromType(paramTypes[i]);
+			String[] remappedParamNames = remapParameterNames();
+			if(anyNameExists(remappedParamNames)){
+				for(int i = 0; i < remappedParamNames.length; i++){
+					methodNode.visitParameter(remappedParamNames[i], parameterAccess[i]);
 				}
-
-				methodNode.visitParameter(name, parameterAccess[i]);
 			}
 
 			methodNode.visitEnd();
 			methodNode.accept(methodVisitor);
 
 			super.visitEnd();
+		}
+
+
+		private String[] remapParameterNames(){
+			final Type[] paramTypes = Type.getArgumentTypes(methodNode.desc);
+			String[] params = new String[paramTypes.length];
+			for (int i = 0; i < paramTypes.length; i++) {
+				final int lvIndex = getLvIndex(methodNode.desc, isStatic, i);
+
+				//If LVT is not present, for example in an abstract method, the name will not be set in the array.
+				//So simply map the method arg with the parameter name form LVT set as default and remap if invalid
+				String name = ((AsmRemapper) remapper).mapMethodArg(owner, methodNode.name, methodNode.desc, lvIndex, parameterNames[lvIndex]);
+				if(renameInvalidLocals && !isValidJavaIdentifier(name)) {
+					name = getNameFromType(paramTypes[i]);
+				}
+
+				params[i] = name;
+			}
+			return params;
+		}
+
+		// Avoid inserting a MethodParameters field when it's not needed
+		private boolean anyNameExists(String[] parameterNames){
+			for(String name : parameterNames){
+				if(name != null) return true;
+			}
+			return false;
 		}
 
 		private final String owner;
