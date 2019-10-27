@@ -308,7 +308,7 @@ class AsmClassRemapper extends ClassRemapper {
 			super.visitEnd();
 		}
 
-		private String[] remapParameterNames(){
+		private String[] remapParameterNames() {
 			final Type[] paramTypes = Type.getArgumentTypes(methodNode.desc);
 			String[] params = new String[paramTypes.length];
 
