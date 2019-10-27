@@ -331,7 +331,6 @@ class AsmClassRemapper extends ClassRemapper {
 
 		// Avoid inserting a MethodParameters field when it's not needed
 		private boolean anyNameExists(String[] parameterNames) {
-
 			for (String name : parameterNames) {
 				if (name != null) return true;
 			}
