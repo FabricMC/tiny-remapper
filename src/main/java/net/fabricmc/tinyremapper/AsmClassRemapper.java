@@ -295,8 +295,9 @@ class AsmClassRemapper extends ClassRemapper {
 		@Override
 		public void visitEnd() {
 			String[] remappedParamNames = remapParameterNames();
-			if(anyNameExists(remappedParamNames)){
-				for(int i = 0; i < remappedParamNames.length; i++){
+
+			if (anyNameExists(remappedParamNames)) {
+				for (int i = 0; i < remappedParamNames.length; i++) {
 					methodNode.visitParameter(remappedParamNames[i], parameterAccess[i]);
 				}
 			}
@@ -307,22 +308,24 @@ class AsmClassRemapper extends ClassRemapper {
 			super.visitEnd();
 		}
 
-
 		private String[] remapParameterNames(){
 			final Type[] paramTypes = Type.getArgumentTypes(methodNode.desc);
 			String[] params = new String[paramTypes.length];
+
 			for (int i = 0; i < paramTypes.length; i++) {
 				final int lvIndex = getLvIndex(methodNode.desc, isStatic, i);
 
 				//If LVT is not present, for example in an abstract method, the name will not be set in the array.
 				//So simply map the method arg with the parameter name form LVT set as default and remap if invalid
 				String name = ((AsmRemapper) remapper).mapMethodArg(owner, methodNode.name, methodNode.desc, lvIndex, parameterNames[lvIndex]);
-				if(renameInvalidLocals && !isValidJavaIdentifier(name)) {
+
+				if (renameInvalidLocals && !isValidJavaIdentifier(name)) {
 					name = getNameFromType(paramTypes[i]);
 				}
 
 				params[i] = name;
 			}
+
 			return params;
 		}
 
