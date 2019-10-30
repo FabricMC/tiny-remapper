@@ -29,8 +29,9 @@ class AsmRemapper extends Remapper {
 	@Override
 	public String map(String typeName) {
 		String ret = remapper.classMap.get(typeName);
+		if (ret != null) return ret;
 
-		return ret != null ? ret : typeName;
+		return remapper.extraRemapper != null ? remapper.extraRemapper.map(typeName) : typeName;
 	}
 
 	@Override
@@ -47,7 +48,7 @@ class AsmRemapper extends Remapper {
 
 		assert (newName = remapper.fieldMap.get(owner+"/"+MemberInstance.getFieldId(name, desc, remapper.ignoreFieldDesc))) == null || newName.equals(name);
 
-		return name;
+		return remapper.extraRemapper != null ? remapper.extraRemapper.mapFieldName(owner, name, desc) : name;
 	}
 
 	@Override
@@ -64,7 +65,7 @@ class AsmRemapper extends Remapper {
 
 		assert (newName = remapper.methodMap.get(owner+"/"+MemberInstance.getMethodId(name, desc))) == null || newName.equals(name);
 
-		return name;
+		return remapper.extraRemapper != null ? remapper.extraRemapper.mapMethodName(owner, name, desc) : name;
 	}
 
 	public String mapMethodNamePrefixDesc(String owner, String name, String descPrefix) {

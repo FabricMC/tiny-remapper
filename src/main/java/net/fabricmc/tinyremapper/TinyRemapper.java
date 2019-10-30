@@ -54,6 +54,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.commons.Remapper;
 import org.objectweb.asm.util.CheckClassAdapter;
 
 import net.fabricmc.tinyremapper.IMappingProvider.MappingAcceptor;
@@ -124,11 +125,22 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public Builder extraAnalyzeVisitor(ClassVisitor visitor) {
+			extraAnalyzeVisitor = visitor;
+			return this;
+		}
+
+		public Builder extraRemapper(Remapper remapper) {
+			extraRemapper = remapper;
+			return this;
+		}
+
 		public TinyRemapper build() {
 			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount,
 					forcePropagation, propagatePrivate,
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
-					rebuildSourceFilenames, renameInvalidLocals);
+					rebuildSourceFilenames, renameInvalidLocals,
+					extraAnalyzeVisitor, extraRemapper);
 
 			return remapper;
 		}
@@ -145,6 +157,8 @@ public class TinyRemapper {
 		private boolean fixPackageAccess = false;
 		private boolean rebuildSourceFilenames = false;
 		private boolean renameInvalidLocals = false;
+		private ClassVisitor extraAnalyzeVisitor;
+		private Remapper extraRemapper;
 	}
 
 	private TinyRemapper(Collection<IMappingProvider> mappingProviders, boolean ignoreFieldDesc,
@@ -156,7 +170,8 @@ public class TinyRemapper {
 			boolean checkPackageAccess,
 			boolean fixPackageAccess,
 			boolean rebuildSourceFilenames,
-			boolean renameInvalidLocals) {
+			boolean renameInvalidLocals,
+			ClassVisitor extraAnalyzeVisitor, Remapper extraRemapper) {
 		this.mappingProviders = mappingProviders;
 		this.ignoreFieldDesc = ignoreFieldDesc;
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
@@ -170,6 +185,8 @@ public class TinyRemapper {
 		this.fixPackageAccess = fixPackageAccess;
 		this.rebuildSourceFilenames = rebuildSourceFilenames;
 		this.renameInvalidLocals = renameInvalidLocals;
+		this.extraAnalyzeVisitor = extraAnalyzeVisitor;
+		this.extraRemapper = extraRemapper;
 	}
 
 	public static Builder newRemapper() {
@@ -312,10 +329,12 @@ public class TinyRemapper {
 
 		ClassReader reader = new ClassReader(data);
 
-		reader.accept(new ClassVisitor(Opcodes.ASM7) {
+		reader.accept(new ClassVisitor(Opcodes.ASM7, extraAnalyzeVisitor) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 				ret.init(name, superName, access, interfaces);
+
+				super.visit(version, access, name, signature, superName, interfaces);
 			}
 
 			@Override
@@ -323,7 +342,7 @@ public class TinyRemapper {
 				MemberInstance prev = ret.addMember(new MemberInstance(MemberType.METHOD, ret, name, desc, access));
 				if (prev != null) throw new RuntimeException(String.format("duplicate method %s/%s%s in inputs", ret.getName(), name, desc));
 
-				return null;
+				return super.visitMethod(access, name, desc, signature, exceptions);
 			}
 
 			@Override
@@ -331,7 +350,7 @@ public class TinyRemapper {
 				MemberInstance prev = ret.addMember(new MemberInstance(MemberType.FIELD, ret, name, desc, access));
 				if (prev != null) throw new RuntimeException(String.format("duplicate field %s/%s;;%s in inputs", ret.getName(), name, desc));
 
-				return null;
+				return super.visitField(access, name, desc, signature, value);
 			}
 		}, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
 
@@ -832,6 +851,8 @@ public class TinyRemapper {
 	private final boolean fixPackageAccess;
 	private final boolean rebuildSourceFilenames;
 	private final boolean renameInvalidLocals;
+	private final ClassVisitor extraAnalyzeVisitor;
+	final Remapper extraRemapper;
 	final Map<String, String> classMap = new HashMap<>();
 	final Map<String, String> methodMap = new HashMap<>();
 	final Map<String, String> methodArgMap = new HashMap<>();
