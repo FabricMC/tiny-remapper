@@ -867,5 +867,5 @@ public class TinyRemapper {
 	private final ExecutorService threadPool;
 	private final AsmRemapper remapper = new AsmRemapper(this);
 
-	private boolean dirty;
+	private boolean dirty = true;
 }
