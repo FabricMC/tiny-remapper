@@ -293,7 +293,8 @@ public class TinyRemapper {
 		List<ClassInstance> ret = new ArrayList<ClassInstance>();
 
 		if (file.toString().endsWith(".class")) {
-			ret.add(analyze(isInput, srcPath, Files.readAllBytes(file), saveData));
+			ClassInstance res = analyze(isInput, srcPath, Files.readAllBytes(file), saveData);
+			if (res != null) ret.add(res);
 		} else {
 			URI uri = new URI("jar:"+file.toUri().toString());
 			FileSystem fs = null;
@@ -313,7 +314,8 @@ public class TinyRemapper {
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					if (file.toString().endsWith(".class")) {
-						ret.add(analyze(isInput, srcPath, Files.readAllBytes(file), saveData));
+						ClassInstance res = analyze(isInput, srcPath, Files.readAllBytes(file), saveData);
+						if (res != null) ret.add(res);
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -325,9 +327,10 @@ public class TinyRemapper {
 	}
 
 	private ClassInstance analyze(boolean isInput, Path srcPath, byte[] data, boolean saveData) {
-		final ClassInstance ret = new ClassInstance(this, isInput, srcPath, saveData ? data : null);
-
 		ClassReader reader = new ClassReader(data);
+		if ((reader.getAccess() & Opcodes.ACC_MODULE) != 0) return null; // special attribute for module-info.class, can't be a regular class
+
+		final ClassInstance ret = new ClassInstance(this, isInput, srcPath, saveData ? data : null);
 
 		reader.accept(new ClassVisitor(Opcodes.ASM7, extraAnalyzeVisitor) {
 			@Override
