@@ -239,10 +239,12 @@ public class TinyRemapper {
 		} catch (InterruptedException | ExecutionException e) {
 			throw new RuntimeException(e);
 		} finally {
-			for (FileSystem fs : fsToClose) {
-				try {
-					fs.close();
-				} catch (IOException e) { }
+			synchronized (fsToClose) {
+				for (FileSystem fs : fsToClose) {
+					try {
+						fs.close();
+					} catch (IOException e) { }
+				}
 			}
 		}
 	}
