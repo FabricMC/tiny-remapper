@@ -272,10 +272,17 @@ class AsmClassRemapper extends ClassRemapper {
 
 				// assemble, lowercase first char, apply plural s
 
-				varName = Character.toLowerCase(type.charAt(start)) + type.substring(start + 1, type.length() - 1);
+				char first = type.charAt(start);
+				char firstLc = Character.toLowerCase(first);
+
+				if (first == firstLc) { // type is already lower case, the var name would shade the type
+					varName = null;
+				} else {
+					varName = firstLc + type.substring(start + 1, type.length() - 1);
+				}
 
 				if (!isValidJavaIdentifier(varName)) {
-					varName = isArg ? "arg" : "var";
+					varName = isArg ? "arg" : "lv"; // lv instead of var to avoid confusion with Java 10's var keyword
 				}
 
 				incrementLetter = false;
