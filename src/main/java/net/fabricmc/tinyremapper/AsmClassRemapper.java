@@ -412,8 +412,12 @@ class AsmClassRemapper extends ClassRemapper {
 
 		@Override
 		public void visitEnd() {
+			// submit parameters if at least one of them is present or to be generated, same with a non-default access value
+			boolean hasAnyParameterName = renameInvalidLocals; // always true for renameInvalidLocals, otherwise detected from the first non-null name
+
 			for (int i = 0; i < parameterNames.length; i++) {
 				String name = parameterNames[i];
+				int access = parameterAccess[i];
 
 				if (name == null) {
 					name = ((AsmRemapper) remapper).mapMethodArg(owner, methodNode.name, methodNode.desc, getLvIndex(i), name);
@@ -423,7 +427,17 @@ class AsmClassRemapper extends ClassRemapper {
 					}
 				}
 
-				methodNode.visitParameter(name, parameterAccess[i]);
+				if (!hasAnyParameterName && (name != null || access != 0)) { // found the first present name/access, submit the preceding parameters for ordering
+					hasAnyParameterName = true;
+
+					for (int j = 0; j < i; j++) {
+						methodNode.visitParameter(null, parameterAccess[j]);
+					}
+				}
+
+				if (hasAnyParameterName) {
+					methodNode.visitParameter(name, access);
+				}
 			}
 
 			methodNode.visitEnd();
