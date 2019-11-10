@@ -308,14 +308,14 @@ class AsmClassRemapper extends ClassRemapper {
 			int ret = 0;
 
 			for (int i = 0, max = name.length() - (plural ? 1 : 0); i < max; i++) {
-				ret = ret * 26 + name.charAt(i) - 'a';
+				ret = ret * 26 + name.charAt(i) - 'a' + 1;
 			}
 
-			return ret;
+			return ret - 1;
 		}
 
 		private static String getIndexName(int index, boolean plural) {
-			if (index < 26) {
+			if (index < 26 && !plural) {
 				return singleCharStrings[index];
 			} else {
 				StringBuilder ret = new StringBuilder(2);
