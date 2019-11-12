@@ -120,6 +120,11 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public Builder skipLocalVariableMapping(boolean value) {
+			skipLocalMapping = value;
+			return this;
+		}
+
 		public Builder renameInvalidLocals(boolean value) {
 			renameInvalidLocals = value;
 			return this;
@@ -139,7 +144,7 @@ public class TinyRemapper {
 			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount,
 					forcePropagation, propagatePrivate,
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
-					rebuildSourceFilenames, renameInvalidLocals,
+					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals,
 					extraAnalyzeVisitor, extraRemapper);
 
 			return remapper;
@@ -156,6 +161,7 @@ public class TinyRemapper {
 		private boolean checkPackageAccess = false;
 		private boolean fixPackageAccess = false;
 		private boolean rebuildSourceFilenames = false;
+		private boolean skipLocalMapping = false;
 		private boolean renameInvalidLocals = false;
 		private ClassVisitor extraAnalyzeVisitor;
 		private Remapper extraRemapper;
@@ -170,6 +176,7 @@ public class TinyRemapper {
 			boolean checkPackageAccess,
 			boolean fixPackageAccess,
 			boolean rebuildSourceFilenames,
+			boolean skipLocalMapping,
 			boolean renameInvalidLocals,
 			ClassVisitor extraAnalyzeVisitor, Remapper extraRemapper) {
 		this.mappingProviders = mappingProviders;
@@ -184,6 +191,7 @@ public class TinyRemapper {
 		this.checkPackageAccess = checkPackageAccess;
 		this.fixPackageAccess = fixPackageAccess;
 		this.rebuildSourceFilenames = rebuildSourceFilenames;
+		this.skipLocalMapping = skipLocalMapping;
 		this.renameInvalidLocals = renameInvalidLocals;
 		this.extraAnalyzeVisitor = extraAnalyzeVisitor;
 		this.extraRemapper = extraRemapper;
@@ -678,7 +686,7 @@ public class TinyRemapper {
 			visitor = new CheckClassAdapter(visitor);
 		}
 
-		reader.accept(new AsmClassRemapper(visitor, remapper, checkPackageAccess, renameInvalidLocals), flags);
+		reader.accept(new AsmClassRemapper(visitor, remapper, checkPackageAccess, skipLocalMapping, renameInvalidLocals), flags);
 		// TODO: compute frames (-Xverify:all -XX:-FailOverToOldVerifier)
 
 		return writer.toByteArray();
@@ -855,6 +863,7 @@ public class TinyRemapper {
 	private final boolean checkPackageAccess;
 	private final boolean fixPackageAccess;
 	private final boolean rebuildSourceFilenames;
+	private final boolean skipLocalMapping;
 	private final boolean renameInvalidLocals;
 	private final ClassVisitor extraAnalyzeVisitor;
 	final Remapper extraRemapper;

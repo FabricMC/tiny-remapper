@@ -105,6 +105,10 @@ class AsmRemapper extends Remapper {
 		return originatingNewName != null ? originatingNewName : name;
 	}
 
+	public String mapMethodVar(String methodOwner, String methodName, String methodDesc, int lvIndex, int startOpIdx, int asmIndex, String name) {
+		return name; // TODO: implement
+	}
+
 	/**
 	 * Check if a class can access a specific member, printing and recording failure for later.
 	 */

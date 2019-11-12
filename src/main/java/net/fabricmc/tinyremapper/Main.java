@@ -45,6 +45,7 @@ public class Main {
 		boolean fixPackageAccess = false;
 		boolean resolveMissing = false;
 		boolean rebuildSourceFilenames = false;
+		boolean skipLocalVariableMapping = false;
 		boolean renameInvalidLocals = false;
 		NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
 
@@ -86,6 +87,9 @@ public class Main {
 					break;
 				case "rebuildsourcefilenames":
 					rebuildSourceFilenames = true;
+					break;
+				case "skiplocalvariablemapping":
+					skipLocalVariableMapping = true;
 					break;
 				case "renameinvalidlocals":
 					renameInvalidLocals = true;
@@ -179,6 +183,7 @@ public class Main {
 				.fixPackageAccess(fixPackageAccess)
 				.resolveMissing(resolveMissing)
 				.rebuildSourceFilenames(rebuildSourceFilenames)
+				.skipLocalVariableMapping(skipLocalVariableMapping)
 				.renameInvalidLocals(renameInvalidLocals)
 				.build();
 
