@@ -21,8 +21,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
-import java.nio.file.FileSystemNotFoundException;
-import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -237,7 +235,7 @@ public class TinyRemapper {
 
 					if (prev != null) {
 						if (isInput && !prev.isInput) {
-							System.out.printf("duplicate input class %s, from %s and %s", node.getName(), prev.srcPath, node.srcPath);
+							System.out.printf("duplicate input class %s, from %s and %s%n", node.getName(), prev.srcPath, node.srcPath);
 						} else if (!isInput && prev.isInput) { // give the input class priority
 							classes.put(prev.getName(), prev);
 						}
@@ -250,7 +248,7 @@ public class TinyRemapper {
 			synchronized (fsToClose) {
 				for (FileSystem fs : fsToClose) {
 					try {
-						fs.close();
+						FileSystemHandler.close(fs);
 					} catch (IOException e) { }
 				}
 			}
@@ -307,18 +305,8 @@ public class TinyRemapper {
 			if (res != null) ret.add(res);
 		} else {
 			URI uri = new URI("jar:"+file.toUri().toString());
-			FileSystem fs = null;
-
-			try {
-				fs = FileSystems.getFileSystem(uri);
-			} catch (FileSystemNotFoundException e) {
-
-			}
-
-			if (fs == null) {
-				fs = FileSystems.newFileSystem(uri, Collections.emptyMap());
-				fsToClose.add(fs);
-			}
+			FileSystem fs = FileSystemHandler.open(uri);
+			fsToClose.add(fs);
 
 			Files.walkFileTree(fs.getPath("/"), new SimpleFileVisitor<Path>() {
 				@Override
