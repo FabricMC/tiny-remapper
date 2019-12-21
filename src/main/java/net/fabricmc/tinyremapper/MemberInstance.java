@@ -34,6 +34,10 @@ public final class MemberInstance {
 		return getId(type, name, desc, cls.context.ignoreFieldDesc);
 	}
 
+	public boolean isStatic() {
+		return (access & Opcodes.ACC_STATIC) != 0;
+	}
+
 	public boolean isVirtual() {
 		return type == MemberType.METHOD && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
 	}
