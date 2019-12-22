@@ -122,8 +122,10 @@ class AsmRemapper extends Remapper {
 		MemberInstance member = cls.resolve(type, id);
 
 		if (member == null) {
-			System.out.printf("Can't find member %s/%s accessed from %s.%n",
-					owner, MemberInstance.getId(type, name, desc, remapper.ignoreFieldDesc), accessingOwner);
+			// should be just missing super classes/interfaces from the analyzed class path, especially java ones
+			// -> assume the access is still valid after remapping
+			/*System.out.printf("Can't find member %s/%s accessed from %s.%n",
+					owner, MemberInstance.getId(type, name, desc, remapper.ignoreFieldDesc), accessingOwner);*/
 			return;
 		}
 
@@ -190,11 +192,12 @@ class AsmRemapper extends Remapper {
 		String inaccessible = null;
 
 		if (!clsAccessible) {
-			inaccessible = String.format("class %s", map(owner));
+			inaccessible = String.format("package-private class %s", map(owner));
 		}
 
 		if (!memberAccessible) {
-			String memberMsg = String.format("%s %s/%s",
+			String memberMsg = String.format("%s %s %s/%s",
+					member.isProtected() ? "protected" : "package-private",
 					type.name().toLowerCase(Locale.ENGLISH),
 					map(member.cls.getName()),
 					MemberInstance.getId(type, mappedName, mappedDesc, remapper.ignoreFieldDesc));
