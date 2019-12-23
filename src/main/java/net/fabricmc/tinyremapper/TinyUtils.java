@@ -314,8 +314,8 @@ public final class TinyUtils {
 
 					if (!mappedName.isEmpty()) {
 						out.acceptClass(className, mappedName);
-						if (obfFrom != null) obfFrom.put(unescapeOpt(parts[1], escapedNames), mappedName);
 					}
+					if (obfFrom != null) obfFrom.put(unescapeOpt(parts[1], escapedNames), className);
 
 					inClass = true;
 				}
