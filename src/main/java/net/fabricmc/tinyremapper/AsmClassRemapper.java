@@ -22,6 +22,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import javax.lang.model.SourceVersion;
+
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -506,16 +508,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 		private static boolean isValidJavaIdentifier(String s) {
 			if (s == null || s.isEmpty()) return false;
-
-			int cp = s.codePointAt(0);
-			if (!Character.isJavaIdentifierStart(cp)) return false;
-
-			for (int i = Character.charCount(cp), max = s.length(); i < max; i += Character.charCount(cp)) {
-				cp = s.codePointAt(i);
-				if (!Character.isJavaIdentifierPart(cp)) return false;
-			}
-
-			return true;
+			return SourceVersion.isName(s);
 		}
 
 		private static final String[] singleCharStrings = {
