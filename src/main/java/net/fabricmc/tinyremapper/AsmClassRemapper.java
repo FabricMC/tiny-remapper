@@ -456,13 +456,23 @@ class AsmClassRemapper extends ClassRemapper {
 				throw new IllegalStateException();
 			}
 
-			if (plural) varName += "s";
+			boolean hasPluralS = false;
+
+			if (plural) {
+				String pluralVarName = varName + 's';
+
+				// Appending 's' could make name invalid, e.g. "clas" -> "class" (keyword)
+				if (isValidJavaIdentifier(pluralVarName)) {
+					varName = pluralVarName;
+					hasPluralS = true;
+				}
+			}
 
 			if (incrementLetter) {
 				int index = -1;
 
-				while (nameCounts.putIfAbsent(varName, 1) != null) {
-					if (index < 0) index = getNameIndex(varName, plural);
+				while (nameCounts.putIfAbsent(varName, 1) != null || !isValidJavaIdentifier(varName)) {
+					if (index < 0) index = getNameIndex(varName, hasPluralS);
 
 					varName = getIndexName(++index, plural);
 				}
@@ -508,7 +518,9 @@ class AsmClassRemapper extends ClassRemapper {
 
 		private static boolean isValidJavaIdentifier(String s) {
 			if (s == null || s.isEmpty()) return false;
-			return SourceVersion.isName(s);
+			// TODO: Use SourceVersion.isKeyword(CharSequence, SourceVersion) in Java 9
+			//       to make it independent from JDK version
+			return SourceVersion.isIdentifier(s) && !SourceVersion.isKeyword(s);
 		}
 
 		private static final String[] singleCharStrings = {
