@@ -12,7 +12,7 @@ buildscript {
 }
 
 sourceCompatibility = 1.8
-version = '0.2.1'
+version = '0.2.2'
 
 def ENV = System.getenv()
 if (ENV.BUILD_NUMBER) {
@@ -27,10 +27,10 @@ repositories {
 }
 
 dependencies {
-	compile 'org.ow2.asm:asm:7.0'
-	compile 'org.ow2.asm:asm-commons:7.0'
-	compile 'org.ow2.asm:asm-tree:7.0'
-	compile 'org.ow2.asm:asm-util:7.0'
+	compile 'org.ow2.asm:asm:8.0'
+	compile 'org.ow2.asm:asm-commons:8.0'
+	compile 'org.ow2.asm:asm-tree:8.0'
+	compile 'org.ow2.asm:asm-util:8.0'
 }
 
 apply from: 'https://github.com/FabricMC/fabric-docs/raw/master/gradle/maven.gradle'

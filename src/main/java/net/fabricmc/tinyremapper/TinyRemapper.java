@@ -330,7 +330,7 @@ public class TinyRemapper {
 
 		final ClassInstance ret = new ClassInstance(this, isInput, srcPath, saveData ? data : null);
 
-		reader.accept(new ClassVisitor(Opcodes.ASM7, extraAnalyzeVisitor) {
+		reader.accept(new ClassVisitor(Opcodes.ASM8, extraAnalyzeVisitor) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 				ret.init(name, superName, access, interfaces);
@@ -666,7 +666,7 @@ public class TinyRemapper {
 		ClassVisitor visitor = writer;
 
 		if (rebuildSourceFilenames) {
-			visitor = new SourceNameRebuildVisitor(Opcodes.ASM7, visitor);
+			visitor = new SourceNameRebuildVisitor(Opcodes.ASM8, visitor);
 		}
 
 		if (check) {
@@ -709,7 +709,7 @@ public class TinyRemapper {
 		ClassReader reader = new ClassReader(data);
 		ClassWriter writer = new ClassWriter(0);
 
-		reader.accept(new ClassVisitor(Opcodes.ASM7, writer) {
+		reader.accept(new ClassVisitor(Opcodes.ASM8, writer) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 				if (makeClsPublic) {
