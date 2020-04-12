@@ -56,7 +56,7 @@ class AsmRemapper extends Remapper {
 	@Override
 	public String mapMethodName(String owner, String name, String desc) {
 		ClassInstance cls = getClass(owner);
-		if (cls == null) return name;
+		if (cls == null) return name; // TODO: try to map these from just the mappings?, warn if actual class is missing
 
 		MemberInstance member = cls.resolve(MemberType.METHOD, MemberInstance.getMethodId(name, desc));
 		String newName;
