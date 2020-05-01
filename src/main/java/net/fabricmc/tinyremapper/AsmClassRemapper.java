@@ -410,19 +410,23 @@ class AsmClassRemapper extends ClassRemapper {
 			boolean incrementLetter = true;
 			String varName;
 
-			switch (type.charAt(0)) {
-			case 'B': varName = "b"; break;
-			case 'C': varName = "c"; break;
-			case 'D': varName = "d"; break;
-			case 'F': varName = "f"; break;
-			case 'I': varName = "i"; break;
-			case 'J': varName = "l"; break;
-			case 'S': varName = "s"; break;
-			case 'Z':
+			switch (type) {
+			case "B": case "Ljava/lang/Byte;": varName = "b"; break;
+			case "C": case "Ljava/lang/Character;": varName = "c"; break;
+			case "D": case "Ljava/lang/Double;": varName = "d"; break;
+			case "F": case "Ljava/lang/Float;": varName = "f"; break;
+			case "I": case "Ljava/lang/Integer;": varName = "i"; break;
+			case "J": case "Ljava/lang/Long;": varName = "l"; break;
+			case "S": case "Ljava/lang/Short;": varName = "s"; break;
+			case "Z": case "Ljava/lang/Boolean;":
 				varName = "bl";
 				incrementLetter = false;
 				break;
-			case 'L': {
+			default: {
+				if (type.charAt(0) != 'L') {
+					throw new IllegalStateException("Invalid type: " + type);
+				}
+
 				// strip preceding packages and outer classes
 
 				int start = type.lastIndexOf('/') + 1;
@@ -451,10 +455,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 				incrementLetter = false;
 				break;
-			}
-			default:
-				throw new IllegalStateException();
-			}
+			}}
 
 			boolean hasPluralS = false;
 
