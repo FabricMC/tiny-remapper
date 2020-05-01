@@ -252,7 +252,8 @@ class AsmClassRemapper extends ClassRemapper {
 						int asmIndex = getAsmIndex(lv.index, isStatic, argTypes);
 						String existingName = args[asmIndex];
 
-						if (existingName == null || !isValidJavaIdentifier(existingName) && isValidJavaIdentifier(lv.name)) { // replace if missing or better
+						// replace if missing or better; don't check for keywords, will be renamed later
+						if (existingName == null || !isValidJavaIdentifier(existingName) && isValidJavaIdentifier(lv.name)) {
 							args[asmIndex] = lv.name;
 						}
 
@@ -268,7 +269,7 @@ class AsmClassRemapper extends ClassRemapper {
 
 							lv.name = ((AsmRemapper) remapper).mapMethodVar(owner, methodNode.name, methodNode.desc, lv.index, startOpIdx, i, lv.name);
 
-							if (renameInvalidLocals && isValidJavaIdentifier(lv.name)) { // block valid name from generation
+							if (renameInvalidLocals && isValidJavaIdentifierAndNotKeyword(lv.name)) { // block valid name from generation
 								nameCounts.putIfAbsent(lv.name, 1);
 							}
 						}
@@ -283,7 +284,7 @@ class AsmClassRemapper extends ClassRemapper {
 				for (int i = 0; i < args.length; i++) {
 					args[i] = ((AsmRemapper) remapper).mapMethodArg(owner, methodNode.name, methodNode.desc, getLvIndex(i, isStatic, argTypes), args[i]);
 
-					if (renameInvalidLocals && isValidJavaIdentifier(args[i])) { // block valid name from generation
+					if (renameInvalidLocals && isValidJavaIdentifierAndNotKeyword(args[i])) { // block valid name from generation
 						nameCounts.putIfAbsent(args[i], 1);
 					}
 				}
@@ -292,7 +293,7 @@ class AsmClassRemapper extends ClassRemapper {
 			// fix args
 			if (renameInvalidLocals) {
 				for (int i = 0; i < args.length; i++) {
-					if (!isValidJavaIdentifier(args[i])) {
+					if (!isValidJavaIdentifierAndNotKeyword(args[i])) {
 						args[i] = getNameFromType(remapper.mapDesc(argTypes[i].getDescriptor()), true);
 					}
 				}
@@ -326,7 +327,7 @@ class AsmClassRemapper extends ClassRemapper {
 						lv.name = args[asmIndex];
 						argsWritten[asmIndex] = true;
 					} else { // var
-						if (renameInvalidLocals && !isValidJavaIdentifier(lv.name)) {
+						if (renameInvalidLocals && !isValidJavaIdentifierAndNotKeyword(lv.name)) {
 							lv.name = getNameFromType(lv.desc, false);
 						}
 					}
@@ -445,6 +446,7 @@ class AsmClassRemapper extends ClassRemapper {
 					varName = firstLc + type.substring(start + 1, type.length() - 1);
 				}
 
+				// Only check for invalid identifiers, keyword check is performed below
 				if (!isValidJavaIdentifier(varName)) {
 					varName = isArg ? "arg" : "lv"; // lv instead of var to avoid confusion with Java 10's var keyword
 				}
@@ -462,7 +464,7 @@ class AsmClassRemapper extends ClassRemapper {
 				String pluralVarName = varName + 's';
 
 				// Appending 's' could make name invalid, e.g. "clas" -> "class" (keyword)
-				if (isValidJavaIdentifier(pluralVarName)) {
+				if (!isJavaKeyword(pluralVarName)) {
 					varName = pluralVarName;
 					hasPluralS = true;
 				}
@@ -471,7 +473,7 @@ class AsmClassRemapper extends ClassRemapper {
 			if (incrementLetter) {
 				int index = -1;
 
-				while (nameCounts.putIfAbsent(varName, 1) != null || !isValidJavaIdentifier(varName)) {
+				while (nameCounts.putIfAbsent(varName, 1) != null || isJavaKeyword(varName)) {
 					if (index < 0) index = getNameIndex(varName, hasPluralS);
 
 					varName = getIndexName(++index, plural);
@@ -479,9 +481,31 @@ class AsmClassRemapper extends ClassRemapper {
 
 				return varName;
 			} else {
-				int count = nameCounts.compute(varName, (k, v) -> (v == null) ? 1 : v + 1);
+				String baseVarName = varName;
+				int count = nameCounts.compute(baseVarName, (k, v) -> (v == null) ? 1 : v + 1);
 
-				return count == 1 ? varName : varName.concat(Integer.toString(count));
+				if (count == 1) {
+					if (isJavaKeyword(baseVarName)) {
+						varName += '_';
+					} else {
+						return varName; // name does not exist yet, so can return fast here
+					}
+				} else {
+					varName = baseVarName + Integer.toString(count);
+				}
+
+				/*
+				 * Check if name is not taken yet, count only indicates where to continue
+				 * numbering for baseVarName, but does not guarantee that there is no
+				 * other variable which already has that name, e.g.:
+				 * (MyClass ?, MyClass2 ?, MyClass ?) -> (MyClass myClass, MyClass2 myClass2, !myClass2 is already taken!)
+				 */
+				for (;nameCounts.putIfAbsent(varName, 1) != null; count++) {
+					varName = baseVarName + Integer.toString(count);
+				}
+				nameCounts.put(baseVarName, count); // update name count
+
+				return varName;
 			}
 		}
 
@@ -516,11 +540,18 @@ class AsmClassRemapper extends ClassRemapper {
 			}
 		}
 
+		private static boolean isValidJavaIdentifierAndNotKeyword(String s) {
+			return isValidJavaIdentifier(s) && !isJavaKeyword(s);
+		}
+
 		private static boolean isValidJavaIdentifier(String s) {
-			if (s == null || s.isEmpty()) return false;
+			return s != null && !s.isEmpty() && SourceVersion.isIdentifier(s);
+		}
+
+		private static boolean isJavaKeyword(String s) {
 			// TODO: Use SourceVersion.isKeyword(CharSequence, SourceVersion) in Java 9
 			//       to make it independent from JDK version
-			return SourceVersion.isIdentifier(s) && !SourceVersion.isKeyword(s);
+			return SourceVersion.isKeyword(s);
 		}
 
 		private static final String[] singleCharStrings = {
