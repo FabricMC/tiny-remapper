@@ -545,7 +545,10 @@ class AsmClassRemapper extends ClassRemapper {
 		}
 
 		private static boolean isValidJavaIdentifier(String s) {
-			return s != null && !s.isEmpty() && SourceVersion.isIdentifier(s);
+			return s != null && !s.isEmpty() && SourceVersion.isIdentifier(s)
+					// Ignorable characters cannot be represented in source code,
+					// would be ignored when re-compiled
+					&& !s.codePoints().anyMatch(Character::isIdentifierIgnorable);
 		}
 
 		private static boolean isJavaKeyword(String s) {
