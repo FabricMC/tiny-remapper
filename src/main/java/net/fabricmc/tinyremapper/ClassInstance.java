@@ -19,6 +19,7 @@ package net.fabricmc.tinyremapper;
 
 import java.nio.file.Path;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
@@ -29,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import org.objectweb.asm.Opcodes;
 
@@ -36,9 +38,10 @@ import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
 
 public final class ClassInstance {
-	ClassInstance(TinyRemapper context, boolean isInput, Path srcFile, byte[] data) {
+	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
 		this.context = context;
 		this.isInput = isInput;
+		this.inputTags = inputTags;
 		this.srcPath = srcFile;
 		this.data = data;
 	}
@@ -52,6 +55,75 @@ public final class ClassInstance {
 
 	MemberInstance addMember(MemberInstance member) {
 		return members.put(member.getId(), member);
+	}
+
+	void addInputTags(InputTag[] tags) {
+		if (tags == null || tags.length == 0) return;
+
+		InputTag[] oldTags;
+		InputTag[] newTags;
+
+		do { // cas loop
+			oldTags = inputTags;
+
+			if (oldTags == null) {
+				newTags = tags;
+			} else { // both old and new tags, merge
+				int missingTags = 0;
+
+				for (InputTag newTag : tags) {
+					boolean found = false;
+
+					for (InputTag oldTag : oldTags) {
+						if (newTag == oldTag) {
+							found = true;
+							break;
+						}
+					}
+
+					if (!found) missingTags++;
+				}
+
+				if (missingTags == 0) return;
+
+				newTags = Arrays.copyOf(tags, oldTags.length + missingTags);
+
+				for (InputTag newTag : tags) {
+					boolean found = false;
+
+					for (InputTag oldTag : oldTags) {
+						if (newTag == oldTag) {
+							found = true;
+							break;
+						}
+					}
+
+					if (!found) {
+						newTags[newTags.length - missingTags] = newTag;
+						missingTags--;
+					}
+				}
+			}
+		} while (!inputTagsUpdater.compareAndSet(this, oldTags, newTags));
+	}
+
+	InputTag[] getInputTags() {
+		return inputTags;
+	}
+
+	boolean hasAnyInputTag(InputTag[] reqTags) {
+		InputTag[] availTags = inputTags;
+		if (availTags == null) return true;
+
+		for (InputTag reqTag : reqTags) {
+			for (InputTag availTag : availTags) {
+				if (availTag == reqTag) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	public String getName() {
@@ -375,11 +447,13 @@ public final class ClassInstance {
 	}
 
 	private static final MemberInstance nullMember = new MemberInstance(null, null, null, null, 0);
+	private static final AtomicReferenceFieldUpdater<ClassInstance, InputTag[]> inputTagsUpdater = AtomicReferenceFieldUpdater.newUpdater(ClassInstance.class, InputTag[].class, "inputTags");
 
 	final TinyRemapper context;
 	final boolean isInput;
+	private volatile InputTag[] inputTags; // cow input tag list, null for none
 	final Path srcPath;
-	final byte[] data;
+	byte[] data;
 	private final Map<String, MemberInstance> members = new HashMap<>(); // methods and fields are distinct due to their different desc separators
 	private final ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();
 	final Set<ClassInstance> parents = new HashSet<>();

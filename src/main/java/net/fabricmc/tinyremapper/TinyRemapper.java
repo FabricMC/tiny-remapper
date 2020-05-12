@@ -37,14 +37,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -75,6 +78,14 @@ public class TinyRemapper {
 
 		public Builder threads(int threadCount) {
 			this.threadCount = threadCount;
+			return this;
+		}
+
+		/**
+		 * Keep the input data after consuming it for apply(), allows multiple apply invocations() even without input tag use.
+		 */
+		public Builder keepInputData(boolean value) {
+			this.keepInputData = value;
 			return this;
 		}
 
@@ -140,6 +151,7 @@ public class TinyRemapper {
 
 		public TinyRemapper build() {
 			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount,
+					keepInputData,
 					forcePropagation, propagatePrivate,
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
 					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals,
@@ -152,6 +164,7 @@ public class TinyRemapper {
 		private boolean ignoreFieldDesc;
 		private int threadCount;
 		private final Set<String> forcePropagation = new HashSet<>();
+		private boolean keepInputData = false;
 		private boolean propagatePrivate = false;
 		private boolean removeFrames = false;
 		private boolean ignoreConflicts = false;
@@ -167,6 +180,7 @@ public class TinyRemapper {
 
 	private TinyRemapper(Collection<IMappingProvider> mappingProviders, boolean ignoreFieldDesc,
 			int threadCount,
+			boolean keepInputData,
 			Set<String> forcePropagation, boolean propagatePrivate,
 			boolean removeFrames,
 			boolean ignoreConflicts,
@@ -180,6 +194,7 @@ public class TinyRemapper {
 		this.mappingProviders = mappingProviders;
 		this.ignoreFieldDesc = ignoreFieldDesc;
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
+		this.keepInputData = keepInputData;
 		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
 		this.forcePropagation = forcePropagation;
 		this.propagatePrivate = propagatePrivate;
@@ -201,70 +216,138 @@ public class TinyRemapper {
 
 	public void finish() {
 		threadPool.shutdown();
+
 		try {
 			threadPool.awaitTermination(20, TimeUnit.SECONDS);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
+
+		outputBuffer = null;
+		classes.clear();
+	}
+
+	public InputTag createInputTag() {
+		InputTag ret = new InputTag();
+		InputTag[] array = { ret };
+
+		Map<InputTag, InputTag[]> oldTags, newTags;
+
+		do { // cas loop
+			oldTags = this.singleInputTags.get();
+			newTags = new IdentityHashMap<>(oldTags.size() + 1);
+			newTags.putAll(oldTags);
+			newTags.put(ret, array);
+		} while (!singleInputTags.compareAndSet(oldTags, newTags));
+
+		return ret;
 	}
 
 	public void readInputs(final Path... inputs) {
-		read(inputs, true);
+		readInputs(null, inputs);
+	}
+
+	public void readInputs(InputTag tag, Path... inputs) {
+		read(inputs, true, tag).join();
+	}
+
+	public CompletableFuture<?> readInputsAsync(Path... inputs) {
+		return readInputsAsync(null, inputs);
+	}
+
+	public CompletableFuture<?> readInputsAsync(InputTag tag, Path... inputs) {
+		CompletableFuture<?> ret = read(inputs, true, tag);
+
+		if (!ret.isDone()) pendingReads.add(ret);
+
+		return ret;
 	}
 
 	public void readClassPath(final Path... inputs) {
-		read(inputs, false);
+		read(inputs, false, null).join();
 	}
 
-	private void read(Path[] inputs, boolean isInput) {
-		List<Future<List<ClassInstance>>> futures = new ArrayList<>();
+	public CompletableFuture<?> readClassPathAsync(final Path... inputs) {
+		CompletableFuture<?> ret = read(inputs, false, null);
+
+		if (!ret.isDone()) pendingReads.add(ret);
+
+		return ret;
+	}
+
+	private CompletableFuture<List<ClassInstance>> read(Path[] inputs, boolean isInput, InputTag tag) {
+		InputTag[] tags = singleInputTags.get().get(tag);
+		List<CompletableFuture<List<ClassInstance>>> futures = new ArrayList<>();
 		List<FileSystem> fsToClose = Collections.synchronizedList(new ArrayList<>());
 
-		try {
-			for (Path input : inputs) {
-				futures.addAll(read(input, isInput, true, fsToClose));
+		for (Path input : inputs) {
+			futures.addAll(read(input, isInput, tags, true, fsToClose));
+		}
+
+		CompletableFuture<List<ClassInstance>> ret;
+
+		if (futures.isEmpty()) {
+			return CompletableFuture.completedFuture(Collections.emptyList());
+		} else if (futures.size() == 1) {
+			ret = futures.get(0);
+		} else {
+			ret = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+					.thenApply(ignore -> futures.stream().flatMap(f -> f.join().stream()).collect(Collectors.toList()));
+		}
+
+		dirty = true;
+
+		return ret.whenComplete((res, exc) -> {
+			for (FileSystem fs : fsToClose) {
+				try {
+					FileSystemHandler.close(fs);
+				} catch (IOException e) { }
 			}
 
-			if (futures.size() > 0) {
-				dirty = true;
+			for (ClassInstance node : res) {
+				addClass(node, readClasses);
 			}
+		});
+	}
 
-			for (Future<List<ClassInstance>> future : futures) {
-				for (ClassInstance node : future.get()) {
-					ClassInstance prev = classes.put(node.getName(), node);
+	private static void addClass(ClassInstance cls, Map<String, ClassInstance> out) {
+		String name = cls.getName();
 
-					if (prev != null) {
-						if (isInput && !prev.isInput) {
-							System.out.printf("duplicate input class %s, from %s and %s%n", node.getName(), prev.srcPath, node.srcPath);
-						} else if (!isInput && prev.isInput) { // give the input class priority
-							classes.put(prev.getName(), prev);
-						}
-					}
+		// add new class or replace non-input class with input class, warn if two input classes clash
+		for (;;) {
+			ClassInstance prev = out.putIfAbsent(name, cls);
+			if (prev == null) return;
+
+			if (cls.isInput) {
+				if (prev.isInput) {
+					System.out.printf("duplicate input class %s, from %s and %s%n", name, prev.srcPath, cls.srcPath);
+					prev.addInputTags(cls.getInputTags());
+					return;
+				} else if (out.replace(name, prev, cls)) { // cas with retry-loop on failure
+					cls.addInputTags(prev.getInputTags());
+					return;
+				} else {
+					// loop
 				}
-			}
-		} catch (InterruptedException | ExecutionException e) {
-			throw new RuntimeException(e);
-		} finally {
-			synchronized (fsToClose) {
-				for (FileSystem fs : fsToClose) {
-					try {
-						FileSystemHandler.close(fs);
-					} catch (IOException e) { }
-				}
+			} else {
+				prev.addInputTags(cls.getInputTags());
+				return;
 			}
 		}
 	}
 
-	private List<Future<List<ClassInstance>>> read(final Path file, boolean isInput, boolean saveData, final List<FileSystem> fsToClose) {
+	private List<CompletableFuture<List<ClassInstance>>> read(final Path file, boolean isInput, InputTag[] tags,
+			boolean saveData, final List<FileSystem> fsToClose) {
 		try {
-			return read(file, isInput, file, saveData, fsToClose);
+			return read(file, isInput, tags, file, saveData, fsToClose);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
 
-	private List<Future<List<ClassInstance>>> read(final Path file, boolean isInput, final Path srcPath, final boolean saveData, final List<FileSystem> fsToClose) throws IOException {
-		List<Future<List<ClassInstance>>> ret = new ArrayList<>();
+	private List<CompletableFuture<List<ClassInstance>>> read(final Path file, boolean isInput, InputTag[] tags, final Path srcPath,
+			final boolean saveData, final List<FileSystem> fsToClose) throws IOException {
+		List<CompletableFuture<List<ClassInstance>>> ret = new ArrayList<>();
 
 		Files.walkFileTree(file, new SimpleFileVisitor<Path>() {
 			@Override
@@ -274,11 +357,11 @@ public class TinyRemapper {
 				if (name.endsWith(".jar") ||
 						name.endsWith(".zip") ||
 						name.endsWith(".class")) {
-					ret.add(threadPool.submit(new Callable<List<ClassInstance>>() {
+					ret.add(CompletableFuture.supplyAsync(new Supplier<List<ClassInstance>>() {
 						@Override
-						public List<ClassInstance> call() {
+						public List<ClassInstance> get() {
 							try {
-								return readFile(file, isInput, srcPath, saveData, fsToClose);
+								return readFile(file, isInput, tags, srcPath, saveData, fsToClose);
 							} catch (URISyntaxException e) {
 								throw new RuntimeException(e);
 							} catch (IOException e) {
@@ -287,7 +370,7 @@ public class TinyRemapper {
 								return Collections.emptyList();
 							}
 						}
-					}));
+					}, threadPool));
 				}
 
 				return FileVisitResult.CONTINUE;
@@ -297,11 +380,12 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private List<ClassInstance> readFile(Path file, boolean isInput, final Path srcPath, boolean saveData, List<FileSystem> fsToClose) throws IOException, URISyntaxException {
+	private List<ClassInstance> readFile(Path file, boolean isInput, InputTag[] tags, final Path srcPath,
+			boolean saveData, List<FileSystem> fsToClose) throws IOException, URISyntaxException {
 		List<ClassInstance> ret = new ArrayList<ClassInstance>();
 
 		if (file.toString().endsWith(".class")) {
-			ClassInstance res = analyze(isInput, srcPath, Files.readAllBytes(file), saveData);
+			ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file), saveData);
 			if (res != null) ret.add(res);
 		} else {
 			URI uri = new URI("jar:"+file.toUri().toString());
@@ -312,7 +396,7 @@ public class TinyRemapper {
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					if (file.toString().endsWith(".class")) {
-						ClassInstance res = analyze(isInput, srcPath, Files.readAllBytes(file), saveData);
+						ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file), saveData);
 						if (res != null) ret.add(res);
 					}
 
@@ -324,11 +408,11 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private ClassInstance analyze(boolean isInput, Path srcPath, byte[] data, boolean saveData) {
+	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, byte[] data, boolean saveData) {
 		ClassReader reader = new ClassReader(data);
 		if ((reader.getAccess() & Opcodes.ACC_MODULE) != 0) return null; // special attribute for module-info.class, can't be a regular class
 
-		final ClassInstance ret = new ClassInstance(this, isInput, srcPath, saveData ? data : null);
+		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, saveData ? data : null);
 
 		reader.accept(new ClassVisitor(Opcodes.ASM8, extraAnalyzeVisitor) {
 			@Override
@@ -619,63 +703,116 @@ public class TinyRemapper {
 	}
 
 	public void apply(final BiConsumer<String, byte[]> outputConsumer) {
-		refresh();
+		apply(outputConsumer, (InputTag[]) null);
+	}
 
-		Map<ClassInstance, byte[]> outputBuffer;
-		BiConsumer<ClassInstance, byte[]> immediateOutputConsumer;
+	public void apply(final BiConsumer<String, byte[]> outputConsumer, InputTag... inputTags) {
+		// We expect apply() to be invoked only once if the user didn't request any input tags. Invoking it multiple
+		// times still works with keepInputData=true, but wastes some time by redoing most processing.
+		// With input tags the first apply invocation computes the entire output, but yields only what matches the given
+		// input tags. The output data is being kept for eventual further apply() outputs, only finish() clears it.
+		boolean hasInputTags = !singleInputTags.get().isEmpty();
 
-		if (fixPackageAccess) {
-			outputBuffer = new ConcurrentHashMap<>();
-			immediateOutputConsumer = outputBuffer::put;
-		} else {
-			outputBuffer = null;
-			immediateOutputConsumer = (cls, data) -> outputConsumer.accept(mapClass(cls.getName()), data);
-		}
+		synchronized (this) { // guard against concurrent apply invocations
+			refresh();
 
-		List<Future<?>> futures = new ArrayList<>();
+			if (outputBuffer == null) { // first (inputTags present) or full (no input tags) output invocation, process everything but don't output if input tags are present
+				BiConsumer<ClassInstance, byte[]> immediateOutputConsumer;
 
-		for (final ClassInstance cls : classes.values()) {
-			if (!cls.isInput) continue;
-
-			futures.add(threadPool.submit(() -> immediateOutputConsumer.accept(cls, apply(cls))));
-		}
-
-		waitForAll(futures);
-
-		boolean needsFixes = !classesToMakePublic.isEmpty() || !membersToMakePublic.isEmpty();
-
-		if (fixPackageAccess) {
-			if (needsFixes) {
-				System.out.printf("Fixing access for %d classes and %d members.%n", classesToMakePublic.size(), membersToMakePublic.size());
-			}
-
-			for (Map.Entry<ClassInstance, byte[]> entry : outputBuffer.entrySet()) {
-				ClassInstance cls = entry.getKey();
-				byte[] data = entry.getValue();
-
-				if (needsFixes) {
-					data = fixClass(cls, data);
+				if (fixPackageAccess || hasInputTags) { // need re-processing or output buffering for repeated applies
+					outputBuffer = new ConcurrentHashMap<>();
+					immediateOutputConsumer = outputBuffer::put;
+				} else {
+					immediateOutputConsumer = (cls, data) -> outputConsumer.accept(mapClass(cls.getName()), data);
 				}
 
-				outputConsumer.accept(mapClass(cls.getName()), data);
-			}
+				List<Future<?>> futures = new ArrayList<>();
 
-			classesToMakePublic.clear();
-			membersToMakePublic.clear();
-		} else if (needsFixes) {
-			throw new RuntimeException(String.format("%d classes and %d members need access fixes", classesToMakePublic.size(), membersToMakePublic.size()));
+				for (final ClassInstance cls : classes.values()) {
+					if (!cls.isInput) continue;
+
+					if (cls.data == null) {
+						if (!hasInputTags && !keepInputData) throw new IllegalStateException("invoking apply multiple times without input tags or hasInputData");
+						throw new IllegalStateException("data for input class "+cls+" is missing?!");
+					}
+
+					futures.add(threadPool.submit(() -> immediateOutputConsumer.accept(cls, apply(cls))));
+				}
+
+				waitForAll(futures);
+
+				boolean needsFixes = !classesToMakePublic.isEmpty() || !membersToMakePublic.isEmpty();
+
+				if (fixPackageAccess) {
+					if (needsFixes) {
+						System.out.printf("Fixing access for %d classes and %d members.%n", classesToMakePublic.size(), membersToMakePublic.size());
+					}
+
+					for (Map.Entry<ClassInstance, byte[]> entry : outputBuffer.entrySet()) {
+						ClassInstance cls = entry.getKey();
+						byte[] data = entry.getValue();
+
+						if (needsFixes) {
+							data = fixClass(cls, data);
+						}
+
+						if (hasInputTags) {
+							entry.setValue(data);
+						} else {
+							outputConsumer.accept(mapClass(cls.getName()), data);
+						}
+					}
+
+					if (!hasInputTags) outputBuffer = null; // don't expect repeat invocations
+
+					classesToMakePublic.clear();
+					membersToMakePublic.clear();
+				} else if (needsFixes) {
+					throw new RuntimeException(String.format("%d classes and %d members need access fixes", classesToMakePublic.size(), membersToMakePublic.size()));
+				}
+			}
+		}
+
+		assert hasInputTags == (outputBuffer != null);
+
+		if (outputBuffer != null) { // partial output selected by input tags
+			for (Map.Entry<ClassInstance, byte[]> entry : outputBuffer.entrySet()) {
+				ClassInstance cls = entry.getKey();
+
+				if (inputTags == null || cls.hasAnyInputTag(inputTags)) {
+					outputConsumer.accept(mapClass(cls.getName()), entry.getValue());
+				}
+			}
 		}
 	}
 
 	private void refresh() {
-		if (dirty) {
-			loadMappings();
-			checkClassMappings();
-			merge();
-			propagate();
+		if (!dirty) return;
 
-			dirty = false;
+		outputBuffer = null;
+
+		if (!pendingReads.isEmpty()) {
+			for (CompletableFuture<?> future : pendingReads) {
+				future.join();
+			}
+
+			pendingReads.clear();
 		}
+
+		if (!readClasses.isEmpty()) {
+			for (ClassInstance cls : readClasses.values()) {
+				addClass(cls, classes);
+			}
+
+			readClasses.clear();
+		}
+
+		loadMappings();
+		checkClassMappings();
+		merge();
+		propagate();
+
+		dirty = false;
 	}
 
 	private byte[] apply(final ClassInstance cls) {
@@ -696,6 +833,8 @@ public class TinyRemapper {
 
 		reader.accept(new AsmClassRemapper(visitor, remapper, checkPackageAccess, skipLocalMapping, renameInvalidLocals), flags);
 		// TODO: compute frames (-Xverify:all -XX:-FailOverToOldVerifier)
+
+		if (!keepInputData) cls.data = null;
 
 		return writer.toByteArray();
 	}
@@ -863,6 +1002,7 @@ public class TinyRemapper {
 
 	private final boolean check = false;
 
+	private final boolean keepInputData;
 	final Set<String> forcePropagation;
 	final boolean propagatePrivate;
 	private final boolean removeFrames;
@@ -875,6 +1015,12 @@ public class TinyRemapper {
 	private final boolean renameInvalidLocals;
 	private final ClassVisitor extraAnalyzeVisitor;
 	final Remapper extraRemapper;
+
+	final AtomicReference<Map<InputTag, InputTag[]>> singleInputTags = new AtomicReference<>(Collections.emptyMap()); // cache for tag -> { tag }
+
+	final List<CompletableFuture<?>> pendingReads = new ArrayList<>(); // reads that need to be waited for before continuing processing (assumes lack of external waiting)
+	final Map<String, ClassInstance> readClasses = new ConcurrentHashMap<>(); // classes being potentially concurrently read, to be transferred into unsynchronized classes later
+
 	final Map<String, String> classMap = new HashMap<>();
 	final Map<String, String> methodMap = new HashMap<>();
 	final Map<String, String> methodArgMap = new HashMap<>();
@@ -890,4 +1036,5 @@ public class TinyRemapper {
 	private final AsmRemapper remapper = new AsmRemapper(this);
 
 	private boolean dirty = true;
+	private Map<ClassInstance, byte[]> outputBuffer;
 }
