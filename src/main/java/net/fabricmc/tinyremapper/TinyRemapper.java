@@ -258,7 +258,11 @@ public class TinyRemapper {
 	public CompletableFuture<?> readInputsAsync(InputTag tag, Path... inputs) {
 		CompletableFuture<?> ret = read(inputs, true, tag);
 
-		if (!ret.isDone()) pendingReads.add(ret);
+		if (!ret.isDone()) {
+			pendingReads.add(ret);
+		} else {
+			ret.join();
+		}
 
 		return ret;
 	}
@@ -270,7 +274,11 @@ public class TinyRemapper {
 	public CompletableFuture<?> readClassPathAsync(final Path... inputs) {
 		CompletableFuture<?> ret = read(inputs, false, null);
 
-		if (!ret.isDone()) pendingReads.add(ret);
+		if (!ret.isDone()) {
+			pendingReads.add(ret);
+		} else {
+			ret.join();
+		}
 
 		return ret;
 	}
@@ -304,9 +312,13 @@ public class TinyRemapper {
 				} catch (IOException e) { }
 			}
 
-			for (ClassInstance node : res) {
-				addClass(node, readClasses);
+			if (res != null) {
+				for (ClassInstance node : res) {
+					addClass(node, readClasses);
+				}
 			}
+
+			assert dirty;
 		});
 	}
 
@@ -361,7 +373,7 @@ public class TinyRemapper {
 						@Override
 						public List<ClassInstance> get() {
 							try {
-								return readFile(file, isInput, tags, srcPath, saveData, fsToClose);
+								return readFile(file, isInput, tags, srcPath, fsToClose);
 							} catch (URISyntaxException e) {
 								throw new RuntimeException(e);
 							} catch (IOException e) {
@@ -381,11 +393,11 @@ public class TinyRemapper {
 	}
 
 	private List<ClassInstance> readFile(Path file, boolean isInput, InputTag[] tags, final Path srcPath,
-			boolean saveData, List<FileSystem> fsToClose) throws IOException, URISyntaxException {
+			List<FileSystem> fsToClose) throws IOException, URISyntaxException {
 		List<ClassInstance> ret = new ArrayList<ClassInstance>();
 
 		if (file.toString().endsWith(".class")) {
-			ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file), saveData);
+			ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file));
 			if (res != null) ret.add(res);
 		} else {
 			URI uri = new URI("jar:"+file.toUri().toString());
@@ -396,7 +408,7 @@ public class TinyRemapper {
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					if (file.toString().endsWith(".class")) {
-						ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file), saveData);
+						ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file));
 						if (res != null) ret.add(res);
 					}
 
@@ -408,11 +420,11 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, byte[] data, boolean saveData) {
+	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, byte[] data) {
 		ClassReader reader = new ClassReader(data);
 		if ((reader.getAccess() & Opcodes.ACC_MODULE) != 0) return null; // special attribute for module-info.class, can't be a regular class
 
-		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, saveData ? data : null);
+		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, isInput ? data : null);
 
 		reader.accept(new ClassVisitor(Opcodes.ASM8, extraAnalyzeVisitor) {
 			@Override
@@ -787,7 +799,12 @@ public class TinyRemapper {
 	}
 
 	private void refresh() {
-		if (!dirty) return;
+		if (!dirty) {
+			assert pendingReads.isEmpty();
+			assert readClasses.isEmpty();
+
+			return;
+		}
 
 		outputBuffer = null;
 
@@ -812,6 +829,7 @@ public class TinyRemapper {
 		merge();
 		propagate();
 
+		assert dirty;
 		dirty = false;
 	}
 
@@ -1035,6 +1053,6 @@ public class TinyRemapper {
 	private final ExecutorService threadPool;
 	private final AsmRemapper remapper = new AsmRemapper(this);
 
-	private boolean dirty = true;
+	private volatile boolean dirty = true; // volatile to make the state debug asserts more reliable, shouldn't actually see concurrent modifications
 	private Map<ClassInstance, byte[]> outputBuffer;
 }
