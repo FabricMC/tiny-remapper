@@ -339,19 +339,33 @@ class AsmClassRemapper extends ClassRemapper {
 				for (int i = 0; i < args.length; i++) {
 					if (!argsWritten[i] && args[i] != null) {
 						if (start == null) { // lazy initialize start + end by finding the first and last label node
+							boolean pastStart = false; // whether any actual instructions were already encountered
+
 							for (Iterator<AbstractInsnNode> it = methodNode.instructions.iterator(); it.hasNext(); ) {
 								AbstractInsnNode ain = it.next();
 
 								if (ain.getType() == AbstractInsnNode.LABEL) {
 									LabelNode label = (LabelNode) ain;
-									if (start == null) start = label;
+									if (start == null && !pastStart) start = label; // start label must precede all instructions
 									end = label;
+								} else if (ain.getOpcode() >= 0) { // actual instruction
+									pastStart = true;
+									end = null; // end must be after all instructions
 								}
 							}
 
 							if (start == null) { // no labels -> can't create lvs
-								assert false;
-								break;
+								start = new LabelNode();
+								methodNode.instructions.insert(start);
+							}
+
+							if (end == null) {
+								if (!pastStart) {
+									end = start;
+								} else {
+									end = new LabelNode();
+									methodNode.instructions.add(end);
+								}
 							}
 						}
 

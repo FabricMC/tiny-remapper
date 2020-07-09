@@ -98,7 +98,7 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 
 	private OutputConsumerPath(Path destination, boolean isJar, boolean keepFsOpen, boolean threadSyncWrites,
 			Predicate<String> classNameFilter) throws IOException {
-		if (!isJar) {
+		if (!isJar) { // TODO: implement .class output (for processing a single class file)
 			Files.createDirectories(destination);
 		} else {
 			createParentDirs(destination);
@@ -135,7 +135,9 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 		if (Files.isDirectory(srcFile)) {
 			addNonClassFiles(srcFile, copyMode, remapper, false);
 		} else if (Files.exists(srcFile)) {
-			addNonClassFiles(FileSystems.newFileSystem(srcFile, null).getPath("/"), copyMode, remapper, true);
+			if (!srcFile.getFileName().toString().endsWith(classSuffix)) {
+				addNonClassFiles(FileSystems.newFileSystem(srcFile, null).getPath("/"), copyMode, remapper, true);
+			}
 		} else {
 			throw new FileNotFoundException("file "+srcFile+" doesn't exist");
 		}
