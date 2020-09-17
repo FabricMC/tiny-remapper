@@ -40,7 +40,8 @@ jar {
 	manifest {
 		attributes	'Implementation-Title': 'TinyRemapper',
 					'Implementation-Version': version,
-					'Main-Class': "net.fabricmc.tinyremapper.Main"
+					'Main-Class': "net.fabricmc.tinyremapper.Main",
+					'Automatic-Module-Name': 'net.fabricmc.TinyRemapper'
 	}
 }
 
