@@ -99,6 +99,11 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public Builder propagateBridges(BridgePropagation value) {
+			propagateBridges = value;
+			return this;
+		}
+
 		public Builder removeFrames(boolean value) {
 			removeFrames = value;
 			return this;
@@ -152,7 +157,7 @@ public class TinyRemapper {
 		public TinyRemapper build() {
 			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount,
 					keepInputData,
-					forcePropagation, propagatePrivate,
+					forcePropagation, propagatePrivate, propagateBridges,
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
 					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals,
 					extraAnalyzeVisitor, extraRemapper);
@@ -166,6 +171,7 @@ public class TinyRemapper {
 		private final Set<String> forcePropagation = new HashSet<>();
 		private boolean keepInputData = false;
 		private boolean propagatePrivate = false;
+		private BridgePropagation propagateBridges = BridgePropagation.DISABLED;
 		private boolean removeFrames = false;
 		private boolean ignoreConflicts = false;
 		private boolean resolveMissing = false;
@@ -181,7 +187,7 @@ public class TinyRemapper {
 	private TinyRemapper(Collection<IMappingProvider> mappingProviders, boolean ignoreFieldDesc,
 			int threadCount,
 			boolean keepInputData,
-			Set<String> forcePropagation, boolean propagatePrivate,
+			Set<String> forcePropagation, boolean propagatePrivate, BridgePropagation propagateBridges,
 			boolean removeFrames,
 			boolean ignoreConflicts,
 			boolean resolveMissing,
@@ -198,6 +204,7 @@ public class TinyRemapper {
 		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
 		this.forcePropagation = forcePropagation;
 		this.propagatePrivate = propagatePrivate;
+		this.propagateBridges = propagateBridges;
 		this.removeFrames = removeFrames;
 		this.ignoreConflicts = ignoreConflicts;
 		this.resolveMissing = resolveMissing;
@@ -1008,7 +1015,9 @@ public class TinyRemapper {
 
 				visitedUp.add(cls);
 				visitedDown.add(cls);
-				cls.propagate(TinyRemapper.this, type, className, idSrc, nameDst, isVirtual ? Direction.ANY : Direction.DOWN, isVirtual, true, visitedUp, visitedDown);
+				cls.propagate(TinyRemapper.this, type, className, idSrc, nameDst,
+						(isVirtual ? Direction.ANY : Direction.DOWN), isVirtual, propagateBridges,
+						true, visitedUp, visitedDown);
 				visitedUp.clear();
 				visitedDown.clear();
 			}
@@ -1018,11 +1027,31 @@ public class TinyRemapper {
 		private final List<Map.Entry<String, String> > tasks = new ArrayList<Map.Entry<String,String> >();
 	}
 
+	public enum BridgePropagation {
+		/**
+		 * Don't propagate names into bridged methods.
+		 *
+		 * <p>This is JVM compliant but doesn't mirror Javac's behavior and decouples bridge methods from their target.
+		 */
+		DISABLED,
+		/**
+		 * Propagate names into bridged methods.
+		 *
+		 * <p>Mappings reaching bridge method will be applied to the methods they bridge to.
+		 */
+		ENABLED,
+		/**
+		 * Propagate names into bridged methods and create additional bridges to keep the original bridged method name intact.
+		 */
+		COMPATIBLE;
+	}
+
 	private final boolean check = false;
 
 	private final boolean keepInputData;
 	final Set<String> forcePropagation;
 	final boolean propagatePrivate;
+	final BridgePropagation propagateBridges;
 	private final boolean removeFrames;
 	private final boolean ignoreConflicts;
 	private final boolean resolveMissing;

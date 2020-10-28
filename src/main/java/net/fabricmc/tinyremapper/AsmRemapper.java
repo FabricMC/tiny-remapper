@@ -19,9 +19,11 @@ package net.fabricmc.tinyremapper;
 
 import java.util.Locale;
 
+import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.commons.Remapper;
 
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
+import net.fabricmc.tinyremapper.TinyRemapper.BridgePropagation;
 
 class AsmRemapper extends Remapper {
 	public AsmRemapper(TinyRemapper remapper) {
@@ -111,6 +113,16 @@ class AsmRemapper extends Remapper {
 		return name; // TODO: implement
 	}
 
+	void finish(String className, ClassVisitor cv) {
+		if (remapper.propagateBridges == BridgePropagation.COMPATIBLE) {
+			ClassInstance cls = getClass(className);
+
+			if (cls != null) {
+				BridgeHandler.generateCompatBridges(cls, this, cv);
+			}
+		}
+	}
+
 	/**
 	 * Check if a class can access a specific member, printing and recording failure for later.
 	 */
@@ -198,9 +210,9 @@ class AsmRemapper extends Remapper {
 		if (!memberAccessible) {
 			String memberMsg = String.format("%s %s %s/%s",
 					member.isProtected() ? "protected" : "package-private",
-					type.name().toLowerCase(Locale.ENGLISH),
-					map(member.cls.getName()),
-					MemberInstance.getId(type, mappedName, mappedDesc, remapper.ignoreFieldDesc));
+							type.name().toLowerCase(Locale.ENGLISH),
+							map(member.cls.getName()),
+							MemberInstance.getId(type, mappedName, mappedDesc, remapper.ignoreFieldDesc));
 
 			if (inaccessible == null) {
 				inaccessible = memberMsg;
@@ -219,11 +231,11 @@ class AsmRemapper extends Remapper {
 
 	private boolean isSamePackage(String clsA, int pkgEnd, String clsB) {
 		return pkgEnd < 0 && clsB.indexOf('/') < 0 // both empty package
-					|| pkgEnd >= 0 // both non-empty (considering prev condition)
-					&& pkgEnd < clsB.length() // pkg not longer than whole other name
-					&& clsB.charAt(pkgEnd) == '/' // potentially same prefix length
-					&& clsB.indexOf('/', pkgEnd + 1) < 0 // definitely same prefix length
-					&& clsA.regionMatches(0, clsB, 0, pkgEnd - 1); // same prefix -> same package
+				|| pkgEnd >= 0 // both non-empty (considering prev condition)
+				&& pkgEnd < clsB.length() // pkg not longer than whole other name
+				&& clsB.charAt(pkgEnd) == '/' // potentially same prefix length
+				&& clsB.indexOf('/', pkgEnd + 1) < 0 // definitely same prefix length
+				&& clsA.regionMatches(0, clsB, 0, pkgEnd - 1); // same prefix -> same package
 	}
 
 	private boolean hasSuperCls(String cls, String reqSuperCls) {

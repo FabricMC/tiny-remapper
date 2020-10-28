@@ -31,12 +31,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import net.fabricmc.tinyremapper.TinyRemapper.BridgePropagation;
+
 public class Main {
 	public static void main(String[] rawArgs) {
 		List<String> args = new ArrayList<String>(rawArgs.length);
 		boolean reverse = false;
 		boolean ignoreFieldDesc = false;
 		boolean propagatePrivate = false;
+		BridgePropagation propagateBridges = BridgePropagation.DISABLED;
 		boolean removeFrames = false;
 		Set<String> forcePropagation = Collections.emptySet();
 		File forcePropagationFile = null;
@@ -69,6 +72,17 @@ public class Main {
 					break;
 				case "propagateprivate":
 					propagatePrivate = true;
+					break;
+				case "propagatebridges":
+					switch (arg.substring(valueSepPos + 1).toLowerCase(Locale.ENGLISH)) {
+					case "disabled": propagateBridges = BridgePropagation.DISABLED; break;
+					case "enabled": propagateBridges = BridgePropagation.ENABLED; break;
+					case "compatible": propagateBridges = BridgePropagation.COMPATIBLE; break;
+					default:
+						System.out.println("invalid propagateBridges: "+arg.substring(valueSepPos + 1));
+						System.exit(1);
+					}
+
 					break;
 				case "removeframes":
 					removeFrames = true;
@@ -177,6 +191,7 @@ public class Main {
 				.ignoreFieldDesc(ignoreFieldDesc)
 				.withForcedPropagation(forcePropagation)
 				.propagatePrivate(propagatePrivate)
+				.propagateBridges(propagateBridges)
 				.removeFrames(removeFrames)
 				.ignoreConflicts(ignoreConflicts)
 				.checkPackageAccess(checkPackageAccess)

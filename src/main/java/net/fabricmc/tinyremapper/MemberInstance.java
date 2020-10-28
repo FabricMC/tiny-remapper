@@ -30,6 +30,10 @@ public final class MemberInstance {
 		this.access = access;
 	}
 
+	public TinyRemapper getContext() {
+		return cls.context;
+	}
+
 	public String getId() {
 		return getId(type, name, desc, cls.context.ignoreFieldDesc);
 	}
@@ -40,6 +44,10 @@ public final class MemberInstance {
 
 	public boolean isVirtual() {
 		return type == MemberType.METHOD && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
+	}
+
+	public boolean isBridge() {
+		return type == MemberType.METHOD && (access & Opcodes.ACC_BRIDGE) != 0;
 	}
 
 	public boolean isPublicOrPrivate() {
@@ -64,6 +72,11 @@ public final class MemberInstance {
 
 	public void forceSetNewName(String name) {
 		newName = name;
+	}
+
+	@Override
+	public String toString() {
+		return String.format("%s/%s%s", cls.getName(), name, desc);
 	}
 
 	public static String getId(MemberType type, String name, String desc, boolean ignoreFieldDesc) {
@@ -102,4 +115,5 @@ public final class MemberInstance {
 	final int access;
 	private volatile String newName;
 	String newNameOriginatingCls;
+	MemberInstance bridgeTarget;
 }

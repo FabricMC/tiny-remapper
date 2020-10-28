@@ -99,6 +99,13 @@ class AsmClassRemapper extends ClassRemapper {
 		return annotationVisitor == null ? null : new AsmAnnotationRemapper(annotationVisitor, remapper, desc);
 	}
 
+	@Override
+	public void visitEnd() {
+		((AsmRemapper) remapper).finish(className, cv);
+
+		super.visitEnd();
+	}
+
 	private final boolean checkPackageAccess;
 	private final boolean skipLocalMapping;
 	private final boolean renameInvalidLocals;
