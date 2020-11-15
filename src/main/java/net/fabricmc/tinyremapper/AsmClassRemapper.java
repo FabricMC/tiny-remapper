@@ -307,17 +307,19 @@ class AsmClassRemapper extends ClassRemapper {
 			}
 
 			boolean hasAnyArgs = false;
+			boolean hasAllArgs = true;
 
 			for (String arg : args) {
 				if (arg != null) {
 					hasAnyArgs = true;
-					break;
+				} else {
+					hasAllArgs = false;
 				}
 			}
 
 			// update lvs, fix vars
 			if (methodNode.localVariables != null
-					|| methodNode.parameters == null && (methodNode.access & Opcodes.ACC_ABSTRACT) == 0 && hasAnyArgs) { // avoid creating parameters if possible (non-abstract), create lvs instead
+					|| hasAnyArgs && (methodNode.access & Opcodes.ACC_ABSTRACT) == 0) { // no lvt without method body
 				if (methodNode.localVariables == null) {
 					methodNode.localVariables = new ArrayList<>();
 				}
@@ -383,7 +385,8 @@ class AsmClassRemapper extends ClassRemapper {
 
 			// update parameters
 			if (methodNode.parameters != null
-					|| (methodNode.access & Opcodes.ACC_ABSTRACT) != 0 && hasAnyArgs) {
+					|| hasAllArgs && args.length > 0 // avoid creating MethodParameters attribute with missing names since they trigger a Kotlin compiler bug
+					|| hasAnyArgs && (methodNode.access & Opcodes.ACC_ABSTRACT) != 0) { // .. unless parameters are the only way to specify args (no method body)
 				if (methodNode.parameters == null) {
 					methodNode.parameters = new ArrayList<>(args.length);
 				}
