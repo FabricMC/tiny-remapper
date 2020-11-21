@@ -96,8 +96,10 @@ public final class MemberInstance {
 			return id;
 		} else {
 			String separator = type == MemberType.METHOD ? "(" : ";;";
+			int pos = id.lastIndexOf(separator);
+			if (pos < 0) throw new IllegalArgumentException(String.format("invalid %s id: %s", type.name(), id));
 
-			return id.substring(0, id.lastIndexOf(separator));
+			return id.substring(0, pos);
 		}
 	}
 
