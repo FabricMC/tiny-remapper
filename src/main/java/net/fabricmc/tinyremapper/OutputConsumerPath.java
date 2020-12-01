@@ -25,9 +25,11 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -113,7 +115,10 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 			Map<String, String> env = new HashMap<>();
 			env.put("create", "true");
 
-			destination = FileSystems.newFileSystem(uri, env).getPath("/");
+			FileSystem fs = FileSystems.newFileSystem(uri, env);
+			if (fs.isReadOnly()) throw new IOException("the jar file "+destination+" can't be written");
+
+			destination = fs.getPath("/");
 		}
 
 		this.dstDir = destination;
@@ -285,11 +290,13 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 	public void accept(String clsName, byte[] data) {
 		if (classNameFilter != null && !classNameFilter.test(clsName)) return;
 
+		Path dstFile = null;
+
 		try {
 			if (lock != null) lock.lock();
 			if (closed) throw new IllegalStateException("consumer already closed");
 
-			Path dstFile = dstDir.resolve(clsName + classSuffix);
+			dstFile = dstDir.resolve(clsName + classSuffix);
 
 			if (isJarFs && Files.exists(dstFile)) {
 				if (Files.isDirectory(dstFile)) throw new FileAlreadyExistsException("dst file "+dstFile+" is a directory");
@@ -300,7 +307,7 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 			createParentDirs(dstFile);
 			Files.write(dstFile, data);
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			throw new UncheckedIOException("error writing to "+dstFile, e);
 		} finally {
 			if (lock != null) lock.unlock();
 		}
