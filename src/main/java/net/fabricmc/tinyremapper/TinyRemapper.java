@@ -933,6 +933,10 @@ public class TinyRemapper {
 		return remapper;
 	}
 
+	ClassInstance getClass(String owner) {
+		return classes.get(owner);
+	}
+
 	private static void waitForAll(Iterable<Future<?>> futures) {
 		try {
 			for (Future<?> future : futures) {

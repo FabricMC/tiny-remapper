@@ -7,7 +7,6 @@ buildscript {
 		maven {
 			url "https://plugins.gradle.org/m2/"
 		}
-		jcenter()
 	}
 }
 
@@ -34,7 +33,7 @@ dependencies {
 }
 
 apply from: 'https://github.com/FabricMC/fabric-docs/raw/master/gradle/maven.gradle'
-apply from: 'https://github.com/FabricMC/fabric-docs/raw/master/gradle/license.gradle'
+//apply from: 'https://github.com/FabricMC/fabric-docs/raw/master/gradle/license.gradle'
 
 jar {
 	manifest {
