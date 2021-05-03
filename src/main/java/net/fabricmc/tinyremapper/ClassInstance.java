@@ -18,16 +18,7 @@
 package net.fabricmc.tinyremapper;
 
 import java.nio.file.Path;
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
@@ -38,11 +29,12 @@ import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
 
 public final class ClassInstance {
-	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
+	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, OptionalInt mrjVersion, byte[] data) {
 		this.context = context;
 		this.isInput = isInput;
 		this.inputTags = inputTags;
 		this.srcPath = srcFile;
+		this.mrjVersion = mrjVersion;
 		this.data = data;
 	}
 
@@ -128,6 +120,18 @@ public final class ClassInstance {
 
 	public String getName() {
 		return name;
+	}
+	
+	public OptionalInt getMrjVersion(){
+		return mrjVersion;
+	}
+	
+	public String getVersionedName(){
+		if(mrjVersion.isPresent()){
+			return mrjVersion.getAsInt() + ":" + name;
+		}else{
+			return name;
+		}
 	}
 
 	public String getSuperName() {
@@ -453,6 +457,7 @@ public final class ClassInstance {
 	final boolean isInput;
 	private volatile InputTag[] inputTags; // cow input tag list, null for none
 	final Path srcPath;
+	private final OptionalInt mrjVersion;
 	byte[] data;
 	private final Map<String, MemberInstance> members = new HashMap<>(); // methods and fields are distinct due to their different desc separators
 	private final ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();

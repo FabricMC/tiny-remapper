@@ -18,25 +18,12 @@
 package net.fabricmc.tinyremapper;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.FileSystem;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -323,7 +310,7 @@ public class TinyRemapper {
 	}
 
 	private static void addClass(ClassInstance cls, Map<String, ClassInstance> out) {
-		String name = cls.getName();
+		String name = cls.getVersionedName();
 
 		// add new class or replace non-input class with input class, warn if two input classes clash
 		for (;;) {
@@ -397,18 +384,46 @@ public class TinyRemapper {
 		List<ClassInstance> ret = new ArrayList<ClassInstance>();
 
 		if (file.toString().endsWith(".class")) {
-			ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file));
+			ClassInstance res = analyze(isInput, tags, srcPath, OptionalInt.empty(), Files.readAllBytes(file)); // FIXME?
 			if (res != null) ret.add(res);
 		} else {
 			URI uri = new URI("jar:"+file.toUri().toString());
 			FileSystem fs = FileSystemHandler.open(uri);
 			fsToClose.add(fs);
-
+			
+			boolean isMrj = false;
+			if(file.getFileName().toString().endsWith(".jar")){
+				System.out.println("jar");
+				// Check to see if this is a MRJ
+				Path manifestPath = fs.getPath("/", "META-INF", "MANIFEST.MF");
+				if(Files.isRegularFile(manifestPath)){
+					System.out.println("manifest");
+					Properties manifest = new Properties();
+					try(InputStream stream = Files.newInputStream(manifestPath)){
+						manifest.load(stream);
+					}catch(IOException e){
+						e.printStackTrace();
+						throw e;
+					}
+					isMrj = Boolean.parseBoolean(String.valueOf(manifest.getOrDefault("Multi-Release", "false")));
+				}
+			}
+			
+			Path mrjPrefix = fs.getPath("/", "META-INF", "versions");
+			// For the lambda
+			boolean finalIsMrj = isMrj;
+			
 			Files.walkFileTree(fs.getPath("/"), new SimpleFileVisitor<Path>() {
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					if (file.toString().endsWith(".class")) {
-						ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file));
+						OptionalInt version = OptionalInt.empty();
+						if(finalIsMrj){
+							if(file.startsWith(mrjPrefix)){
+								version = OptionalInt.of(Integer.parseInt(file.getName(2).toString()));
+							}
+						}
+						ClassInstance res = analyze(isInput, tags, srcPath, version, Files.readAllBytes(file));
 						if (res != null) ret.add(res);
 					}
 
@@ -419,12 +434,12 @@ public class TinyRemapper {
 
 		return ret;
 	}
-
-	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, byte[] data) {
+	
+	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, OptionalInt mrjVersion, byte[] data) {
 		ClassReader reader = new ClassReader(data);
 		if ((reader.getAccess() & Opcodes.ACC_MODULE) != 0) return null; // special attribute for module-info.class, can't be a regular class
 
-		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, isInput ? data : null);
+		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, mrjVersion, isInput ? data : null);
 
 		reader.accept(new ClassVisitor(Opcodes.ASM9, extraAnalyzeVisitor) {
 			@Override
@@ -455,7 +470,17 @@ public class TinyRemapper {
 	}
 
 	String mapClass(String className) {
-		return remapper.map(className);
+		String result;
+		if(className.matches("^\\d+:[\\S\\s]+$")){
+			// MRJ class name
+			String[] split = className.split(":", 2);
+			String mrjPath = "META-INF/versions/" + split[0];
+			String remappedName = remapper.map(split[1]);
+			result = mrjPath + "/" + remappedName;
+		}else{
+			result = remapper.map(className);
+		}
+		return result;
 	}
 
 	private void loadMappings() {
@@ -735,7 +760,7 @@ public class TinyRemapper {
 					outputBuffer = new ConcurrentHashMap<>();
 					immediateOutputConsumer = outputBuffer::put;
 				} else {
-					immediateOutputConsumer = (cls, data) -> outputConsumer.accept(mapClass(cls.getName()), data);
+					immediateOutputConsumer = (cls, data) -> outputConsumer.accept(mapClass(cls.getVersionedName()), data);
 				}
 
 				List<Future<?>> futures = new ArrayList<>();
