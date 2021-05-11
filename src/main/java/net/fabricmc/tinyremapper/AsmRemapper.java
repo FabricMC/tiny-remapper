@@ -54,6 +54,11 @@ class AsmRemapper extends Remapper {
 	}
 
 	@Override
+	public String mapRecordComponentName(String owner, String name, String descriptor) {
+		return mapFieldName(owner, name, descriptor);
+	}
+
+	@Override
 	public String mapMethodName(String owner, String name, String desc) {
 		ClassInstance cls = getClass(owner);
 		if (cls == null) return name; // TODO: try to map these from just the mappings?, warn if actual class is missing
@@ -63,6 +68,12 @@ class AsmRemapper extends Remapper {
 
 		if (member != null && (newName = member.getNewName()) != null) {
 			return newName;
+		} else if (cls.isRecord() && desc.startsWith("()") && !desc.equals("()V")) { // record getter -> try to map as if it was the record component/record field
+			member = cls.resolve(MemberType.FIELD, MemberInstance.getFieldId(name, desc, remapper.ignoreFieldDesc));
+
+			if (member != null && (newName = member.getNewName()) != null) {
+				return newName;
+			}
 		}
 
 		assert (newName = remapper.methodMap.get(owner+"/"+MemberInstance.getMethodId(name, desc))) == null || newName.equals(name);

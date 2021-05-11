@@ -139,6 +139,10 @@ public final class ClassInstance {
 		return (access & Opcodes.ACC_INTERFACE) != 0;
 	}
 
+	public boolean isRecord() {
+		return (access & Opcodes.ACC_RECORD) != 0;
+	}
+
 	public boolean isPublicOrPrivate() {
 		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
 	}

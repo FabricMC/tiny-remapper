@@ -707,7 +707,7 @@ class AsmClassRemapper extends ClassRemapper {
 		public AnnotationVisitor visitArray(String name) {
 			// try to infer the descriptor from an element
 
-			return new AnnotationVisitor(Opcodes.ASM8) {
+			return new AnnotationVisitor(Opcodes.ASM9) {
 				@Override
 				public void visit(String name, Object value) {
 					if (av == null) start(getDesc(value));
