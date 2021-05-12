@@ -21,7 +21,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.commons.Remapper;
 
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
-import net.fabricmc.tinyremapper.TinyRemapper.BridgePropagation;
+import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 
 class AsmRemapper extends Remapper {
 	public AsmRemapper(TinyRemapper remapper) {
@@ -68,12 +68,6 @@ class AsmRemapper extends Remapper {
 
 		if (member != null && (newName = member.getNewName()) != null) {
 			return newName;
-		} else if (cls.isRecord() && desc.startsWith("()") && !desc.equals("()V")) { // record getter -> try to map as if it was the record component/record field
-			member = cls.resolve(MemberType.FIELD, MemberInstance.getFieldId(name, desc, remapper.ignoreFieldDesc));
-
-			if (member != null && (newName = member.getNewName()) != null) {
-				return newName;
-			}
 		}
 
 		assert (newName = remapper.methodMap.get(owner+"/"+MemberInstance.getMethodId(name, desc))) == null || newName.equals(name);
@@ -123,8 +117,11 @@ class AsmRemapper extends Remapper {
 	}
 
 	void finish(String className, ClassVisitor cv) {
-		if (remapper.propagateBridges == BridgePropagation.COMPATIBLE) {
-			ClassInstance cls = getClass(className);
+		ClassInstance cls = null;
+
+		if (remapper.propagateBridges == LinkedMethodPropagation.COMPATIBLE
+				|| remapper.propagateRecordComponents == LinkedMethodPropagation.COMPATIBLE) {
+			cls = getClass(className);
 
 			if (cls != null) {
 				BridgeHandler.generateCompatBridges(cls, this, cv);

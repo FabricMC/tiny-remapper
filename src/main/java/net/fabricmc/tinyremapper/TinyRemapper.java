@@ -99,8 +99,13 @@ public class TinyRemapper {
 			return this;
 		}
 
-		public Builder propagateBridges(BridgePropagation value) {
+		public Builder propagateBridges(LinkedMethodPropagation value) {
 			propagateBridges = value;
+			return this;
+		}
+
+		public Builder propagateRecordComponents(LinkedMethodPropagation value) {
+			propagateRecordComponents = value;
 			return this;
 		}
 
@@ -157,7 +162,8 @@ public class TinyRemapper {
 		public TinyRemapper build() {
 			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount,
 					keepInputData,
-					forcePropagation, propagatePrivate, propagateBridges,
+					forcePropagation, propagatePrivate,
+					propagateBridges, propagateRecordComponents,
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
 					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals,
 					extraAnalyzeVisitor, extraRemapper);
@@ -171,7 +177,8 @@ public class TinyRemapper {
 		private final Set<String> forcePropagation = new HashSet<>();
 		private boolean keepInputData = false;
 		private boolean propagatePrivate = false;
-		private BridgePropagation propagateBridges = BridgePropagation.DISABLED;
+		private LinkedMethodPropagation propagateBridges = LinkedMethodPropagation.DISABLED;
+		private LinkedMethodPropagation propagateRecordComponents = LinkedMethodPropagation.DISABLED;
 		private boolean removeFrames = false;
 		private boolean ignoreConflicts = false;
 		private boolean resolveMissing = false;
@@ -187,7 +194,8 @@ public class TinyRemapper {
 	private TinyRemapper(Collection<IMappingProvider> mappingProviders, boolean ignoreFieldDesc,
 			int threadCount,
 			boolean keepInputData,
-			Set<String> forcePropagation, boolean propagatePrivate, BridgePropagation propagateBridges,
+			Set<String> forcePropagation, boolean propagatePrivate,
+			LinkedMethodPropagation propagateBridges, LinkedMethodPropagation propagateRecordComponents,
 			boolean removeFrames,
 			boolean ignoreConflicts,
 			boolean resolveMissing,
@@ -205,6 +213,7 @@ public class TinyRemapper {
 		this.forcePropagation = forcePropagation;
 		this.propagatePrivate = propagatePrivate;
 		this.propagateBridges = propagateBridges;
+		this.propagateRecordComponents = propagateRecordComponents;
 		this.removeFrames = removeFrames;
 		this.ignoreConflicts = ignoreConflicts;
 		this.resolveMissing = resolveMissing;
@@ -626,7 +635,7 @@ public class TinyRemapper {
 
 		for (ClassInstance cls : classes.values()) {
 			for (MemberInstance member : cls.getMembers()) {
-				String name = member.getNewName();
+				String name = member.getNewMappedName();
 				if (name == null) name = member.name;
 
 				testSet.add(MemberInstance.getId(member.type, name, member.desc, ignoreFieldDesc));
@@ -641,7 +650,7 @@ public class TinyRemapper {
 				Map<String, List<MemberInstance>> duplicates = new HashMap<>();
 
 				for (MemberInstance member : cls.getMembers()) {
-					String name = member.getNewName();
+					String name = member.getNewMappedName();
 					if (name == null) name = member.name;
 
 					duplicates.computeIfAbsent(MemberInstance.getId(member.type, name, member.desc, ignoreFieldDesc), ignore -> new ArrayList<>()).add(member);
@@ -682,7 +691,7 @@ public class TinyRemapper {
 
 			for (Map.Entry<MemberInstance, Set<String>> entry : conflicts.entrySet()) {
 				MemberInstance member = entry.getKey();
-				String newName = member.getNewName();
+				String newName = member.getNewMappedName();
 				Set<String> names = entry.getValue();
 				names.add(member.cls.getName()+"/"+newName);
 
@@ -1020,10 +1029,28 @@ public class TinyRemapper {
 				visitedUp.add(cls);
 				visitedDown.add(cls);
 				cls.propagate(TinyRemapper.this, type, className, idSrc, nameDst,
-						(isVirtual ? Direction.ANY : Direction.DOWN), isVirtual, propagateBridges,
+						(isVirtual ? Direction.ANY : Direction.DOWN), isVirtual, false,
 						true, visitedUp, visitedDown);
 				visitedUp.clear();
 				visitedDown.clear();
+
+				if (propagateRecordComponents != LinkedMethodPropagation.DISABLED
+						&& cls.isRecord()
+						&& type == MemberType.FIELD
+						&& (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL)) == (Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL)) { // not static, but private+final
+					String getterIdSrc = MemberInstance.getMethodId(member.name, "()".concat(member.desc));
+					MemberInstance getter = cls.getMember(MemberType.METHOD, getterIdSrc);
+
+					if (getter != null && getter.isVirtual()) {
+						visitedUp.add(cls);
+						visitedDown.add(cls);
+						cls.propagate(TinyRemapper.this, MemberType.METHOD, className, getterIdSrc, nameDst,
+								Direction.ANY, true, true,
+								true, visitedUp, visitedDown);
+						visitedUp.clear();
+						visitedDown.clear();
+					}
+				}
 			}
 		}
 
@@ -1031,21 +1058,21 @@ public class TinyRemapper {
 		private final List<Map.Entry<String, String> > tasks = new ArrayList<Map.Entry<String,String> >();
 	}
 
-	public enum BridgePropagation {
+	public enum LinkedMethodPropagation {
 		/**
-		 * Don't propagate names into bridged methods.
+		 * Don't propagate names into methods.
 		 *
 		 * <p>This is JVM compliant but doesn't mirror Javac's behavior and decouples bridge methods from their target.
 		 */
 		DISABLED,
 		/**
-		 * Propagate names into bridged methods.
+		 * Propagate names into methods.
 		 *
 		 * <p>Mappings reaching bridge method will be applied to the methods they bridge to.
 		 */
 		ENABLED,
 		/**
-		 * Propagate names into bridged methods and create additional bridges to keep the original bridged method name intact.
+		 * Propagate names into methods and create additional bridges to keep the normally mapped method name intact.
 		 */
 		COMPATIBLE;
 	}
@@ -1055,7 +1082,8 @@ public class TinyRemapper {
 	private final boolean keepInputData;
 	final Set<String> forcePropagation;
 	final boolean propagatePrivate;
-	final BridgePropagation propagateBridges;
+	final LinkedMethodPropagation propagateBridges;
+	final LinkedMethodPropagation propagateRecordComponents;
 	private final boolean removeFrames;
 	private final boolean ignoreConflicts;
 	private final boolean resolveMissing;

@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import net.fabricmc.tinyremapper.TinyRemapper.BridgePropagation;
+import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 
 public class Main {
 	public static void main(String[] rawArgs) {
@@ -39,7 +39,7 @@ public class Main {
 		boolean reverse = false;
 		boolean ignoreFieldDesc = false;
 		boolean propagatePrivate = false;
-		BridgePropagation propagateBridges = BridgePropagation.DISABLED;
+		LinkedMethodPropagation propagateBridges = LinkedMethodPropagation.DISABLED;
 		boolean removeFrames = false;
 		Set<String> forcePropagation = Collections.emptySet();
 		File forcePropagationFile = null;
@@ -75,9 +75,9 @@ public class Main {
 					break;
 				case "propagatebridges":
 					switch (arg.substring(valueSepPos + 1).toLowerCase(Locale.ENGLISH)) {
-					case "disabled": propagateBridges = BridgePropagation.DISABLED; break;
-					case "enabled": propagateBridges = BridgePropagation.ENABLED; break;
-					case "compatible": propagateBridges = BridgePropagation.COMPATIBLE; break;
+					case "disabled": propagateBridges = LinkedMethodPropagation.DISABLED; break;
+					case "enabled": propagateBridges = LinkedMethodPropagation.ENABLED; break;
+					case "compatible": propagateBridges = LinkedMethodPropagation.COMPATIBLE; break;
 					default:
 						System.out.println("invalid propagateBridges: "+arg.substring(valueSepPos + 1));
 						System.exit(1);
