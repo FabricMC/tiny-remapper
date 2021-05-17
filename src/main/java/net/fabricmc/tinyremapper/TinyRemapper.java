@@ -856,16 +856,12 @@ public class TinyRemapper {
 
 		ClassVisitor visitor = writer;
 
-		if (rebuildSourceFilenames) {
-			visitor = new SourceNameRebuildVisitor(Opcodes.ASM9, visitor);
-		}
-
 		if (check) {
 			//noinspection UnusedAssignment
 			visitor = new CheckClassAdapter(visitor);
 		}
 
-		reader.accept(new AsmClassRemapper(visitor, remapper, checkPackageAccess, skipLocalMapping, renameInvalidLocals), flags);
+		reader.accept(new AsmClassRemapper(visitor, remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals), flags);
 		// TODO: compute frames (-Xverify:all -XX:-FailOverToOldVerifier)
 
 		if (!keepInputData) cls.data = null;

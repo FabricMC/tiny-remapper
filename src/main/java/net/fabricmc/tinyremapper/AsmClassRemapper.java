@@ -34,7 +34,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.TypePath;
 import org.objectweb.asm.commons.AnnotationRemapper;
-import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.FieldRemapper;
 import org.objectweb.asm.commons.MethodRemapper;
 import org.objectweb.asm.commons.Remapper;
@@ -46,10 +45,11 @@ import org.objectweb.asm.tree.ParameterNode;
 
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 
-class AsmClassRemapper extends ClassRemapper {
-	public AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper, boolean checkPackageAccess, boolean skipLocalMapping, boolean renameInvalidLocals) {
+final class AsmClassRemapper extends VisitTrackingClassRemapper {
+	public AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper, boolean rebuildSourceFilenames, boolean checkPackageAccess, boolean skipLocalMapping, boolean renameInvalidLocals) {
 		super(cv, remapper);
 
+		this.rebuildSourceFilenames = rebuildSourceFilenames;
 		this.checkPackageAccess = checkPackageAccess;
 		this.skipLocalMapping = skipLocalMapping;
 		this.renameInvalidLocals = renameInvalidLocals;
@@ -69,17 +69,27 @@ class AsmClassRemapper extends ClassRemapper {
 			}
 		}
 
+		sourceNameVisited = false;
+
 		super.visit(version, access, name, signature, superName, interfaces);
 	}
 
 	@Override
 	public void visitSource(String source, String debug) {
+		sourceNameVisited = true;
+
+		if (!rebuildSourceFilenames) {
+			super.visitSource(source, debug);
+			return;
+		}
+
 		String mappedClsName = remapper.map(className);
 		// strip inner classes
 		int end = mappedClsName.indexOf('$');
 		if (end <= 0) end = mappedClsName.length(); // require at least 1 character for the outer class
 		// strip package
 		int start = mappedClsName.lastIndexOf('/', end - 1) + 1; // avoid searching after $ to support weird nested class names like a$b/c
+		if (end <= start) end = mappedClsName.length();
 
 		super.visitSource(mappedClsName.substring(start, end).concat(".java"), debug);
 	}
@@ -137,9 +147,18 @@ class AsmClassRemapper extends ClassRemapper {
 		super.visitEnd();
 	}
 
+	@Override
+	protected void onVisit(VisitKind kind) {
+		if (rebuildSourceFilenames && !sourceNameVisited && kind.ordinal() > VisitKind.SOURCE.ordinal()) {
+			visitSource(null, null);
+		}
+	}
+
+	private final boolean rebuildSourceFilenames;
 	private final boolean checkPackageAccess;
 	private final boolean skipLocalMapping;
 	private final boolean renameInvalidLocals;
+	private boolean sourceNameVisited;
 	private MethodNode methodNode;
 
 	private static class AsmFieldRemapper extends FieldRemapper {
