@@ -51,6 +51,7 @@ public class Main {
 		boolean skipLocalVariableMapping = false;
 		boolean renameInvalidLocals = false;
 		NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
+		int threads = -1;
 
 		for (String arg : rawArgs) {
 			if (arg.startsWith("--")) {
@@ -118,6 +119,13 @@ public class Main {
 						System.exit(1);
 					}
 
+					break;
+				case "threads":
+					threads = Integer.parseInt(arg.substring(valueSepPos + 1));
+					if (threads <= 0) {
+						System.out.println("Thread count must be > 0");
+						System.exit(1);
+					}
 					break;
 				default:
 					System.out.println("invalid argument: "+arg+".");
@@ -200,6 +208,7 @@ public class Main {
 				.rebuildSourceFilenames(rebuildSourceFilenames)
 				.skipLocalVariableMapping(skipLocalVariableMapping)
 				.renameInvalidLocals(renameInvalidLocals)
+				.threads(threads)
 				.build();
 
 		try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
