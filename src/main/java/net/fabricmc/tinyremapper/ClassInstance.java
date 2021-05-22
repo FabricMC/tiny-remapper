@@ -18,16 +18,7 @@
 package net.fabricmc.tinyremapper;
 
 import java.nio.file.Path;
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
@@ -38,12 +29,13 @@ import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
 
 public final class ClassInstance {
-	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
+	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data, OptionalInt mrjVersion) {
 		this.context = context;
 		this.isInput = isInput;
 		this.inputTags = inputTags;
 		this.srcPath = srcFile;
 		this.data = data;
+		this.mrjVersion = mrjVersion;
 	}
 
 	void init(String name, String superName, int access, String[] interfaces) {
@@ -109,6 +101,10 @@ public final class ClassInstance {
 
 	InputTag[] getInputTags() {
 		return inputTags;
+	}
+
+	OptionalInt getMrjVersion() {
+		return mrjVersion;
 	}
 
 	boolean hasAnyInputTag(InputTag[] reqTags) {
@@ -462,4 +458,5 @@ public final class ClassInstance {
 	private String superName;
 	private int access;
 	private String[] interfaces;
+	private OptionalInt mrjVersion;
 }

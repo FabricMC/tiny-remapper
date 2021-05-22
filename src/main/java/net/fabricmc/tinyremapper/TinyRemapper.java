@@ -17,6 +17,7 @@
 
 package net.fabricmc.tinyremapper;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -26,17 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -394,10 +385,13 @@ public class TinyRemapper {
 
 	private List<ClassInstance> readFile(Path file, boolean isInput, InputTag[] tags, final Path srcPath,
 			List<FileSystem> fsToClose) throws IOException, URISyntaxException {
+		final String MRJ_PREFIX = File.separator + "META-INF" + File.separator + "versions";
+
 		List<ClassInstance> ret = new ArrayList<ClassInstance>();
 
 		if (file.toString().endsWith(".class")) {
-			ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file));
+			// flat class file cannot have mrj
+			ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file), OptionalInt.empty());
 			if (res != null) ret.add(res);
 		} else {
 			URI uri = new URI("jar:"+file.toUri().toString());
@@ -408,7 +402,12 @@ public class TinyRemapper {
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					if (file.toString().endsWith(".class")) {
-						ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file));
+						OptionalInt mrjVersion = OptionalInt.empty();
+						if (file.startsWith(MRJ_PREFIX)) {
+							// this is a MRJ
+							mrjVersion = OptionalInt.of(Integer.parseInt(file.getName(2).toString()));
+						}
+						ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file), mrjVersion);
 						if (res != null) ret.add(res);
 					}
 
@@ -420,11 +419,11 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, byte[] data) {
+	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, byte[] data, OptionalInt mrjVersion) {
 		ClassReader reader = new ClassReader(data);
 		if ((reader.getAccess() & Opcodes.ACC_MODULE) != 0) return null; // special attribute for module-info.class, can't be a regular class
 
-		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, isInput ? data : null);
+		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, isInput ? data : null, mrjVersion);
 
 		reader.accept(new ClassVisitor(Opcodes.ASM9, extraAnalyzeVisitor) {
 			@Override
