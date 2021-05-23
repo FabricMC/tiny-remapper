@@ -35,7 +35,7 @@ public class VersionedName {
     public String getName() { return name; }
     public OptionalInt getVersion() { return version; }
 
-    public static String getMrjClsName(String clsName, OptionalInt mrjVersion) {
+    public static String getMultiReleaseClassName(String clsName, OptionalInt mrjVersion) {
         if (mrjVersion.isPresent()) {
             return MRJ_PREFIX + File.separator + mrjVersion.getAsInt() + File.separator + clsName;
         } else {
@@ -43,8 +43,8 @@ public class VersionedName {
         }
     }
 
-    public static String getMrjClsName(VersionedName mrjName) {
-        return getMrjClsName(mrjName.getName(), mrjName.getVersion());
+    public String getMultiReleaseClassName() {
+        return getMultiReleaseClassName(name, version);
     }
 
     @Override

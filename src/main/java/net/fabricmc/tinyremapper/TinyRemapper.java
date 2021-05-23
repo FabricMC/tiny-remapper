@@ -17,7 +17,6 @@
 
 package net.fabricmc.tinyremapper;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -315,7 +314,7 @@ public class TinyRemapper {
 
 	private static void addClass(ClassInstance cls, Map<String, ClassInstance> out) {
 		// TODO: temporary solution, this ignore MRJ and always use Java 8 as dependency resolution
-		String name = VersionedName.getMrjClsName(cls.getVersionedName());
+		String name = cls.getVersionedName().getMultiReleaseClassName();
 
 		// add new class or replace non-input class with input class, warn if two input classes clash
 		for (;;) {
@@ -733,7 +732,7 @@ public class TinyRemapper {
 					immediateOutputConsumer = outputBuffer::put;
 				} else {
 					immediateOutputConsumer = (cls, data) -> outputConsumer.accept(
-							VersionedName.getMrjClsName(mapClass(cls.getName()), cls.getMrjVersion()), data);
+							VersionedName.getMultiReleaseClassName(mapClass(cls.getName()), cls.getMrjVersion()), data);
 				}
 
 				List<Future<?>> futures = new ArrayList<>();
@@ -770,7 +769,7 @@ public class TinyRemapper {
 							entry.setValue(data);
 						} else {
 							outputConsumer.accept(
-									VersionedName.getMrjClsName(mapClass(cls.getName()), cls.getMrjVersion()), data);
+									VersionedName.getMultiReleaseClassName(mapClass(cls.getName()), cls.getMrjVersion()), data);
 						}
 					}
 
@@ -792,7 +791,7 @@ public class TinyRemapper {
 
 				if (inputTags == null || cls.hasAnyInputTag(inputTags)) {
 					outputConsumer.accept(
-							VersionedName.getMrjClsName(mapClass(cls.getName()), cls.getMrjVersion()), entry.getValue());
+							VersionedName.getMultiReleaseClassName(mapClass(cls.getName()), cls.getMrjVersion()), entry.getValue());
 				}
 			}
 		}
