@@ -711,11 +711,11 @@ public class TinyRemapper {
 		}
 	}
 
-	public void apply(final BiConsumer<VersionedName, byte[]> outputConsumer) {
+	public void apply(final BiConsumer<String, byte[]> outputConsumer) {
 		apply(outputConsumer, (InputTag[]) null);
 	}
 
-	public void apply(final BiConsumer<VersionedName, byte[]> outputConsumer, InputTag... inputTags) {
+	public void apply(final BiConsumer<String, byte[]> outputConsumer, InputTag... inputTags) {
 		// We expect apply() to be invoked only once if the user didn't request any input tags. Invoking it multiple
 		// times still works with keepInputData=true, but wastes some time by redoing most processing.
 		// With input tags the first apply invocation computes the entire output, but yields only what matches the given
@@ -733,7 +733,7 @@ public class TinyRemapper {
 					immediateOutputConsumer = outputBuffer::put;
 				} else {
 					immediateOutputConsumer = (cls, data) -> outputConsumer.accept(
-							new VersionedName(mapClass(cls.getName()), cls.getMrjVersion()), data);
+							VersionedName.getMrjClsName(mapClass(cls.getName()), cls.getMrjVersion()), data);
 				}
 
 				List<Future<?>> futures = new ArrayList<>();
@@ -770,7 +770,7 @@ public class TinyRemapper {
 							entry.setValue(data);
 						} else {
 							outputConsumer.accept(
-									new VersionedName(mapClass(cls.getName()), cls.getMrjVersion()), data);
+									VersionedName.getMrjClsName(mapClass(cls.getName()), cls.getMrjVersion()), data);
 						}
 					}
 
@@ -792,7 +792,7 @@ public class TinyRemapper {
 
 				if (inputTags == null || cls.hasAnyInputTag(inputTags)) {
 					outputConsumer.accept(
-							new VersionedName(mapClass(cls.getName()), cls.getMrjVersion()), entry.getValue());
+							VersionedName.getMrjClsName(mapClass(cls.getName()), cls.getMrjVersion()), entry.getValue());
 				}
 			}
 		}

@@ -47,7 +47,7 @@ import java.util.function.Predicate;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
-public class OutputConsumerPath implements BiConsumer<VersionedName, byte[]>, Closeable {
+public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable {
 	public static class Builder {
 		public Builder(Path destination) {
 			this.destination = destination;
@@ -282,14 +282,14 @@ public class OutputConsumerPath implements BiConsumer<VersionedName, byte[]>, Cl
 	}
 
 	@Override
-	public void accept(VersionedName clsName, byte[] data) {
-		if (classNameFilter != null && !classNameFilter.test(clsName.getName())) return;
+	public void accept(String mrjClsName, byte[] data) {
+		if (classNameFilter != null && !classNameFilter.test(mrjClsName)) return;
 
 		try {
 			if (lock != null) lock.lock();
 			if (closed) throw new IllegalStateException("consumer already closed");
 
-			Path dstFile = dstDir.resolve(VersionedName.getMrjClsName(clsName) + classSuffix);
+			Path dstFile = dstDir.resolve(mrjClsName + classSuffix);
 
 			if (isJarFs && Files.exists(dstFile)) {
 				if (Files.isDirectory(dstFile)) throw new FileAlreadyExistsException("dst file "+dstFile+" is a directory");
