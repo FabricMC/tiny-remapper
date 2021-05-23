@@ -107,6 +107,10 @@ public final class ClassInstance {
 		return mrjVersion;
 	}
 
+	VersionedName getVersionedName() {
+		return new VersionedName(name, mrjVersion);
+	}
+
 	boolean hasAnyInputTag(InputTag[] reqTags) {
 		InputTag[] availTags = inputTags;
 		if (availTags == null) return true;
@@ -155,7 +159,7 @@ public final class ClassInstance {
 	 *
 	 * @param type Member type.
 	 * @param idSrc Existing name.
-	 * @param idDst New name.
+	 * @param nameDst New name.
 	 * @param dir Futher propagation direction.
 	 */
 	void propagate(TinyRemapper remapper, MemberType type, String originatingCls, String idSrc, String nameDst, Direction dir, boolean isVirtual, boolean first, Set<ClassInstance> visitedUp, Set<ClassInstance> visitedDown) {

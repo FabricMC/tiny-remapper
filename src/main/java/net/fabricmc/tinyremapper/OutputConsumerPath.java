@@ -47,7 +47,7 @@ import java.util.function.Predicate;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
-public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable {
+public class OutputConsumerPath implements BiConsumer<VersionedName, byte[]>, Closeable {
 	public static class Builder {
 		public Builder(Path destination) {
 			this.destination = destination;
@@ -136,7 +136,7 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 			addNonClassFiles(srcFile, copyMode, remapper, false);
 		} else if (Files.exists(srcFile)) {
 			if (!srcFile.getFileName().toString().endsWith(classSuffix)) {
-				addNonClassFiles(FileSystems.newFileSystem(srcFile, null).getPath("/"), copyMode, remapper, true);
+				addNonClassFiles(FileSystems.newFileSystem(srcFile, (ClassLoader) null).getPath("/"), copyMode, remapper, true);
 			}
 		} else {
 			throw new FileNotFoundException("file "+srcFile+" doesn't exist");
@@ -282,14 +282,14 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 	}
 
 	@Override
-	public void accept(String clsName, byte[] data) {
-		if (classNameFilter != null && !classNameFilter.test(clsName)) return;
+	public void accept(VersionedName clsName, byte[] data) {
+		if (classNameFilter != null && !classNameFilter.test(clsName.getName())) return;
 
 		try {
 			if (lock != null) lock.lock();
 			if (closed) throw new IllegalStateException("consumer already closed");
 
-			Path dstFile = dstDir.resolve(clsName + classSuffix);
+			Path dstFile = dstDir.resolve(VersionedName.getMrjClsName(clsName) + classSuffix);
 
 			if (isJarFs && Files.exists(dstFile)) {
 				if (Files.isDirectory(dstFile)) throw new FileAlreadyExistsException("dst file "+dstFile+" is a directory");

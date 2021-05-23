@@ -314,7 +314,8 @@ public class TinyRemapper {
 	}
 
 	private static void addClass(ClassInstance cls, Map<String, ClassInstance> out) {
-		String name = cls.getName();
+		// TODO: temporary solution, this ignore MRJ and always use Java 8 as dependency resolution
+		String name = VersionedName.getMrjClsName(cls.getVersionedName());
 
 		// add new class or replace non-input class with input class, warn if two input classes clash
 		for (;;) {
@@ -385,12 +386,10 @@ public class TinyRemapper {
 
 	private List<ClassInstance> readFile(Path file, boolean isInput, InputTag[] tags, final Path srcPath,
 			List<FileSystem> fsToClose) throws IOException, URISyntaxException {
-		final String MRJ_PREFIX = File.separator + "META-INF" + File.separator + "versions";
-
 		List<ClassInstance> ret = new ArrayList<ClassInstance>();
 
 		if (file.toString().endsWith(".class")) {
-			// flat class file cannot have mrj
+			// flat class file cannot have mrj, just ignore it
 			ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file), OptionalInt.empty());
 			if (res != null) ret.add(res);
 		} else {
@@ -403,8 +402,7 @@ public class TinyRemapper {
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					if (file.toString().endsWith(".class")) {
 						OptionalInt mrjVersion = OptionalInt.empty();
-						if (file.startsWith(MRJ_PREFIX)) {
-							// this is a MRJ
+						if (file.startsWith(VersionedName.MRJ_PREFIX)) {
 							mrjVersion = OptionalInt.of(Integer.parseInt(file.getName(2).toString()));
 						}
 						ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file), mrjVersion);
@@ -713,11 +711,11 @@ public class TinyRemapper {
 		}
 	}
 
-	public void apply(final BiConsumer<String, byte[]> outputConsumer) {
+	public void apply(final BiConsumer<VersionedName, byte[]> outputConsumer) {
 		apply(outputConsumer, (InputTag[]) null);
 	}
 
-	public void apply(final BiConsumer<String, byte[]> outputConsumer, InputTag... inputTags) {
+	public void apply(final BiConsumer<VersionedName, byte[]> outputConsumer, InputTag... inputTags) {
 		// We expect apply() to be invoked only once if the user didn't request any input tags. Invoking it multiple
 		// times still works with keepInputData=true, but wastes some time by redoing most processing.
 		// With input tags the first apply invocation computes the entire output, but yields only what matches the given
@@ -734,7 +732,8 @@ public class TinyRemapper {
 					outputBuffer = new ConcurrentHashMap<>();
 					immediateOutputConsumer = outputBuffer::put;
 				} else {
-					immediateOutputConsumer = (cls, data) -> outputConsumer.accept(mapClass(cls.getName()), data);
+					immediateOutputConsumer = (cls, data) -> outputConsumer.accept(
+							new VersionedName(mapClass(cls.getName()), cls.getMrjVersion()), data);
 				}
 
 				List<Future<?>> futures = new ArrayList<>();
@@ -770,7 +769,8 @@ public class TinyRemapper {
 						if (hasInputTags) {
 							entry.setValue(data);
 						} else {
-							outputConsumer.accept(mapClass(cls.getName()), data);
+							outputConsumer.accept(
+									new VersionedName(mapClass(cls.getName()), cls.getMrjVersion()), data);
 						}
 					}
 
@@ -791,7 +791,8 @@ public class TinyRemapper {
 				ClassInstance cls = entry.getKey();
 
 				if (inputTags == null || cls.hasAnyInputTag(inputTags)) {
-					outputConsumer.accept(mapClass(cls.getName()), entry.getValue());
+					outputConsumer.accept(
+							new VersionedName(mapClass(cls.getName()), cls.getMrjVersion()), entry.getValue());
 				}
 			}
 		}
