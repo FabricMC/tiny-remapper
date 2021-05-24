@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
+import net.fabricmc.tinyremapper.util.VersionedName;
 import org.objectweb.asm.Opcodes;
 
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;

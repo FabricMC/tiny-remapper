@@ -39,6 +39,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import net.fabricmc.tinyremapper.util.VersionedName;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
