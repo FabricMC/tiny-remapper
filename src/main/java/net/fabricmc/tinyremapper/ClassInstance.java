@@ -108,10 +108,6 @@ public final class ClassInstance {
 		return mrjVersion;
 	}
 
-	VersionedName getVersionedName() {
-		return new VersionedName(name, mrjVersion);
-	}
-
 	boolean hasAnyInputTag(InputTag[] reqTags) {
 		InputTag[] availTags = inputTags;
 		if (availTags == null) return true;
@@ -129,6 +125,10 @@ public final class ClassInstance {
 
 	public String getName() {
 		return name;
+	}
+
+	public VersionedName getVersionedName() {
+		return new VersionedName(name, mrjVersion);
 	}
 
 	public String getSuperName() {
