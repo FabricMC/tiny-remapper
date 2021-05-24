@@ -141,7 +141,7 @@ public class VersionAwareMap implements Map<VersionedName, ClassInstance> {
      * @return all {@code ClassInstance} with name {@code key}
      */
     public Collection<ClassInstance> getByName(String key) {
-        return map.get(key);
+        return new ArrayList<>(map.get(key));
     }
 
     /**
@@ -157,7 +157,11 @@ public class VersionAwareMap implements Map<VersionedName, ClassInstance> {
      * is less than or equal to {@code key.getVersion()}
      */
     public Collection<ClassInstance> getCandidates(VersionedName key) {
-        throw new RuntimeException();
+        return map.get(key.getName()).stream()
+                .filter(cls -> new OptionalIntComparator().compare(
+                        cls.getVersionedName().getVersion(),
+                        key.getVersion()) <= 0)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -165,13 +169,18 @@ public class VersionAwareMap implements Map<VersionedName, ClassInstance> {
      * among all candidates.
      *
      * <p> A candidate is any {@code ClassInstance} returned by method
-     * {@code getCandidates}. </p>
+     * {@code getCandidates}. {@code null} will be returned if no
+     * candidate available. </p>
      *
      * @param key the name of {@code ClassInstance}
      * @return a {@code ClassInstance} that is a candidate and MRJ version is the largest
      */
     public ClassInstance getBestFit(VersionedName key) {
-        throw new RuntimeException();
+        return getCandidates(key).stream()
+                .max((o1, o2) -> new OptionalIntComparator().compare(
+                        o1.getVersionedName().getVersion(),
+                        o2.getVersionedName().getVersion()))
+                .orElse(null);
     }
 
     /**
