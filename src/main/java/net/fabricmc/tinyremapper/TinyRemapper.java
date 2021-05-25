@@ -738,7 +738,7 @@ public class TinyRemapper {
 
 				List<Future<?>> futures = new ArrayList<>();
 
-				for (final ClassInstance cls : classes.values()) {
+				for (final ClassInstance cls : preprocessingClasses.values()) {
 					if (!cls.isInput) continue;
 
 					if (cls.data == null) {
@@ -824,6 +824,9 @@ public class TinyRemapper {
 			readClasses.clear();
 		}
 
+		System.out.println("preprocessingClasses: ");
+		System.out.println(preprocessingClasses.toString());
+
 		// preprocessingClasses will have ClassInstance for all MRJ version. For each MRJ version
 		// (in ascending order), it will send all ClassInstance with suitable MRJ version to process.
 		// For each iteration, once it finished, the ClassInstance will send to the
@@ -854,6 +857,9 @@ public class TinyRemapper {
 				}
 			}
 
+			System.out.println("classes: ");
+			System.out.println(classes.toString());
+
 			// process
 			loadMappings();
 			checkClassMappings();
@@ -874,6 +880,9 @@ public class TinyRemapper {
 			}
 		}
 
+		System.out.println("postprocessingClasses: ");
+		System.out.println(postprocessingClasses.toString());
+
 		// move ClassInstance from postprocessingClasses to preprocessingClasses
 		preprocessingClasses.clear();
 		for (ClassInstance cls : postprocessingClasses.values()) {
@@ -881,6 +890,12 @@ public class TinyRemapper {
 			if (err != null) { throw new RuntimeException("internal error: duplicate key insert"); }
 		}
 		postprocessingClasses.clear();
+
+		System.out.println("-----------finish-------------");
+		System.out.println("preprocessingClasses: ");
+		System.out.println(preprocessingClasses.toString());
+		System.out.println("postprocessingClasses: ");
+		System.out.println(postprocessingClasses.toString());
 
 		assert dirty;
 		dirty = false;

@@ -104,7 +104,7 @@ public class VersionAwareMap implements Map<VersionedName, ClassInstance> {
 
     public Collection<ClassInstance> getFeasibleVersionClasses(String name, int version) {
         return storage.get(name).stream()
-                .filter(cls -> cls.getVersionedName().getVersion() < version)
+                .filter(cls -> cls.getVersionedName().getVersion() <= version)
                 .collect(Collectors.toList());
     }
 
@@ -206,5 +206,10 @@ public class VersionAwareMap implements Map<VersionedName, ClassInstance> {
 
     public Set<String> names() {
         return storage.keySet();
+    }
+
+    @Override
+    public String toString() {
+        return storage.toString();
     }
 }

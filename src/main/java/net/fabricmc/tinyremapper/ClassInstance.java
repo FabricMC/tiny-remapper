@@ -444,7 +444,7 @@ public final class ClassInstance {
 
 	@Override
 	public String toString() {
-		return name;
+		return new VersionedName(name, mrjVersion).toString();
 	}
 
 	private static final MemberInstance nullMember = new MemberInstance(null, null, null, null, 0);
