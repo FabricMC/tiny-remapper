@@ -19,8 +19,6 @@ package net.fabricmc.tinyremapper.util;
 
 import org.junit.Test;
 
-import java.util.OptionalInt;
-
 import static org.junit.Assert.*;
 
 public class VersionedNameTest {
