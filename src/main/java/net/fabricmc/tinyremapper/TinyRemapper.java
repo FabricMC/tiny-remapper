@@ -390,7 +390,7 @@ public class TinyRemapper {
 
 		if (file.toString().endsWith(".class")) {
 			// flat class file cannot have mrj, just ignore it
-			ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file), OptionalInt.empty());
+			ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file), VersionedName.EMPTY);
 			if (res != null) ret.add(res);
 		} else {
 			URI uri = new URI("jar:"+file.toUri().toString());
@@ -401,9 +401,9 @@ public class TinyRemapper {
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					if (file.toString().endsWith(".class")) {
-						OptionalInt mrjVersion = OptionalInt.empty();
+						int mrjVersion = VersionedName.EMPTY;
 						if (file.startsWith(VersionedName.MRJ_PREFIX)) {
-							mrjVersion = OptionalInt.of(Integer.parseInt(file.getName(2).toString()));
+							mrjVersion = Integer.parseInt(file.getName(2).toString());
 						}
 						ClassInstance res = analyze(isInput, tags, srcPath, Files.readAllBytes(file), mrjVersion);
 						if (res != null) ret.add(res);
@@ -417,7 +417,7 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, byte[] data, OptionalInt mrjVersion) {
+	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, byte[] data, int mrjVersion) {
 		ClassReader reader = new ClassReader(data);
 		if ((reader.getAccess() & Opcodes.ACC_MODULE) != 0) return null; // special attribute for module-info.class, can't be a regular class
 

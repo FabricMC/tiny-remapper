@@ -30,7 +30,7 @@ import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
 
 public final class ClassInstance {
-	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data, OptionalInt mrjVersion) {
+	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data, int mrjVersion) {
 		this.context = context;
 		this.isInput = isInput;
 		this.inputTags = inputTags;
@@ -104,7 +104,7 @@ public final class ClassInstance {
 		return inputTags;
 	}
 
-	OptionalInt getMrjVersion() {
+	int getMrjVersion() {
 		return mrjVersion;
 	}
 
@@ -463,5 +463,5 @@ public final class ClassInstance {
 	private String superName;
 	private int access;
 	private String[] interfaces;
-	private OptionalInt mrjVersion;
+	private int mrjVersion;
 }

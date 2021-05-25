@@ -24,20 +24,22 @@ import java.util.OptionalInt;
 public class VersionedName {
     public static final String MRJ_PREFIX = File.separator + "META-INF" + File.separator + "versions";
 
-    private final String name;
-    private final OptionalInt version;
+    public static final int EMPTY = -1;
 
-    public VersionedName(String name, OptionalInt version) {
+    private final String name;
+    private final int version;
+
+    public VersionedName(String name, int version) {
         this.name = name;
         this.version = version;
     }
 
     public String getName() { return name; }
-    public OptionalInt getVersion() { return version; }
+    public int getVersion() { return version; }
 
-    public static String getMultiReleaseClassName(String clsName, OptionalInt mrjVersion) {
-        if (mrjVersion.isPresent()) {
-            return MRJ_PREFIX + File.separator + mrjVersion.getAsInt() + File.separator + clsName;
+    public static String getMultiReleaseClassName(String clsName, int mrjVersion) {
+        if (mrjVersion == EMPTY) {
+            return MRJ_PREFIX + File.separator + Integer.toString(mrjVersion) + File.separator + clsName;
         } else {
             return clsName;
         }
@@ -52,7 +54,7 @@ public class VersionedName {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         VersionedName that = (VersionedName) o;
-        return name.equals(that.name) && version.equals(that.version);
+        return name.equals(that.name) && version == that.version;
     }
 
     @Override

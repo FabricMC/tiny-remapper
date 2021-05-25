@@ -25,7 +25,6 @@ dependencies {
 	implementation 'org.ow2.asm:asm-commons:9.0'
 	implementation 'org.ow2.asm:asm-tree:9.0'
 	implementation 'org.ow2.asm:asm-util:9.0'
-	implementation 'com.google.guava:guava:30.1.1-jre'
 
 	testImplementation 'junit:junit:4.13'
 }

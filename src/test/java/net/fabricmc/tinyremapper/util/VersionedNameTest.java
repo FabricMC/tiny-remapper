@@ -30,26 +30,26 @@ public class VersionedNameTest {
 
     @Test
     public void getName() {
-        VersionedName o1 = new VersionedName(NAME_1, OptionalInt.of(1));
+        VersionedName o1 = new VersionedName(NAME_1, 1);
 
         assertEquals(NAME_1, o1.getName());
     }
 
     @Test
     public void getVersion() {
-        VersionedName o1 = new VersionedName(NAME_1, OptionalInt.of(1));
-        VersionedName o2 = new VersionedName(NAME_1, OptionalInt.empty());
+        VersionedName o1 = new VersionedName(NAME_1, 1);
+        VersionedName o2 = new VersionedName(NAME_1, VersionedName.EMPTY);
 
-        assertEquals(OptionalInt.of(1), o1.getVersion());
-        assertEquals(OptionalInt.empty(), o2.getVersion());
+        assertEquals(1, o1.getVersion());
+        assertEquals(VersionedName.EMPTY, o2.getVersion());
     }
 
     @Test
     public void testEquals() {
-        VersionedName o1 = new VersionedName(NAME_1, OptionalInt.of(1));
-        VersionedName o2 = new VersionedName(NAME_1, OptionalInt.of(1));
-        VersionedName o3 = new VersionedName(NAME_2, OptionalInt.of(1));
-        VersionedName o4 = new VersionedName(NAME_1, OptionalInt.empty());
+        VersionedName o1 = new VersionedName(NAME_1, 1);
+        VersionedName o2 = new VersionedName(NAME_1, 1);
+        VersionedName o3 = new VersionedName(NAME_2, 1);
+        VersionedName o4 = new VersionedName(NAME_1, VersionedName.EMPTY);
 
         assertEquals(o1, o2);
 
