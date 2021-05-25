@@ -21,7 +21,12 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import net.fabricmc.tinyremapper.ClassInstance;
 
-import java.util.*;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class VersionAwareMap implements Map<VersionedName, ClassInstance> {

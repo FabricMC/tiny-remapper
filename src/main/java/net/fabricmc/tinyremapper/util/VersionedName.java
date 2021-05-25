@@ -19,7 +19,6 @@ package net.fabricmc.tinyremapper.util;
 
 import java.io.File;
 import java.util.Objects;
-import java.util.OptionalInt;
 
 public class VersionedName {
     public static final String MRJ_PREFIX = File.separator + "META-INF" + File.separator + "versions";
@@ -43,10 +42,6 @@ public class VersionedName {
         } else {
             return clsName;
         }
-    }
-
-    public String getMultiReleaseClassName() {
-        return getMultiReleaseClassName(name, version);
     }
 
     @Override
