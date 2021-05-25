@@ -39,6 +39,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import net.fabricmc.tinyremapper.util.VersionAwareMap;
 import net.fabricmc.tinyremapper.util.VersionedName;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -313,9 +314,8 @@ public class TinyRemapper {
 		});
 	}
 
-	private static void addClass(ClassInstance cls, Map<String, ClassInstance> out) {
-		// TODO: temporary solution, this ignore MRJ and always use Java 8 as dependency resolution
-		String name = cls.getVersionedName().getMultiReleaseClassName();
+	private static void addClass(ClassInstance cls, Map<VersionedName, ClassInstance> out) {
+		VersionedName name = cls.getVersionedName();
 
 		// add new class or replace non-input class with input class, warn if two input classes clash
 		for (;;) {
@@ -818,16 +818,69 @@ public class TinyRemapper {
 
 		if (!readClasses.isEmpty()) {
 			for (ClassInstance cls : readClasses.values()) {
-				addClass(cls, classes);
+				addClass(cls, preprocessingClasses);
 			}
 
 			readClasses.clear();
 		}
 
-		loadMappings();
-		checkClassMappings();
-		merge();
-		propagate();
+		// preprocessingClasses will have ClassInstance for all MRJ version. For each MRJ version
+		// (in ascending order), it will send all ClassInstance with suitable MRJ version to process.
+		// For each iteration, once it finished, the ClassInstance will send to the
+		// postprocessingClasses. At the end, all postprocessingClasses will give back to the
+		// preprocessingClasses to mimic the original behaviour.
+
+		// make sure postprocessingClasses is empty
+		assert postprocessingClasses.isEmpty();
+
+		// guarantee ascending order of MRJ versions
+		for (int version : preprocessingClasses.versions().stream().sorted().collect(Collectors.toList())) {
+			classes.clear();
+
+			System.out.println("MRJ version = " + version);
+
+			// copy preprocessingClasses to classes with correct MRJ version
+			for (String name : preprocessingClasses.names()) {
+				ClassInstance cls = preprocessingClasses.getByVersion(name, version);
+
+				// some classes may only exists in higher versions
+				if (cls != null) {
+					Object err = classes.put(name, cls);
+					if (err != null) { throw new RuntimeException("internal error: duplicate key insert"); }
+				} else {
+					System.out.println(
+							"warning: " + name + " does not exists in Java version "
+							+ (version == VersionedName.EMPTY ? "DEFAULT" : Integer.toString(version)));
+				}
+			}
+
+			// process
+			loadMappings();
+			checkClassMappings();
+			merge();
+			propagate();
+
+			// get result to the postprocessingClasses
+			for (ClassInstance cls : classes.values()) {
+				if (cls.getMrjVersion() == version) {
+
+					System.out.println(
+							"add name = " + cls.getName() + ", version = " /** + cls.getMrjVersion() **/ + " to postprocessing"
+					);
+
+					Object err = postprocessingClasses.put(cls.getVersionedName(), cls);
+					if (err != null) { throw new RuntimeException("internal error: duplicate key insert"); }
+				}
+			}
+		}
+
+		// move ClassInstance from postprocessingClasses to preprocessingClasses
+		preprocessingClasses.clear();
+		for (ClassInstance cls : postprocessingClasses.values()) {
+			Object err = preprocessingClasses.put(cls.getVersionedName(), cls);
+			if (err != null) { throw new RuntimeException("internal error: duplicate key insert"); }
+		}
+		postprocessingClasses.clear();
 
 		assert dirty;
 		dirty = false;
@@ -1037,13 +1090,17 @@ public class TinyRemapper {
 	final AtomicReference<Map<InputTag, InputTag[]>> singleInputTags = new AtomicReference<>(Collections.emptyMap()); // cache for tag -> { tag }
 
 	final List<CompletableFuture<?>> pendingReads = new ArrayList<>(); // reads that need to be waited for before continuing processing (assumes lack of external waiting)
-	final Map<String, ClassInstance> readClasses = new ConcurrentHashMap<>(); // classes being potentially concurrently read, to be transferred into unsynchronized classes later
+	final Map<VersionedName, ClassInstance> readClasses = new ConcurrentHashMap<>(); // classes being potentially concurrently read, to be transferred into unsynchronized classes later
 
 	final Map<String, String> classMap = new HashMap<>();
 	final Map<String, String> methodMap = new HashMap<>();
 	final Map<String, String> methodArgMap = new HashMap<>();
 	final Map<String, String> fieldMap = new HashMap<>();
+
 	final Map<String, ClassInstance> classes = new HashMap<>();
+	final VersionAwareMap preprocessingClasses = new VersionAwareMap();
+	final Map<VersionedName, ClassInstance> postprocessingClasses = new HashMap<>();
+
 	final Map<MemberInstance, Set<String>> conflicts = new ConcurrentHashMap<>();
 	final Set<ClassInstance> classesToMakePublic = Collections.newSetFromMap(new ConcurrentHashMap<>());
 	final Set<MemberInstance> membersToMakePublic = Collections.newSetFromMap(new ConcurrentHashMap<>());
