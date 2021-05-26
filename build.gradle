@@ -25,7 +25,7 @@ dependencies {
 	implementation 'org.ow2.asm:asm-tree:9.0'
 	implementation 'org.ow2.asm:asm-util:9.0'
 
-	testImplementation 'junit:junit:4.13'
+	testImplementation 'org.junit.jupiter:junit-jupiter:5.6.2'
 }
 
 java {
@@ -42,6 +42,10 @@ tasks.withType(JavaCompile).configureEach {
 
 shadowJar {
 	archiveClassifier = 'fat'
+}
+
+test {
+	useJUnitPlatform()
 }
 
 jar {

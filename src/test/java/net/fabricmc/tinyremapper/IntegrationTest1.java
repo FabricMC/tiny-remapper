@@ -17,42 +17,47 @@
 
 package net.fabricmc.tinyremapper;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.Set;
 import java.util.jar.JarFile;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class IntegrationTest1 {
-    private static final TemporaryFolder FOLDER = new TemporaryFolder();
-    private static final String MAPPING_PATH = "/mapping/mapping1.tiny";
+    private static final String MAPPING_1_PATH = "/mapping/mapping1.tiny";
     private static final String BASIC_INPUT_PATH = "/integration/basic/input.jar";
     private static final String MRJ1_INPUT_PATH = "/integration/mrj1/input.jar";
 
-    private static File mappingFile;
-    private static File basicInputFile;
-    private static File mrj1InputFile;
+    @TempDir
+    static Path folder;
 
-    @BeforeClass
+    @BeforeAll
     public static void setup() throws IOException {
-        // setup test environment
-        FOLDER.create();
+        TestUtil.folder = folder;
 
-        mappingFile = TestUtil.copyFile(IntegrationTest1.class, FOLDER, MAPPING_PATH);
-        basicInputFile = TestUtil.copyFile(IntegrationTest1.class, FOLDER, BASIC_INPUT_PATH);
-        mrj1InputFile = TestUtil.copyFile(IntegrationTest1.class, FOLDER, MRJ1_INPUT_PATH);
+        TestUtil.copyFile(IntegrationTest1.class, MAPPING_1_PATH);
+        TestUtil.copyFile(IntegrationTest1.class, BASIC_INPUT_PATH);
+        TestUtil.copyFile(IntegrationTest1.class, MRJ1_INPUT_PATH);
     }
 
-    private TinyRemapper setupRemapper() {
+    private Path input(String path) {
+        return TestUtil.getFile(path).toPath();
+    }
+
+    private Path output(String path) {
+        return folder.resolve(path.replace("input", "output").substring(1));
+    }
+
+    private TinyRemapper setupRemapper(String mapping) {
         // copy from Main.java
         final boolean reverse = false;
         final boolean ignoreFieldDesc = false;
@@ -72,7 +77,7 @@ public class IntegrationTest1 {
         final String from = "a";
         final String to = "b";
 
-        Path mappings = mappingFile.toPath();
+        Path mappings = TestUtil.getFile(mapping).toPath();
 
         return TinyRemapper.newRemapper()
                 .withMappings(TinyUtils.createTinyMappingProvider(mappings, from, to))
@@ -93,12 +98,12 @@ public class IntegrationTest1 {
 
     @Test
     public void basic() throws IOException {
-        final TinyRemapper remapper = setupRemapper();
+        final TinyRemapper remapper = setupRemapper(MAPPING_1_PATH);
         final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
-
-        final Path output = Paths.get(FOLDER.getRoot().getPath(), "basic_output.jar");
-        final Path input = basicInputFile.toPath();
         final Path[] classpath = new Path[]{};
+
+        Path output = output(BASIC_INPUT_PATH);
+        Path input = input(BASIC_INPUT_PATH);
 
         try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
             outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
@@ -119,16 +124,18 @@ public class IntegrationTest1 {
         JarFile result = new JarFile(output.toFile());
         assertNotNull(result.getEntry(MAIN_CLASS));
         assertNotNull(result.getEntry(GREETING_CLASS));
+        result.close();
     }
 
     @Test
     public void mrj1() throws IOException {
-        final TinyRemapper remapper = setupRemapper();
+        final TinyRemapper remapper = setupRemapper(MAPPING_1_PATH);
         final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
-
-        final Path output = Paths.get(FOLDER.getRoot().getPath(), "mrj1_output.jar");
-        final Path input = mrj1InputFile.toPath();
         final Path[] classpath = new Path[]{};
+
+        Path output = output(MRJ1_INPUT_PATH);
+        System.out.println(output);
+        Path input = input(MRJ1_INPUT_PATH);
 
         try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
             outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
@@ -151,10 +158,11 @@ public class IntegrationTest1 {
         assertNotNull(result.getEntry(MAIN_CLASS));
         assertNotNull(result.getEntry(GREETING_CLASS));
         assertNotNull(result.getEntry(MRJ_GREETING_CLASS));
+        result.close();
     }
 
-    @AfterClass
-    public static void cleanup() {
-        FOLDER.delete();
+    @AfterAll
+    public static void cleanup() throws IOException {
+        TestUtil.folder = null;
     }
 }

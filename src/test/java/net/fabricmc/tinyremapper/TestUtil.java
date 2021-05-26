@@ -17,25 +17,33 @@
 
 package net.fabricmc.tinyremapper;
 
-import org.junit.rules.TemporaryFolder;
-
 import java.io.*;
-import java.nio.file.Path;
+import java.nio.file.*;
 
 public class TestUtil {
-    public static File copyFile(Class cls, TemporaryFolder folder, String path)
+    public static Path folder = null;
+
+    public static void copyFile(Class<?> cls, String path)
             throws IOException {
+        if (folder == null) { throw new RuntimeException("the temporary folder is not created"); }
+
         try (InputStream input = cls.getResourceAsStream(path)) {
+            if (input == null) { throw new IOException("input is null"); }
             byte[] buffer = new byte[input.available()];
+            //noinspection ResultOfMethodCallIgnored
             input.read(buffer);
 
-            File target = folder.newFile(path.replace('/', '_'));
+            Path target = folder.resolve(path.substring(1));
+            Files.createDirectories(target.getParent());
+            Files.createFile(target);
 
-            try (OutputStream output = new FileOutputStream(target)) {
+            try (OutputStream output = new FileOutputStream(target.toFile())) {
                 output.write(buffer);
             }
-
-            return target;
         }
+    }
+
+    public static File getFile(String path) {
+        return folder.resolve(path).toFile();
     }
 }
