@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -240,7 +241,8 @@ public class TinyRemapper {
 		}
 
 		outputBuffer = null;
-		classes.clear();
+		// TODO: clear mrjClasses
+		mrjClasses.clear();
 	}
 
 	public InputTag createInputTag() {
@@ -755,59 +757,64 @@ public class TinyRemapper {
 		synchronized (this) { // guard against concurrent apply invocations
 			refresh();
 
-			if (outputBuffer == null) { // first (inputTags present) or full (no input tags) output invocation, process everything but don't output if input tags are present
-				BiConsumer<ClassInstance, byte[]> immediateOutputConsumer;
+			for (int version: mrjClasses.keySet()) {
+				mrjRefresh(version);
 
-				if (fixPackageAccess || hasInputTags) { // need re-processing or output buffering for repeated applies
-					outputBuffer = new ConcurrentHashMap<>();
-					immediateOutputConsumer = outputBuffer::put;
-				} else {
-					immediateOutputConsumer = (cls, data) -> outputConsumer.accept(ClassInstance.getMrjName(mapClass(cls.getName()), cls.getMrjVersion()), data);
-				}
+				if (outputBuffer == null) { // first (inputTags present) or full (no input tags) output invocation, process everything but don't output if input tags are present
+					BiConsumer<ClassInstance, byte[]> immediateOutputConsumer;
 
-				List<Future<?>> futures = new ArrayList<>();
-
-				for (final ClassInstance cls : classes.values()) {
-					if (!cls.isInput) continue;
-
-					if (cls.data == null) {
-						if (!hasInputTags && !keepInputData) throw new IllegalStateException("invoking apply multiple times without input tags or hasInputData");
-						throw new IllegalStateException("data for input class "+cls+" is missing?!");
+					if (fixPackageAccess || hasInputTags) { // need re-processing or output buffering for repeated applies
+						outputBuffer = new ConcurrentHashMap<>();
+						immediateOutputConsumer = outputBuffer::put;
+					} else {
+						immediateOutputConsumer = (cls, data) -> outputConsumer.accept(ClassInstance.getMrjName(mapClass(cls.getName()), cls.getMrjVersion()), data);
 					}
 
-					futures.add(threadPool.submit(() -> immediateOutputConsumer.accept(cls, apply(cls))));
-				}
+					List<Future<?>> futures = new ArrayList<>();
 
-				waitForAll(futures);
+					for (final ClassInstance cls : classes.values()) {
+						if (!cls.isInput) continue;
 
-				boolean needsFixes = !classesToMakePublic.isEmpty() || !membersToMakePublic.isEmpty();
+						if (cls.data == null) {
+							if (!hasInputTags && !keepInputData)
+								throw new IllegalStateException("invoking apply multiple times without input tags or hasInputData");
+							throw new IllegalStateException("data for input class " + cls + " is missing?!");
+						}
 
-				if (fixPackageAccess) {
-					if (needsFixes) {
-						System.out.printf("Fixing access for %d classes and %d members.%n", classesToMakePublic.size(), membersToMakePublic.size());
+						futures.add(threadPool.submit(() -> immediateOutputConsumer.accept(cls, apply(cls))));
 					}
 
-					for (Map.Entry<ClassInstance, byte[]> entry : outputBuffer.entrySet()) {
-						ClassInstance cls = entry.getKey();
-						byte[] data = entry.getValue();
+					waitForAll(futures);
 
+					boolean needsFixes = !classesToMakePublic.isEmpty() || !membersToMakePublic.isEmpty();
+
+					if (fixPackageAccess) {
 						if (needsFixes) {
-							data = fixClass(cls, data);
+							System.out.printf("Fixing access for %d classes and %d members.%n", classesToMakePublic.size(), membersToMakePublic.size());
 						}
 
-						if (hasInputTags) {
-							entry.setValue(data);
-						} else {
-							outputConsumer.accept(ClassInstance.getMrjName(mapClass(cls.getName()), cls.getMrjVersion()), data);
+						for (Map.Entry<ClassInstance, byte[]> entry : outputBuffer.entrySet()) {
+							ClassInstance cls = entry.getKey();
+							byte[] data = entry.getValue();
+
+							if (needsFixes) {
+								data = fixClass(cls, data);
+							}
+
+							if (hasInputTags) {
+								entry.setValue(data);
+							} else {
+								outputConsumer.accept(ClassInstance.getMrjName(mapClass(cls.getName()), cls.getMrjVersion()), data);
+							}
 						}
+
+						if (!hasInputTags) outputBuffer = null; // don't expect repeat invocations
+
+						classesToMakePublic.clear();
+						membersToMakePublic.clear();
+					} else if (needsFixes) {
+						throw new RuntimeException(String.format("%d classes and %d members need access fixes", classesToMakePublic.size(), membersToMakePublic.size()));
 					}
-
-					if (!hasInputTags) outputBuffer = null; // don't expect repeat invocations
-
-					classesToMakePublic.clear();
-					membersToMakePublic.clear();
-				} else if (needsFixes) {
-					throw new RuntimeException(String.format("%d classes and %d members need access fixes", classesToMakePublic.size(), membersToMakePublic.size()));
 				}
 			}
 		}
@@ -820,6 +827,33 @@ public class TinyRemapper {
 
 				if (inputTags == null || cls.hasAnyInputTag(inputTags)) {
 					outputConsumer.accept(ClassInstance.getMrjName(mapClass(cls.getName()), cls.getMrjVersion()), entry.getValue());
+				}
+			}
+		}
+	}
+
+	/**
+	 * This function will setup {@code mrjClasses} with any new MRJ version
+	 * added. It will put the result of {@code constructMrjCopy} from lower
+	 * MRJ version to the new version.
+	 * @param versions the new versions that need to be added in to {@code mrjClasses}
+	 */
+	private void fixMrjClasses(Set<Integer> versions) {
+		// ensure the new version is added from lowest to highest
+		for (int toVersion: versions.stream().sorted().collect(Collectors.toList())) {
+			Map<String, ClassInstance> toClasses = new HashMap<>();
+
+			if(mrjClasses.put(toVersion, toClasses) != null) {
+				throw new RuntimeException("internal error: duplicate versions in mrjClasses");
+			}
+
+			// find the fromVersion that just lower the the toVersion
+			Optional<Integer> fromVersion = mrjClasses.keySet().stream()
+					.filter(v -> v < toVersion).max(Integer::compare);
+			if (fromVersion.isPresent()) {
+				Map<String, ClassInstance> fromClasses = mrjClasses.get(fromVersion.get());
+				for (ClassInstance cls: fromClasses.values()) {
+					addClass(cls.constructMrjCopy(), toClasses, false);
 				}
 			}
 		}
@@ -844,9 +878,19 @@ public class TinyRemapper {
 		}
 
 		if (!readClasses.isEmpty()) {
+			// fix any new adding MRJ versions
+			Set<Integer> versions = readClasses.values().stream().map(ClassInstance::getMrjVersion).collect(Collectors.toSet());
+			versions.removeAll(mrjClasses.keySet());
+			fixMrjClasses(versions);
+
 			for (ClassInstance cls : readClasses.values()) {
-				// TODO: change to mrjClasses
-				addClass(cls, classes, true);
+				// TODO: this might be able to optimize, any suggestion?
+				int clsVersion = cls.getMrjVersion();
+				addClass(cls, mrjClasses.get(clsVersion), false);
+
+				for (int version: mrjClasses.keySet().stream().filter(v -> v > clsVersion).collect(Collectors.toSet())) {
+					addClass(cls.constructMrjCopy(), mrjClasses.get(version), false);
+				}
 			}
 
 			readClasses.clear();
@@ -854,11 +898,16 @@ public class TinyRemapper {
 
 		loadMappings();
 		checkClassMappings();
-		merge();
-		propagate();
 
 		assert dirty;
 		dirty = false;
+	}
+
+	private void mrjRefresh(int mrjVersion) {
+		classes = mrjClasses.get(mrjVersion);
+
+		merge();
+		propagate();
 	}
 
 	private byte[] apply(final ClassInstance cls) {
@@ -1108,11 +1157,13 @@ public class TinyRemapper {
 	final List<CompletableFuture<?>> pendingReads = new ArrayList<>(); // reads that need to be waited for before continuing processing (assumes lack of external waiting)
 	final Map<String, ClassInstance> readClasses = new ConcurrentHashMap<>(); // classes being potentially concurrently read, to be transferred into unsynchronized classes later
 
+	Map<String, ClassInstance> classes = new HashMap<>();
+	final Map<Integer, Map<String, ClassInstance>> mrjClasses = new HashMap<>();
+
 	final Map<String, String> classMap = new HashMap<>();
 	final Map<String, String> methodMap = new HashMap<>();
 	final Map<String, String> methodArgMap = new HashMap<>();
 	final Map<String, String> fieldMap = new HashMap<>();
-	final Map<String, ClassInstance> classes = new HashMap<>();
 	final Map<MemberInstance, Set<String>> conflicts = new ConcurrentHashMap<>();
 	final Set<ClassInstance> classesToMakePublic = Collections.newSetFromMap(new ConcurrentHashMap<>());
 	final Set<MemberInstance> membersToMakePublic = Collections.newSetFromMap(new ConcurrentHashMap<>());

@@ -623,7 +623,7 @@ public final class ClassInstance {
 	final boolean isInput;
 	private volatile InputTag[] inputTags; // cow input tag list, null for none
 	final Path srcPath;
-	int mrjVersion;
+	final int mrjVersion;
 	byte[] data;
 	private ClassInstance mrjOrigin;
 	private Map<String, MemberInstance> members = new HashMap<>();	// methods and fields are distinct due to their different desc separators
