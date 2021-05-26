@@ -330,7 +330,7 @@ public class TinyRemapper {
 
 			if (res != null) {
 				for (ClassInstance node : res) {
-					addClass(node, readClasses);
+					addClass(node, readClasses, true);
 				}
 			}
 
@@ -338,9 +338,14 @@ public class TinyRemapper {
 		});
 	}
 
+	@Deprecated
 	private static void addClass(ClassInstance cls, Map<String, ClassInstance> out) {
-		// TODO: temporary solution for MRJ, incorrect
-		String name = ClassInstance.getMrjName(cls.getName(), cls.getMrjVersion());
+		addClass(cls, out, true);
+	}
+
+	private static void addClass(ClassInstance cls, Map<String, ClassInstance> out, boolean isVersionAware) {
+		// two different MRJ version will not cause warning if isVersionAware is true
+		String name = isVersionAware ? ClassInstance.getMrjName(cls.getName(), cls.getMrjVersion()) : cls.getName();
 
 		// add new class or replace non-input class with input class, warn if two input classes clash
 		for (;;) {
@@ -840,7 +845,8 @@ public class TinyRemapper {
 
 		if (!readClasses.isEmpty()) {
 			for (ClassInstance cls : readClasses.values()) {
-				addClass(cls, classes);
+				// TODO: change to mrjClasses
+				addClass(cls, classes, true);
 			}
 
 			readClasses.clear();
