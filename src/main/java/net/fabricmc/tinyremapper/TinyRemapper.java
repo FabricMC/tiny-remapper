@@ -339,7 +339,8 @@ public class TinyRemapper {
 	}
 
 	private static void addClass(ClassInstance cls, Map<String, ClassInstance> out) {
-		String name = cls.getName();
+		// TODO: temporary solution for MRJ, incorrect
+		String name = ClassInstance.getMrjName(cls.getName(), cls.getMrjVersion());
 
 		// add new class or replace non-input class with input class, warn if two input classes clash
 		for (;;) {
@@ -756,7 +757,7 @@ public class TinyRemapper {
 					outputBuffer = new ConcurrentHashMap<>();
 					immediateOutputConsumer = outputBuffer::put;
 				} else {
-					immediateOutputConsumer = (cls, data) -> outputConsumer.accept(mapClass(cls.getName()), data);
+					immediateOutputConsumer = (cls, data) -> outputConsumer.accept(ClassInstance.getMrjName(mapClass(cls.getName()), cls.getMrjVersion()), data);
 				}
 
 				List<Future<?>> futures = new ArrayList<>();
@@ -792,7 +793,7 @@ public class TinyRemapper {
 						if (hasInputTags) {
 							entry.setValue(data);
 						} else {
-							outputConsumer.accept(mapClass(cls.getName()), data);
+							outputConsumer.accept(ClassInstance.getMrjName(mapClass(cls.getName()), cls.getMrjVersion()), data);
 						}
 					}
 
@@ -813,7 +814,7 @@ public class TinyRemapper {
 				ClassInstance cls = entry.getKey();
 
 				if (inputTags == null || cls.hasAnyInputTag(inputTags)) {
-					outputConsumer.accept(mapClass(cls.getName()), entry.getValue());
+					outputConsumer.accept(ClassInstance.getMrjName(mapClass(cls.getName()), cls.getMrjVersion()), entry.getValue());
 				}
 			}
 		}

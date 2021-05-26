@@ -17,6 +17,7 @@
 
 package net.fabricmc.tinyremapper;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -131,6 +132,8 @@ public final class ClassInstance {
 	public String getName() {
 		return name;
 	}
+
+	public int getMrjVersion() { return mrjVersion; }
 
 	public String getSuperName() {
 		return superName;
@@ -581,6 +584,14 @@ public final class ClassInstance {
 	@Override
 	public String toString() {
 		return name;
+	}
+
+	public static String getMrjName(String clsName, int mrjVersion) {
+		if (mrjVersion != MRJ_DEFAULT) {
+			return MRJ_PREFIX + File.separator + mrjVersion + File.separator + clsName;
+		} else {
+			return clsName;
+		}
 	}
 
 	public static final int MRJ_DEFAULT = -1;
