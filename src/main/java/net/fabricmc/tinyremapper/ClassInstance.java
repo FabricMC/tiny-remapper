@@ -605,16 +605,14 @@ public final class ClassInstance {
 	}
 
 	public static String getMrjName(String clsName, int mrjVersion) {
-		if (mrjVersion != MRJ_DEFAULT) {
-			return MRJ_PREFIX + File.separator + mrjVersion + File.separator + clsName;
+		if (mrjVersion != MultiVersionName.DEFAULT_VERSION) {
+			return mrjPrefix + File.separator + mrjVersion + File.separator + clsName;
 		} else {
 			return clsName;
 		}
 	}
 
-	public static final int MRJ_DEFAULT = -1;
-	public static final String MRJ_PREFIX = "/META-INF/versions";
-
+	public static final String mrjPrefix = "/META-INF/versions";
 	private static final String objectClassName = "java/lang/Object";
 	private static final MemberInstance nullMember = new MemberInstance(null, null, null, null, 0);
 	private static final AtomicReferenceFieldUpdater<ClassInstance, InputTag[]> inputTagsUpdater = AtomicReferenceFieldUpdater.newUpdater(ClassInstance.class, InputTag[].class, "inputTags");

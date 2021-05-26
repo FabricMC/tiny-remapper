@@ -415,7 +415,7 @@ public class TinyRemapper {
 
 		if (file.toString().endsWith(".class")) {
 			// flat class file cannot have MRJ, just set it to default version
-			ClassInstance res = analyze(isInput, tags, ClassInstance.MRJ_DEFAULT, srcPath, Files.readAllBytes(file));
+			ClassInstance res = analyze(isInput, tags, MultiVersionName.DEFAULT_VERSION, srcPath, Files.readAllBytes(file));
 			if (res != null) ret.add(res);
 		} else {
 			URI uri = new URI("jar:"+file.toUri().toString());
@@ -426,8 +426,8 @@ public class TinyRemapper {
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					if (file.toString().endsWith(".class")) {
-						int mrjVersion = ClassInstance.MRJ_DEFAULT;
-						if (file.startsWith(ClassInstance.MRJ_PREFIX)) {
+						int mrjVersion = MultiVersionName.DEFAULT_VERSION;
+						if (file.startsWith(ClassInstance.mrjPrefix)) {
 							mrjVersion = Integer.parseInt(file.getName(2).toString());
 						}
 						ClassInstance res = analyze(isInput, tags, mrjVersion, srcPath, Files.readAllBytes(file));
