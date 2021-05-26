@@ -9,3 +9,4 @@
 *.jar
 *.tiny
 .idea/
+!src/test/resources/**
