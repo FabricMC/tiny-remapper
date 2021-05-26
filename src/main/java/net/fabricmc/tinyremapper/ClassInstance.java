@@ -581,6 +581,14 @@ public final class ClassInstance {
 		return ret;
 	}
 
+	ClassInstance mrjCopy(int version) {
+		// isInput should be false, since the copy should not be emitted
+		ClassInstance cls = new ClassInstance(context, false, inputTags, version, srcPath, data);
+		cls.init(name, superName, access, interfaces);
+		cls.members = members;
+		return cls;
+	}
+
 	@Override
 	public String toString() {
 		return name;
@@ -607,8 +615,8 @@ public final class ClassInstance {
 	final Path srcPath;
 	int mrjVersion;
 	byte[] data;
-	private final Map<String, MemberInstance> members = new HashMap<>();	// methods and fields are distinct due to their different desc separators
-																			// this only related to ClassInstance, need to be copied
+	private Map<String, MemberInstance> members = new HashMap<>();	// methods and fields are distinct due to their different desc separators
+																	// this only related to ClassInstance, need to be copied
 	private final ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();	// just a cache, can be safely ignored
 	final Set<ClassInstance> parents = new HashSet<>();		// it is MRJ version-aware, should not be copied
 	final Set<ClassInstance> children = new HashSet<>();	// it is MRJ version-aware, should not be copied
