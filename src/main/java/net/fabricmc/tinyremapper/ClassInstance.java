@@ -47,6 +47,7 @@ public final class ClassInstance {
 		this.mrjVersion = mrjVersion;
 		this.srcPath = srcFile;
 		this.data = data;
+		this.mrjOrigin = this;
 	}
 
 	void init(String name, String superName, int access, String[] interfaces) {
@@ -151,6 +152,8 @@ public final class ClassInstance {
 		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
 	}
 
+	public boolean isMrjCopy() { return mrjOrigin == this; }
+
 	public String[] getInterfaces() {
 		return interfaces;
 	}
@@ -162,6 +165,8 @@ public final class ClassInstance {
 	public MemberInstance getMember(MemberType type, String id) {
 		return members.get(id);
 	}
+
+	public ClassInstance getMrjOrigin() { return mrjOrigin; }
 
 	/**
 	 * Rename the member src to dst and continue propagating in dir.
@@ -581,11 +586,14 @@ public final class ClassInstance {
 		return ret;
 	}
 
-	ClassInstance mrjCopy(int version) {
-		// isInput should be false, since the copy should not be emitted
-		ClassInstance cls = new ClassInstance(context, false, inputTags, version, srcPath, data);
+	ClassInstance getMrjCopy() {
+		// isInput should be false, since the MRJ copy should not be emitted
+		ClassInstance cls = new ClassInstance(context, false, inputTags, mrjVersion, srcPath, data);
 		cls.init(name, superName, access, interfaces);
+		// shadow copy the members, as the members should follow the ClassInstance
 		cls.members = members;
+		// set the origin
+		cls.mrjOrigin = mrjOrigin;
 		return cls;
 	}
 
@@ -615,6 +623,7 @@ public final class ClassInstance {
 	final Path srcPath;
 	int mrjVersion;
 	byte[] data;
+	private ClassInstance mrjOrigin;
 	private Map<String, MemberInstance> members = new HashMap<>();	// methods and fields are distinct due to their different desc separators
 																	// this only related to ClassInstance, need to be copied
 	private final ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();	// just a cache, can be safely ignored
