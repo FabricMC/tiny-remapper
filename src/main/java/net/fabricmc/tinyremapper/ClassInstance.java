@@ -588,15 +588,13 @@ public final class ClassInstance {
 
 	ClassInstance constructMrjCopy() {
 		// isInput should be false, since the MRJ copy should not be emitted
-		ClassInstance cls = new ClassInstance(context, false, inputTags, mrjVersion, srcPath, data);
-		cls.init(name, superName, access, interfaces);
-		// shadow copy the members and resolvedMembers, since the members should follow the ClassInstance
-		// regardless of the version
-		cls.members = members;
-		cls.resolvedMembers = resolvedMembers;
+		ClassInstance copy = new ClassInstance(context, false, inputTags, mrjVersion, srcPath, data);
+		copy.init(name, superName, access, interfaces);
+		members.values().forEach(member ->
+				copy.addMember(new MemberInstance(member.type, copy, member.name, member.desc, member.access)));
 		// set the origin
-		cls.mrjOrigin = mrjOrigin;
-		return cls;
+		copy.mrjOrigin = mrjOrigin;
+		return copy;
 	}
 
 	@Override
@@ -626,9 +624,8 @@ public final class ClassInstance {
 	final int mrjVersion;
 	byte[] data;
 	private ClassInstance mrjOrigin;
-	private Map<String, MemberInstance> members = new HashMap<>();	// methods and fields are distinct due to their different desc separators
-																	// this only related to ClassInstance, need to be copied
-	private ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();	// just a cache, can be safely ignored
+	final private Map<String, MemberInstance> members = new HashMap<>();	// methods and fields are distinct due to their different desc separators
+	final private ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();
 	final Set<ClassInstance> parents = new HashSet<>();		// it is MRJ version-aware, should not be copied
 	final Set<ClassInstance> children = new HashSet<>();	// it is MRJ version-aware, should not be copied
 	private String name;
