@@ -17,7 +17,7 @@ public final class PackageAccessChecker {
 			return;
 		}
 
-		ClassInstance targetCls = remapper.getClass(targetClass);
+		ClassInstance targetCls = remapper.getClass(targetClass).getMrjOrigin();
 		if (targetCls == null) return;
 
 		// check if accessible via public, private or same class
@@ -94,11 +94,11 @@ public final class PackageAccessChecker {
 	public static void checkMember(String accessingOwner, String owner, String name, String desc, MemberType type, String source, AsmRemapper remapper) {
 		checkDesc(accessingOwner, desc, source, remapper);
 
-		ClassInstance cls = remapper.getClass(owner);
+		ClassInstance cls = remapper.getClass(owner).getMrjOrigin();
 		if (cls == null) return;
 
 		String id = MemberInstance.getId(type, name, desc, remapper.remapper.ignoreFieldDesc);
-		MemberInstance member = cls.resolve(type, id);
+		MemberInstance member = cls.resolve(type, id);	// cls is already the correct version
 
 		if (member == null) {
 			// should be just missing super classes/interfaces from the analyzed class path, especially java ones
