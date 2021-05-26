@@ -39,10 +39,11 @@ import net.fabricmc.tinyremapper.TinyRemapper.Direction;
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 
 public final class ClassInstance {
-	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
+	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, int mrjVersion, Path srcFile, byte[] data) {
 		this.context = context;
 		this.isInput = isInput;
 		this.inputTags = inputTags;
+		this.mrjVersion = mrjVersion;
 		this.srcPath = srcFile;
 		this.data = data;
 	}
@@ -164,7 +165,7 @@ public final class ClassInstance {
 	 *
 	 * @param type Member type.
 	 * @param idSrc Existing name.
-	 * @param idDst New name.
+	 * @param nameDst New name.
 	 * @param dir Futher propagation direction.
 	 */
 	void propagate(TinyRemapper remapper, MemberType type, String originatingCls, String idSrc, String nameDst,
@@ -582,6 +583,9 @@ public final class ClassInstance {
 		return name;
 	}
 
+	public static final int MRJ_DEFAULT = -1;
+	public static final String MRJ_PREFIX = "/META-INF/versions";
+
 	private static final String objectClassName = "java/lang/Object";
 	private static final MemberInstance nullMember = new MemberInstance(null, null, null, null, 0);
 	private static final AtomicReferenceFieldUpdater<ClassInstance, InputTag[]> inputTagsUpdater = AtomicReferenceFieldUpdater.newUpdater(ClassInstance.class, InputTag[].class, "inputTags");
@@ -590,11 +594,13 @@ public final class ClassInstance {
 	final boolean isInput;
 	private volatile InputTag[] inputTags; // cow input tag list, null for none
 	final Path srcPath;
+	int mrjVersion;
 	byte[] data;
-	private final Map<String, MemberInstance> members = new HashMap<>(); // methods and fields are distinct due to their different desc separators
-	private final ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();
-	final Set<ClassInstance> parents = new HashSet<>();
-	final Set<ClassInstance> children = new HashSet<>();
+	private final Map<String, MemberInstance> members = new HashMap<>();	// methods and fields are distinct due to their different desc separators
+																			// this only related to ClassInstance, need to be copied
+	private final ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();	// just a cache, can be safely ignored
+	final Set<ClassInstance> parents = new HashSet<>();		// it is MRJ version-aware, should not be copied
+	final Set<ClassInstance> children = new HashSet<>();	// it is MRJ version-aware, should not be copied
 	private String name;
 	private String superName;
 	private int access;
