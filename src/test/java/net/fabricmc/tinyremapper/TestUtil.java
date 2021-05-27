@@ -44,6 +44,6 @@ public class TestUtil {
     }
 
     public static File getFile(String path) {
-        return folder.resolve(path).toFile();
+        return folder.resolve(path.substring(1)).toFile();
     }
 }

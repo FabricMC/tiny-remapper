@@ -19,23 +19,28 @@ package net.fabricmc.tinyremapper;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Set;
 import java.util.jar.JarFile;
+import java.util.jar.JarInputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class IntegrationTest1 {
-    private static final String MAPPING_1_PATH = "/mapping/mapping1.tiny";
+    private static final String MAPPING1_PATH = "/mapping/mapping1.tiny";
     private static final String BASIC_INPUT_PATH = "/integration/basic/input.jar";
     private static final String MRJ1_INPUT_PATH = "/integration/mrj1/input.jar";
+    private static final String MRJ2_INPUT_PATH = "/integration/mrj2/input.jar";
 
     @TempDir
     static Path folder;
@@ -44,9 +49,10 @@ public class IntegrationTest1 {
     public static void setup() throws IOException {
         TestUtil.folder = folder;
 
-        TestUtil.copyFile(IntegrationTest1.class, MAPPING_1_PATH);
+        TestUtil.copyFile(IntegrationTest1.class, MAPPING1_PATH);
         TestUtil.copyFile(IntegrationTest1.class, BASIC_INPUT_PATH);
         TestUtil.copyFile(IntegrationTest1.class, MRJ1_INPUT_PATH);
+        TestUtil.copyFile(IntegrationTest1.class, MRJ2_INPUT_PATH);
     }
 
     private Path input(String path) {
@@ -96,9 +102,13 @@ public class IntegrationTest1 {
                 .build();
     }
 
+    /**
+     * This is a simple remap test that only remap a name of class.
+     * @throws IOException io failure.
+     */
     @Test
     public void basic() throws IOException {
-        final TinyRemapper remapper = setupRemapper(MAPPING_1_PATH);
+        final TinyRemapper remapper = setupRemapper(MAPPING1_PATH);
         final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
         final Path[] classpath = new Path[]{};
 
@@ -127,14 +137,17 @@ public class IntegrationTest1 {
         result.close();
     }
 
+    /**
+     * This is a simple remap test for a Multi-Release Jar.
+     * @throws IOException io failure.
+     */
     @Test
     public void mrj1() throws IOException {
-        final TinyRemapper remapper = setupRemapper(MAPPING_1_PATH);
+        final TinyRemapper remapper = setupRemapper(MAPPING1_PATH);
         final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
         final Path[] classpath = new Path[]{};
 
         Path output = output(MRJ1_INPUT_PATH);
-        System.out.println(output);
         Path input = input(MRJ1_INPUT_PATH);
 
         try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
@@ -158,6 +171,69 @@ public class IntegrationTest1 {
         assertNotNull(result.getEntry(MAIN_CLASS));
         assertNotNull(result.getEntry(GREETING_CLASS));
         assertNotNull(result.getEntry(MRJ_GREETING_CLASS));
+        result.close();
+    }
+
+    /**
+     * This is a simple remap test for a Multi-Release Jar.
+     * @throws IOException io failure.
+     */
+    @Test
+    public void mrj2() throws IOException {
+        final TinyRemapper remapper = setupRemapper(MAPPING1_PATH);
+        final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
+        final Path[] classpath = new Path[]{};
+
+        Path output = output(MRJ2_INPUT_PATH);
+        Path input = input(MRJ2_INPUT_PATH);
+
+        try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
+            outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
+
+            remapper.readInputs(input);
+            remapper.readClassPath(classpath);
+
+            remapper.apply(outputConsumer);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            remapper.finish();
+        }
+
+        final String J8_MAIN_CLASS = "com/github/logicf/Main.class";
+        final String J8_D1_CLASS = "com/github/logicf/D1.class";
+        final String J8_D3_CLASS = "com/github/logicf/D3.class";
+        final String J8_D5_CLASS = "com/github/logicf/D5.class";
+        final String J9_D1_CLASS = "META-INF/versions/9/com/github/logicf/D1.class";
+        final String J9_D2_CLASS = "META-INF/versions/9/com/github/logicf/D2.class";
+        final String J9_D4_CLASS = "META-INF/versions/9/com/github/logicf/D4.class";
+
+        JarFile result = new JarFile(output.toFile());
+
+        assertNotNull(result.getEntry(J8_MAIN_CLASS));
+        assertNotNull(result.getEntry(J8_D1_CLASS));
+        assertNotNull(result.getEntry(J8_D3_CLASS));
+        assertNotNull(result.getEntry(J8_D5_CLASS));
+        assertNotNull(result.getEntry(J9_D1_CLASS));
+        assertNotNull(result.getEntry(J9_D2_CLASS));
+        assertNotNull(result.getEntry(J9_D4_CLASS));
+
+        ClassReader readerJ8D1 = new ClassReader(result.getInputStream(result.getEntry(J8_D1_CLASS)));
+        readerJ8D1.accept(new ClassVisitor(Opcodes.ASM9, null) {
+            @Override
+            public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+                assertEquals("com/github/logicf/D3", superName);
+            }
+        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
+
+        ClassReader readerJ9D1 = new ClassReader(result.getInputStream(result.getEntry(J9_D1_CLASS)));
+        readerJ9D1.accept(new ClassVisitor(Opcodes.ASM9, null) {
+            @Override
+            public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+                assertEquals("com/github/logicf/D2", superName);
+            }
+        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
+
         result.close();
     }
 

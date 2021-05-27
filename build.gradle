@@ -46,6 +46,11 @@ shadowJar {
 
 test {
 	useJUnitPlatform()
+	testLogging {
+		showStandardStreams = true
+		exceptionFormat = 'full'
+		events = ['passed', 'failed', 'skipped']
+	}
 }
 
 jar {
