@@ -1,0 +1,4 @@
+tiny	2	0	a	b
+c	com/github/logicf/App	com/github/logicf/Main
+c	com/github/logicf/C1	com/github/logicf/pkg1/D1
+c	com/github/logicf/C3	com/github/logicf/pkg2/D3

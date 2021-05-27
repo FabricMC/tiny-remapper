@@ -38,9 +38,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class IntegrationTest1 {
     private static final String MAPPING1_PATH = "/mapping/mapping1.tiny";
+    private static final String MAPPING2_PATH = "/mapping/mapping2.tiny";
     private static final String BASIC_INPUT_PATH = "/integration/basic/input.jar";
+    private static final String ACCESS_INPUT_PATH = "/integration/access/input.jar";
     private static final String MRJ1_INPUT_PATH = "/integration/mrj1/input.jar";
     private static final String MRJ2_INPUT_PATH = "/integration/mrj2/input.jar";
+    private static final String MRJ3_INPUT_PATH = "/integration/mrj3/input.jar";
 
     @TempDir
     static Path folder;
@@ -50,9 +53,13 @@ public class IntegrationTest1 {
         TestUtil.folder = folder;
 
         TestUtil.copyFile(IntegrationTest1.class, MAPPING1_PATH);
+        TestUtil.copyFile(IntegrationTest1.class, MAPPING2_PATH);
+
         TestUtil.copyFile(IntegrationTest1.class, BASIC_INPUT_PATH);
+        TestUtil.copyFile(IntegrationTest1.class, ACCESS_INPUT_PATH);
         TestUtil.copyFile(IntegrationTest1.class, MRJ1_INPUT_PATH);
         TestUtil.copyFile(IntegrationTest1.class, MRJ2_INPUT_PATH);
+        TestUtil.copyFile(IntegrationTest1.class, MRJ3_INPUT_PATH);
     }
 
     private Path input(String path) {
@@ -135,6 +142,46 @@ public class IntegrationTest1 {
         assertNotNull(result.getEntry(MAIN_CLASS));
         assertNotNull(result.getEntry(GREETING_CLASS));
         result.close();
+    }
+
+    /**
+     * This is a test for package access fix
+     * @throws IOException io failure.
+     */
+    @Disabled
+    @Test
+    public void access() throws IOException {
+        final TinyRemapper remapper = setupRemapper(MAPPING2_PATH);
+        final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
+        final Path[] classpath = new Path[]{};
+
+        Path output = output(ACCESS_INPUT_PATH);
+        Path input = input(ACCESS_INPUT_PATH);
+
+        try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
+            outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
+
+            remapper.readInputs(input);
+            remapper.readClassPath(classpath);
+
+            remapper.apply(outputConsumer);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            remapper.finish();
+        }
+
+        final String MAIN_CLASS = "com/github/logicf/Main.class";
+        final String D1_CLASS = "com/github/logicf/pkg1/D1.class";
+        final String D3_CLASS = "com/github/logicf/pkg2/D3.class";
+
+        JarFile result = new JarFile(output.toFile());
+        assertNotNull(result.getEntry(MAIN_CLASS));
+        assertNotNull(result.getEntry(D1_CLASS));
+        assertNotNull(result.getEntry(D3_CLASS));
+        result.close();
+
+        fail();
     }
 
     /**
@@ -236,6 +283,50 @@ public class IntegrationTest1 {
         }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
 
         result.close();
+    }
+
+    /**
+     * This tests package access fix on the Multi-Release Jar.
+     * @throws IOException io failure.
+     */
+    @Disabled
+    @Test
+    public void mrj3() throws IOException {
+        final TinyRemapper remapper = setupRemapper(MAPPING2_PATH);
+        final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
+        final Path[] classpath = new Path[]{};
+
+        Path output = output(MRJ3_INPUT_PATH);
+        Path input = input(MRJ3_INPUT_PATH);
+
+        try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
+            outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
+
+            remapper.readInputs(input);
+            remapper.readClassPath(classpath);
+
+            remapper.apply(outputConsumer);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            remapper.finish();
+        }
+
+        final String J8_MAIN_CLASS = "com/github/logicf/Main.class";
+        final String J8_D1_CLASS = "com/github/logicf/pkg1/D1.class";
+        final String J8_D3_CLASS = "com/github/logicf/pkg2/D3.class";
+        final String J9_D1_CLASS = "META-INF/versions/9/com/github/logicf/pkg1/D1.class";
+
+        JarFile result = new JarFile(output.toFile());
+
+        assertNotNull(result.getEntry(J8_MAIN_CLASS));
+        assertNotNull(result.getEntry(J8_D1_CLASS));
+        assertNotNull(result.getEntry(J8_D3_CLASS));
+        assertNotNull(result.getEntry(J9_D1_CLASS));
+
+        result.close();
+
+        fail();
     }
 
     @AfterAll
