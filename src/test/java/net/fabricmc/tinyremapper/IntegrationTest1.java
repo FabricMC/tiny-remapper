@@ -175,7 +175,8 @@ public class IntegrationTest1 {
     }
 
     /**
-     * This is a simple remap test for a Multi-Release Jar.
+     * This tests the cross-version isolation of {@code children} and {@code parents}
+     * in the {@code ClassInstance} for Multi-Release Jar.
      * @throws IOException io failure.
      */
     @Test
