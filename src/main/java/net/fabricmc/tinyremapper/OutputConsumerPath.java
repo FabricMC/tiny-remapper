@@ -17,10 +17,10 @@
 
 package net.fabricmc.tinyremapper;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -40,7 +40,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -48,9 +47,9 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
-import java.util.jar.Attributes;
 import java.util.jar.Manifest;
+
+import net.fabricmc.tinyremapper.util.Lazy;
 
 public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable {
 	public static class Builder {
@@ -78,16 +77,10 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 			return this;
 		}
 
-		public Builder addResourceRemapper(ResourceRemapper remapper) {
-			if(this.resourceRemappers == null) this.resourceRemappers = new ArrayList<>();
-			this.resourceRemappers.add(remapper);
-			return this;
-		}
-
 		public OutputConsumerPath build() throws IOException {
 			boolean isJar = assumeArchive == null || Files.exists(destination) ? isJar(destination) : assumeArchive;
 
-			return new OutputConsumerPath(destination, isJar, keepFsOpen, threadSyncWrites, classNameFilter, resourceRemappers);
+			return new OutputConsumerPath(destination, isJar, keepFsOpen, threadSyncWrites, classNameFilter);
 		}
 
 		private final Path destination;
@@ -95,7 +88,6 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 		private boolean keepFsOpen = false;
 		private boolean threadSyncWrites = false;
 		private Predicate<String> classNameFilter;
-		private List<ResourceRemapper> resourceRemappers;
 	}
 
 	@Deprecated
@@ -105,11 +97,11 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 
 	@Deprecated
 	public OutputConsumerPath(Path dstDir, boolean closeFs) throws IOException {
-		this(dstDir, isJar(dstDir), !closeFs, false, null, null);
+		this(dstDir, isJar(dstDir), !closeFs, false, null);
 	}
 
 	private OutputConsumerPath(Path destination, boolean isJar, boolean keepFsOpen, boolean threadSyncWrites,
-			Predicate<String> classNameFilter, List<ResourceRemapper> resourceRemappers) throws IOException {
+			Predicate<String> classNameFilter) throws IOException {
 		if (!isJar) { // TODO: implement .class output (for processing a single class file)
 			Files.createDirectories(destination);
 		} else {
@@ -133,11 +125,6 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 		this.isJarFs = isJar;
 		this.lock = threadSyncWrites ? new ReentrantLock() : null;
 		this.classNameFilter = classNameFilter;
-		if(resourceRemappers == null) {
-			this.resourceRemappers = Collections.emptyList();
-		} else {
-			this.resourceRemappers = Collections.unmodifiableList(new ArrayList<>(resourceRemappers));
-		}
 	}
 
 	public void addNonClassFiles(Path srcFile) throws IOException {
@@ -149,18 +136,27 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 	}
 
 	public void addNonClassFiles(Path srcFile, NonClassCopyMode copyMode, TinyRemapper remapper) throws IOException {
+		this.addNonClassFiles(srcFile, remapper, copyMode.remappers);
+	}
+
+	public void addNonClassFiles(Path srcFile, TinyRemapper remapper, List<ResourceRemapper> remappers) throws IOException {
 		if (Files.isDirectory(srcFile)) {
-			addNonClassFiles(srcFile, copyMode, remapper, false);
+			addNonClassFiles(srcFile, remapper, false, remappers);
 		} else if (Files.exists(srcFile)) {
 			if (!srcFile.getFileName().toString().endsWith(classSuffix)) {
-				addNonClassFiles(FileSystems.newFileSystem(srcFile, null).getPath("/"), copyMode, remapper, true);
+				addNonClassFiles(FileSystems.newFileSystem(srcFile, null).getPath("/"), remapper, true, remappers);
 			}
 		} else {
 			throw new FileNotFoundException("file "+srcFile+" doesn't exist");
 		}
 	}
 
+
 	public void addNonClassFiles(Path srcDir, NonClassCopyMode copyMode, TinyRemapper remapper, boolean closeFs) throws IOException {
+		this.addNonClassFiles(srcDir, remapper, closeFs, copyMode.remappers);
+	}
+
+	public void addNonClassFiles(Path srcDir, TinyRemapper remapper, boolean closeFs, List<ResourceRemapper> resourceRemappers) throws IOException {
 		try {
 			if (lock != null) lock.lock();
 			if (closed) throw new IllegalStateException("consumer already closed");
@@ -169,58 +165,20 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					String fileName = file.getFileName().toString();
-
 					if (!fileName.endsWith(classSuffix)) {
 						Path relativePath = srcDir.relativize(file);
 						Path dstFile = dstDir.resolve(relativePath.toString()); // toString bypasses resolve requiring identical fs providers
-
-						Supplier<byte[]> data = () -> {
-							try {
-								return Files.readAllBytes(file);
-							} catch (IOException e) {
-								throw new RuntimeException(e);
-							}
-						};
 						for (ResourceRemapper resourceRemapper : resourceRemappers) {
-							byte[] output = resourceRemapper.transform(relativePath.toString(), data);
-							if(output != null) {
-								createParentDirs(dstFile);
-								Files.copy(new ByteArrayInputStream(output), dstFile);
-								return FileVisitResult.CONTINUE;
+							if(resourceRemapper.canTransform(remapper, relativePath)) {
+								Lazy<OutputStream> output = new Lazy<>(() -> new BufferedOutputStream(Files.newOutputStream(file, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)));
+								try(InputStream input = new BufferedInputStream(Files.newInputStream(file))) {
+									resourceRemapper.transform(dstDir, relativePath, input, output, remapper);
+									return FileVisitResult.CONTINUE;
+								}
 							}
 						}
-
-						if (copyMode == NonClassCopyMode.UNCHANGED
-								|| !relativePath.startsWith("META-INF")
-								|| copyMode == NonClassCopyMode.SKIP_META_INF && relativePath.getNameCount() != 2) { // allow sub-folders of META-INF
-							createParentDirs(dstFile);
-							Files.copy(file, dstFile, StandardCopyOption.REPLACE_EXISTING);
-						} else if (copyMode == NonClassCopyMode.FIX_META_INF && !shouldStripForFixMeta(relativePath)) {
-							createParentDirs(dstFile);
-
-							if (fileName.equals("MANIFEST.MF")) {
-								Manifest manifest;
-
-								try (InputStream is = Files.newInputStream(file)) {
-									manifest = new Manifest(is);
-								}
-
-								fixManifest(manifest, remapper);
-
-								try (OutputStream os = new BufferedOutputStream(Files.newOutputStream(dstFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE))) {
-									manifest.write(os);
-								}
-							} else if (remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services")) {
-								fileName = mapFullyQualifiedClassName(fileName, remapper);
-
-								try (BufferedReader reader = Files.newBufferedReader(file);
-										BufferedWriter writer = Files.newBufferedWriter(dstFile.getParent().resolve(fileName), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
-									fixServiceDecl(reader, writer, remapper);
-								}
-							} else {
-								Files.copy(file, dstFile, StandardCopyOption.REPLACE_EXISTING);
-							}
-						}
+						createParentDirs(dstFile);
+						Files.copy(file, dstFile, StandardCopyOption.REPLACE_EXISTING);
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -230,87 +188,6 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 			if (lock != null) lock.unlock();
 
 			if (closeFs) srcDir.getFileSystem().close();
-		}
-	}
-
-	private static boolean shouldStripForFixMeta(Path file) {
-		if (file.getNameCount() != 2) return false; // not directly inside META-INF dir
-
-		assert file.getName(0).toString().equals("META-INF");
-
-		String fileName = file.getFileName().toString();
-
-		// https://docs.oracle.com/en/java/javase/12/docs/specs/jar/jar.html#signed-jar-file
-		return fileName.endsWith(".SF")
-				|| fileName.endsWith(".DSA")
-				|| fileName.endsWith(".RSA")
-				|| fileName.startsWith("SIG-");
-	}
-
-	private static String mapFullyQualifiedClassName(String name, TinyRemapper remapper) {
-		assert name.indexOf('/') < 0;
-
-		return remapper.mapClass(name.replace('.', '/')).replace('/', '.');
-	}
-
-	private static void fixManifest(Manifest manifest, TinyRemapper remapper) {
-		Attributes mainAttrs = manifest.getMainAttributes();
-
-		if (remapper != null) {
-			String val = mainAttrs.getValue(Attributes.Name.MAIN_CLASS);
-			if (val != null) mainAttrs.put(Attributes.Name.MAIN_CLASS, mapFullyQualifiedClassName(val, remapper));
-
-			val = mainAttrs.getValue("Launcher-Agent-Class");
-			if (val != null) mainAttrs.put("Launcher-Agent-Class", mapFullyQualifiedClassName(val, remapper));
-		}
-
-		mainAttrs.remove(Attributes.Name.SIGNATURE_VERSION);
-
-		for (Iterator<Attributes> it = manifest.getEntries().values().iterator(); it.hasNext(); ) {
-			Attributes attrs = it.next();
-
-			for (Iterator<Object> it2 = attrs.keySet().iterator(); it2.hasNext(); ) {
-				Attributes.Name attrName = (Attributes.Name) it2.next();
-				String name = attrName.toString();
-
-				if (name.endsWith("-Digest") || name.contains("-Digest-") || name.equals("Magic")) {
-					it2.remove();
-				}
-			}
-
-			if (attrs.isEmpty()) it.remove();
-		}
-	}
-
-	private static void fixServiceDecl(BufferedReader reader, BufferedWriter writer, TinyRemapper remapper) throws IOException {
-		String line;
-
-		while ((line = reader.readLine()) != null) {
-			int end = line.indexOf('#');
-			if (end < 0) end = line.length();
-
-			// trim start+end to skip ' ' and '\t'
-
-			int start = 0;
-			char c;
-
-			while (start < end && ((c = line.charAt(start)) == ' ' || c == '\t')) {
-				start++;
-			}
-
-			while (end > start && ((c = line.charAt(end - 1)) == ' ' || c == '\t')) {
-				end--;
-			}
-
-			if (start == end) {
-				writer.write(line);
-			} else {
-				writer.write(line, 0, start);
-				writer.write(mapFullyQualifiedClassName(line.substring(start, end), remapper));
-				writer.write(line, end, line.length() - end);
-			}
-
-			writer.newLine();
 		}
 	}
 
@@ -379,5 +256,4 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 	private final Lock lock;
 	private final Predicate<String> classNameFilter;
 	private boolean closed;
-	private final List<ResourceRemapper> resourceRemappers;
 }
