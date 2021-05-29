@@ -1,5 +1,6 @@
 package net.fabricmc.tinyremapper;
 
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -13,9 +14,7 @@ import java.util.Iterator;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
-import net.fabricmc.tinyremapper.util.Lazy;
-
-public class MetaInfFixer implements ResourceRemapper {
+public class MetaInfFixer implements OutputConsumerPath.ResourceRemapper {
 	public static final MetaInfFixer INSTANCE = new MetaInfFixer();
 
 	protected MetaInfFixer() {}
@@ -28,12 +27,12 @@ public class MetaInfFixer implements ResourceRemapper {
 	}
 
 	@Override
-	public void transform(Path destinationDirectory, Path relativePath, InputStream input, Lazy<OutputStream> output, TinyRemapper remapper) throws IOException {
+	public void transform(Path destinationDirectory, Path relativePath, InputStream input, TinyRemapper remapper) throws IOException {
 		String fileName = relativePath.getFileName().toString();
 		if (fileName.equals("MANIFEST.MF")) {
 			Manifest manifest = new Manifest(input);
 			fixManifest(manifest, remapper);
-			try (OutputStream os = output.get()) {
+			try (OutputStream os = new BufferedOutputStream(Files.newOutputStream(destinationDirectory.resolve(relativePath)))) {
 				manifest.write(os);
 			}
 		} else if (remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services")) {

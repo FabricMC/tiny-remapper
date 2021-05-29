@@ -18,14 +18,10 @@
 package net.fabricmc.tinyremapper;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.FileAlreadyExistsException;
@@ -35,10 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -47,9 +40,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
-import java.util.jar.Manifest;
-
-import net.fabricmc.tinyremapper.util.Lazy;
 
 public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable {
 	public static class Builder {
@@ -170,9 +160,8 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 						Path dstFile = dstDir.resolve(relativePath.toString()); // toString bypasses resolve requiring identical fs providers
 						for (ResourceRemapper resourceRemapper : resourceRemappers) {
 							if(resourceRemapper.canTransform(remapper, relativePath)) {
-								Lazy<OutputStream> output = new Lazy<>(() -> new BufferedOutputStream(Files.newOutputStream(file, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)));
 								try(InputStream input = new BufferedInputStream(Files.newInputStream(file))) {
-									resourceRemapper.transform(dstDir, relativePath, input, output, remapper);
+									resourceRemapper.transform(dstDir, relativePath, input, remapper);
 									return FileVisitResult.CONTINUE;
 								}
 							}
@@ -256,4 +245,10 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 	private final Lock lock;
 	private final Predicate<String> classNameFilter;
 	private boolean closed;
+
+	public interface ResourceRemapper {
+		boolean canTransform(TinyRemapper remapper, Path relativePath);
+
+		void transform(Path destinationDirectory, Path relativePath, InputStream input, TinyRemapper remapper) throws IOException;
+	}
 }

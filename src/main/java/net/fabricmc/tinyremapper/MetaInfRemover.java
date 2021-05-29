@@ -1,12 +1,9 @@
 package net.fabricmc.tinyremapper;
 
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Path;
 
-import net.fabricmc.tinyremapper.util.Lazy;
-
-public class MetaInfRemover implements ResourceRemapper {
+public class MetaInfRemover implements OutputConsumerPath.ResourceRemapper {
 	public static final MetaInfRemover INSTANCE = new MetaInfRemover();
 
 	protected MetaInfRemover() {}
@@ -17,6 +14,6 @@ public class MetaInfRemover implements ResourceRemapper {
 	}
 
 	@Override
-	public void transform(Path destinationDirectory, Path relativePath, InputStream input, Lazy<OutputStream> output, TinyRemapper remapper) {
+	public void transform(Path destinationDirectory, Path relativePath, InputStream input, TinyRemapper remapper) {
 	}
 }

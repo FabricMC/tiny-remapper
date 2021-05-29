@@ -26,9 +26,9 @@ public enum NonClassCopyMode {
 	FIX_META_INF(MetaInfFixer.INSTANCE),
 	SKIP_META_INF(MetaInfRemover.INSTANCE);
 
-	public final List<ResourceRemapper> remappers;
+	public final List<OutputConsumerPath.ResourceRemapper> remappers;
 
-	NonClassCopyMode(ResourceRemapper...remappers) {
+	NonClassCopyMode(OutputConsumerPath.ResourceRemapper...remappers) {
 		this.remappers = Collections.unmodifiableList(Arrays.asList(remappers));
 	}
 }
