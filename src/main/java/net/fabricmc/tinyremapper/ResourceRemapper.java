@@ -14,5 +14,5 @@ public interface ResourceRemapper {
 	/**
 	 * @param output {@link Lazy#hasEvaluated()} returns false, the file is deleted (not copied to output). If it returns true, it is expected the returned output stream was closed
 	 */
-	void transform(Path root, Path relativePath, InputStream input, Lazy<OutputStream> output, TinyRemapper remapper) throws IOException;
+	void transform(Path destinationDirectory, Path relativePath, InputStream input, Lazy<OutputStream> output, TinyRemapper remapper) throws IOException;
 }

@@ -28,7 +28,7 @@ public class MetaInfFixer implements ResourceRemapper {
 	}
 
 	@Override
-	public void transform(Path root, Path relativePath, InputStream input, Lazy<OutputStream> output, TinyRemapper remapper) throws IOException {
+	public void transform(Path destinationDirectory, Path relativePath, InputStream input, Lazy<OutputStream> output, TinyRemapper remapper) throws IOException {
 		String fileName = relativePath.getFileName().toString();
 		if (fileName.equals("MANIFEST.MF")) {
 			Manifest manifest = new Manifest(input);
@@ -38,7 +38,7 @@ public class MetaInfFixer implements ResourceRemapper {
 			}
 		} else if (remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services")) {
 			fileName = mapFullyQualifiedClassName(fileName, remapper);
-			Path newFile = root.resolve(relativePath).getParent().resolve(fileName);
+			Path newFile = destinationDirectory.resolve(relativePath).getParent().resolve(fileName);
 			try (BufferedReader reader = new BufferedReader(new InputStreamReader(input));
 			     BufferedWriter writer = Files.newBufferedWriter(newFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
 				fixServiceDecl(reader, writer, remapper);

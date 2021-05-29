@@ -17,6 +17,6 @@ public class MetaInfRemover implements ResourceRemapper {
 	}
 
 	@Override
-	public void transform(Path root, Path relativePath, InputStream input, Lazy<OutputStream> output, TinyRemapper remapper) {
+	public void transform(Path destinationDirectory, Path relativePath, InputStream input, Lazy<OutputStream> output, TinyRemapper remapper) {
 	}
 }
