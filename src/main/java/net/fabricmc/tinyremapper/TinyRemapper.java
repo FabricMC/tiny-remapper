@@ -156,6 +156,11 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public Builder annotationVisitorWrapper(Function<AnnotationVisitor, AnnotationVisitor> wrapper) {
+			this.wrapper = wrapper;
+			return this;
+		}
+
 		public TinyRemapper build() {
 			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount,
 					keepInputData,
