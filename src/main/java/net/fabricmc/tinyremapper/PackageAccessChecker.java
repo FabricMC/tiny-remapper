@@ -17,8 +17,9 @@ public final class PackageAccessChecker {
 			return;
 		}
 
-		ClassInstance targetCls = remapper.getClass(targetClass).getMrjOrigin();
+		ClassInstance targetCls = remapper.getClass(targetClass);
 		if (targetCls == null) return;
+		targetCls = targetCls.getMrjOrigin();
 
 		// check if accessible via public, private or same class
 		// private is fine since it can't have been influenced by remapping
@@ -94,8 +95,9 @@ public final class PackageAccessChecker {
 	public static void checkMember(String accessingOwner, String owner, String name, String desc, MemberType type, String source, AsmRemapper remapper) {
 		checkDesc(accessingOwner, desc, source, remapper);
 
-		ClassInstance cls = remapper.getClass(owner).getMrjOrigin();
+		ClassInstance cls = remapper.getClass(owner);
 		if (cls == null) return;
+		cls = cls.getMrjOrigin();
 
 		String id = MemberInstance.getId(type, name, desc, remapper.remapper.ignoreFieldDesc);
 		MemberInstance member = cls.resolve(type, id);	// cls is already the correct version
