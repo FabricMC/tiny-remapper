@@ -32,10 +32,10 @@ public final class PackageAccessChecker {
 		// check for same package after mapping
 
 		String mappedAccessor = remapper.map(accessingClass);
-		int pkgEnd = mappedAccessor.lastIndexOf('/');
+		// int pkgEnd = mappedAccessor.lastIndexOf('/');
 		String mappedTarget = remapper.map(targetClass);
 
-		if (isSamePackage(mappedAccessor, pkgEnd, mappedTarget)) {
+		if (isSamePackage(mappedAccessor, mappedTarget)) {
 			return;
 		}
 
@@ -124,9 +124,9 @@ public final class PackageAccessChecker {
 		// check for same package after mapping
 
 		String mappedAccessor = remapper.map(accessingOwner);
-		int pkgEnd = mappedAccessor.lastIndexOf('/');
+		// int pkgEnd = mappedAccessor.lastIndexOf('/');
 
-		if (!clsAccessible && isSamePackage(mappedAccessor, pkgEnd, remapper.map(owner))) {
+		if (!clsAccessible && isSamePackage(mappedAccessor, remapper.map(owner))) {
 			if (memberAccessible || owner.equals(member.cls.getName())) { // both cls+member are accessible
 				return;
 			} else { // only the class is known to be accessible, further member accessibility testing follows
@@ -134,7 +134,7 @@ public final class PackageAccessChecker {
 			}
 		}
 
-		if (!memberAccessible && isSamePackage(mappedAccessor, pkgEnd, remapper.map(member.cls.getName()))) {
+		if (!memberAccessible && isSamePackage(mappedAccessor, remapper.map(member.cls.getName()))) {
 			if (clsAccessible) { // both cls+member are accessible
 				return;
 			} else {
@@ -199,6 +199,17 @@ public final class PackageAccessChecker {
 		if (!memberAccessible) remapper.remapper.membersToMakePublic.add(member);
 	}
 
+	private static boolean isSamePackage(String clsA, String clsB) {
+		int pkgAEnd = clsA.lastIndexOf('/');
+		int pkgBEnd = clsB.lastIndexOf('/');
+
+		String pkgA = pkgAEnd < 0 ? "" : clsA.substring(0, pkgAEnd);
+		String pkgB = pkgBEnd < 0 ? "" : clsB.substring(0, pkgBEnd);
+
+		return pkgA.equals(pkgB);
+	}
+
+	@Deprecated
 	private static boolean isSamePackage(String clsA, int pkgEnd, String clsB) {
 		return pkgEnd < 0 && clsB.indexOf('/') < 0 // both empty package
 				|| pkgEnd >= 0 // both non-empty (considering prev condition)
