@@ -211,6 +211,8 @@ public final class PackageAccessChecker {
 
 	@Deprecated
 	private static boolean isSamePackage(String clsA, int pkgEnd, String clsB) {
+		return isSamePackage(clsA, clsB);
+
 		return pkgEnd < 0 && clsB.indexOf('/') < 0 // both empty package
 				|| pkgEnd >= 0 // both non-empty (considering prev condition)
 				&& pkgEnd < clsB.length() // pkg not longer than whole other name
