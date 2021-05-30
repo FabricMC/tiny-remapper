@@ -213,12 +213,12 @@ public final class PackageAccessChecker {
 	private static boolean isSamePackage(String clsA, int pkgEnd, String clsB) {
 		return isSamePackage(clsA, clsB);
 
-		return pkgEnd < 0 && clsB.indexOf('/') < 0 // both empty package
-				|| pkgEnd >= 0 // both non-empty (considering prev condition)
-				&& pkgEnd < clsB.length() // pkg not longer than whole other name
-				&& clsB.charAt(pkgEnd) == '/' // potentially same prefix length
-				&& clsB.indexOf('/', pkgEnd + 1) < 0 // definitely same prefix length
-				&& clsA.regionMatches(0, clsB, 0, pkgEnd - 1); // same prefix -> same package
+//		return pkgEnd < 0 && clsB.indexOf('/') < 0 // both empty package
+//				|| pkgEnd >= 0 // both non-empty (considering prev condition)
+//				&& pkgEnd < clsB.length() // pkg not longer than whole other name
+//				&& clsB.charAt(pkgEnd) == '/' // potentially same prefix length
+//				&& clsB.indexOf('/', pkgEnd + 1) < 0 // definitely same prefix length
+//				&& clsA.regionMatches(0, clsB, 0, pkgEnd - 1); // same prefix -> same package
 	}
 
 	private static boolean hasSuperCls(String cls, String reqSuperCls, AsmRemapper remapper) {
