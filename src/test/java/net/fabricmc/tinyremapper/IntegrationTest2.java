@@ -98,11 +98,6 @@ public class IntegrationTest2 {
                 .build();
     }
 
-    @BeforeEach
-    public void x() {
-        System.out.println("===========================");
-    }
-
     /**
      * This is a test for package access fix
      * @throws IOException io failure.
@@ -164,7 +159,6 @@ public class IntegrationTest2 {
      * This tests package access fix on the Multi-Release Jar.
      * @throws IOException io failure.
      */
-    @Disabled
     @Test
     public void mrj3() throws IOException {
         final TinyRemapper remapper = setupRemapper(MAPPING2_PATH);
@@ -199,9 +193,25 @@ public class IntegrationTest2 {
         assertNotNull(result.getEntry(J8_D3_CLASS));
         assertNotNull(result.getEntry(J9_D1_CLASS));
 
-        result.close();
+        ClassReader readerD3 = new ClassReader(result.getInputStream(result.getEntry(J8_D3_CLASS)));
 
-        fail();
+        readerD3.accept(new ClassVisitor(Opcodes.ASM9, null) {
+            @Override
+            public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+                assertNotEquals(0, (access & Opcodes.ACC_PUBLIC));
+            }
+
+            @Override
+            public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
+                if (name.equals("say")) {
+                    assertNotEquals(0, (access & Opcodes.ACC_PUBLIC));
+                }
+
+                return super.visitMethod(access, name, desc, signature, exceptions);
+            }
+        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
+
+        result.close();
     }
 
     @AfterAll
