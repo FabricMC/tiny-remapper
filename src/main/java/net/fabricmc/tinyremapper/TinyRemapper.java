@@ -241,7 +241,6 @@ public class TinyRemapper {
 		}
 
 		outputBuffer = null;
-		// TODO: clear mrjClasses
 		mrjClasses.clear();
 	}
 
@@ -776,8 +775,7 @@ public class TinyRemapper {
 						if (!cls.isInput) continue;
 
 						if (cls.data == null) {
-							if (!hasInputTags && !keepInputData)
-								throw new IllegalStateException("invoking apply multiple times without input tags or hasInputData");
+							if (!hasInputTags && !keepInputData) throw new IllegalStateException("invoking apply multiple times without input tags or hasInputData");
 							throw new IllegalStateException("data for input class " + cls + " is missing?!");
 						}
 

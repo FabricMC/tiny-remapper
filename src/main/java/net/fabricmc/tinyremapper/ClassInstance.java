@@ -624,10 +624,10 @@ public final class ClassInstance {
 	final int mrjVersion;
 	byte[] data;
 	private ClassInstance mrjOrigin;
-	final private Map<String, MemberInstance> members = new HashMap<>();	// methods and fields are distinct due to their different desc separators
-	final private ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();
-	final Set<ClassInstance> parents = new HashSet<>();		// it is MRJ version-aware, should not be copied
-	final Set<ClassInstance> children = new HashSet<>();	// it is MRJ version-aware, should not be copied
+	private final Map<String, MemberInstance> members = new HashMap<>();	// methods and fields are distinct due to their different desc separators
+	private final ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();
+	final Set<ClassInstance> parents = new HashSet<>();
+	final Set<ClassInstance> children = new HashSet<>();
 	private String name;
 	private String superName;
 	private int access;
