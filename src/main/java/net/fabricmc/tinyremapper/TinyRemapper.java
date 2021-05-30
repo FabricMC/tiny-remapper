@@ -46,9 +46,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -160,7 +162,7 @@ public class TinyRemapper {
 					forcePropagation, propagatePrivate, propagateBridges,
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
 					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals,
-					extraAnalyzeVisitor, extraRemapper);
+					extraAnalyzeVisitor, extraRemapper, wrapper);
 
 			return remapper;
 		}
@@ -182,6 +184,7 @@ public class TinyRemapper {
 		private boolean renameInvalidLocals = false;
 		private ClassVisitor extraAnalyzeVisitor;
 		private Remapper extraRemapper;
+		private Function<AnnotationVisitor, AnnotationVisitor> wrapper = Function.identity();
 	}
 
 	private TinyRemapper(Collection<IMappingProvider> mappingProviders, boolean ignoreFieldDesc,
@@ -196,11 +199,12 @@ public class TinyRemapper {
 			boolean rebuildSourceFilenames,
 			boolean skipLocalMapping,
 			boolean renameInvalidLocals,
-			ClassVisitor extraAnalyzeVisitor, Remapper extraRemapper) {
+			ClassVisitor extraAnalyzeVisitor, Remapper extraRemapper, Function<AnnotationVisitor, AnnotationVisitor> wrapper) {
 		this.mappingProviders = mappingProviders;
 		this.ignoreFieldDesc = ignoreFieldDesc;
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
 		this.keepInputData = keepInputData;
+		this.wrapper = wrapper;
 		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
 		this.forcePropagation = forcePropagation;
 		this.propagatePrivate = propagatePrivate;
@@ -1084,4 +1088,5 @@ public class TinyRemapper {
 
 	private volatile boolean dirty = true; // volatile to make the state debug asserts more reliable, shouldn't actually see concurrent modifications
 	private Map<ClassInstance, byte[]> outputBuffer;
+	final Function<AnnotationVisitor, AnnotationVisitor> wrapper;
 }
