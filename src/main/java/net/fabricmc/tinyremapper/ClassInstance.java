@@ -604,7 +604,7 @@ public final class ClassInstance {
 
 	public static String getMrjName(String clsName, int mrjVersion) {
 		if (mrjVersion != MRJ_DEFAULT) {
-			return MRJ_PREFIX + File.separator + mrjVersion + File.separator + clsName;
+			return MRJ_PREFIX + "/" + mrjVersion + "/" + clsName;
 		} else {
 			return clsName;
 		}
