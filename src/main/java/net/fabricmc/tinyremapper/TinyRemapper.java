@@ -814,17 +814,17 @@ public class TinyRemapper {
 						throw new RuntimeException(String.format("%d classes and %d members need access fixes", classesToMakePublic.size(), membersToMakePublic.size()));
 					}
 				}
-			}
-		}
 
-		assert hasInputTags == (outputBuffer != null);
+				assert hasInputTags == (outputBuffer != null);
 
-		if (outputBuffer != null) { // partial output selected by input tags
-			for (Map.Entry<ClassInstance, byte[]> entry : outputBuffer.entrySet()) {
-				ClassInstance cls = entry.getKey();
+				if (outputBuffer != null) { // partial output selected by input tags
+					for (Map.Entry<ClassInstance, byte[]> entry : outputBuffer.entrySet()) {
+						ClassInstance cls = entry.getKey();
 
-				if (inputTags == null || cls.hasAnyInputTag(inputTags)) {
-					outputConsumer.accept(ClassInstance.getMrjName(mapClass(cls.getName()), cls.getMrjVersion()), entry.getValue());
+						if (inputTags == null || cls.hasAnyInputTag(inputTags)) {
+							outputConsumer.accept(ClassInstance.getMrjName(mapClass(cls.getName()), cls.getMrjVersion()), entry.getValue());
+						}
+					}
 				}
 			}
 		}
@@ -865,8 +865,6 @@ public class TinyRemapper {
 			return;
 		}
 
-		outputBuffer = null;
-
 		if (!pendingReads.isEmpty()) {
 			for (CompletableFuture<?> future : pendingReads) {
 				future.join();
@@ -903,6 +901,7 @@ public class TinyRemapper {
 
 	private void mrjRefresh(int mrjVersion) {
 		classes = mrjClasses.get(mrjVersion);
+		outputBuffer = null;
 
 		merge();
 		propagate();

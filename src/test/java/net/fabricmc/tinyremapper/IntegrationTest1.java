@@ -227,6 +227,44 @@ public class IntegrationTest1 {
         result.close();
     }
 
+    /**
+     * This tests the Multi-Release Jar with input tag.
+     * @throws IOException io failure.
+     */
+    @Test
+    public void mrj4() throws IOException {
+        final TinyRemapper remapper = setupRemapper();
+        final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
+        final Path[] classpath = new Path[]{};
+        InputTag tag = remapper.createInputTag();
+
+        Path output = TestUtil.output(MRJ1_INPUT_PATH);
+        Path input = TestUtil.input(MRJ1_INPUT_PATH);
+
+        try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
+            outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
+
+            remapper.readInputs(tag, input);
+            remapper.readClassPath(classpath);
+
+            remapper.apply(outputConsumer, tag);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            remapper.finish();
+        }
+
+        final String MAIN_CLASS = "com/github/logicf/Main.class";
+        final String GREETING_CLASS = "com/github/logicf/Greeting.class";
+        final String MRJ_GREETING_CLASS = "META-INF/versions/9/com/github/logicf/Greeting.class";
+
+        JarFile result = new JarFile(output.toFile());
+        assertNotNull(result.getEntry(MAIN_CLASS));
+        assertNotNull(result.getEntry(GREETING_CLASS));
+        assertNotNull(result.getEntry(MRJ_GREETING_CLASS));
+        result.close();
+    }
+
     @AfterAll
     public static void cleanup() throws IOException {
         TestUtil.folder = null;
