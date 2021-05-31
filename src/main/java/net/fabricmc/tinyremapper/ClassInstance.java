@@ -152,7 +152,7 @@ public final class ClassInstance {
 		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
 	}
 
-	public boolean isMrjCopy() { return mrjOrigin == this; }
+	public boolean isMrjCopy() { return mrjOrigin != this; }
 
 	public String[] getInterfaces() {
 		return interfaces;
