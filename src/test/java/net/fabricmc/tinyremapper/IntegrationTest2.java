@@ -51,15 +51,7 @@ public class IntegrationTest2 {
         TestUtil.copyFile(IntegrationTest2.class, MRJ3_INPUT_PATH);
     }
 
-    private Path input(String path) {
-        return TestUtil.getFile(path).toPath();
-    }
-
-    private Path output(String path) {
-        return folder.resolve(path.replace("input", "output").substring(1));
-    }
-
-    private TinyRemapper setupRemapper(String mapping) {
+    private TinyRemapper setupRemapper() {
         // copy from Main.java
         final boolean reverse = false;
         final boolean ignoreFieldDesc = false;
@@ -79,7 +71,7 @@ public class IntegrationTest2 {
         final String from = "a";
         final String to = "b";
 
-        Path mappings = TestUtil.getFile(mapping).toPath();
+        Path mappings = TestUtil.getFile(IntegrationTest2.MAPPING2_PATH).toPath();
 
         return TinyRemapper.newRemapper()
                 .withMappings(TinyUtils.createTinyMappingProvider(mappings, from, to))
@@ -104,12 +96,12 @@ public class IntegrationTest2 {
      */
     @Test
     public void access() throws IOException {
-        final TinyRemapper remapper = setupRemapper(MAPPING2_PATH);
+        final TinyRemapper remapper = setupRemapper();
         final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
         final Path[] classpath = new Path[]{};
 
-        Path output = output(ACCESS_INPUT_PATH);
-        Path input = input(ACCESS_INPUT_PATH);
+        Path output = TestUtil.output(ACCESS_INPUT_PATH);
+        Path input = TestUtil.input(ACCESS_INPUT_PATH);
 
         try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
             outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
@@ -161,12 +153,12 @@ public class IntegrationTest2 {
      */
     @Test
     public void mrj3() throws IOException {
-        final TinyRemapper remapper = setupRemapper(MAPPING2_PATH);
+        final TinyRemapper remapper = setupRemapper();
         final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
         final Path[] classpath = new Path[]{};
 
-        Path output = output(MRJ3_INPUT_PATH);
-        Path input = input(MRJ3_INPUT_PATH);
+        Path output = TestUtil.output(MRJ3_INPUT_PATH);
+        Path input = TestUtil.input(MRJ3_INPUT_PATH);
 
         try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
             outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);

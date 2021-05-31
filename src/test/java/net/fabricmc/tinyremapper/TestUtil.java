@@ -46,4 +46,12 @@ public class TestUtil {
     public static File getFile(String path) {
         return folder.resolve(path.substring(1)).toFile();
     }
+
+    public static Path input(String path) {
+        return getFile(path).toPath();
+    }
+
+    public static Path output(String path) {
+        return folder.resolve(path.replace("input", "output").substring(1));
+    }
 }

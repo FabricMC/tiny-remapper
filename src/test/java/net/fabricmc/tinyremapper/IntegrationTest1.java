@@ -29,7 +29,6 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Set;
 import java.util.jar.JarFile;
-import java.util.jar.JarInputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -53,15 +52,7 @@ public class IntegrationTest1 {
         TestUtil.copyFile(IntegrationTest1.class, MRJ2_INPUT_PATH);
     }
 
-    private Path input(String path) {
-        return TestUtil.getFile(path).toPath();
-    }
-
-    private Path output(String path) {
-        return folder.resolve(path.replace("input", "output").substring(1));
-    }
-
-    private TinyRemapper setupRemapper(String mapping) {
+    private TinyRemapper setupRemapper() {
         // copy from Main.java
         final boolean reverse = false;
         final boolean ignoreFieldDesc = false;
@@ -81,7 +72,7 @@ public class IntegrationTest1 {
         final String from = "a";
         final String to = "b";
 
-        Path mappings = TestUtil.getFile(mapping).toPath();
+        Path mappings = TestUtil.getFile(IntegrationTest1.MAPPING1_PATH).toPath();
 
         return TinyRemapper.newRemapper()
                 .withMappings(TinyUtils.createTinyMappingProvider(mappings, from, to))
@@ -106,12 +97,12 @@ public class IntegrationTest1 {
      */
     @Test
     public void basic() throws IOException {
-        final TinyRemapper remapper = setupRemapper(MAPPING1_PATH);
+        final TinyRemapper remapper = setupRemapper();
         final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
         final Path[] classpath = new Path[]{};
 
-        Path output = output(BASIC_INPUT_PATH);
-        Path input = input(BASIC_INPUT_PATH);
+        Path output = TestUtil.output(BASIC_INPUT_PATH);
+        Path input = TestUtil.input(BASIC_INPUT_PATH);
 
         try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
             outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
@@ -141,12 +132,12 @@ public class IntegrationTest1 {
      */
     @Test
     public void mrj1() throws IOException {
-        final TinyRemapper remapper = setupRemapper(MAPPING1_PATH);
+        final TinyRemapper remapper = setupRemapper();
         final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
         final Path[] classpath = new Path[]{};
 
-        Path output = output(MRJ1_INPUT_PATH);
-        Path input = input(MRJ1_INPUT_PATH);
+        Path output = TestUtil.output(MRJ1_INPUT_PATH);
+        Path input = TestUtil.input(MRJ1_INPUT_PATH);
 
         try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
             outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
@@ -179,12 +170,12 @@ public class IntegrationTest1 {
      */
     @Test
     public void mrj2() throws IOException {
-        final TinyRemapper remapper = setupRemapper(MAPPING1_PATH);
+        final TinyRemapper remapper = setupRemapper();
         final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
         final Path[] classpath = new Path[]{};
 
-        Path output = output(MRJ2_INPUT_PATH);
-        Path input = input(MRJ2_INPUT_PATH);
+        Path output = TestUtil.output(MRJ2_INPUT_PATH);
+        Path input = TestUtil.input(MRJ2_INPUT_PATH);
 
         try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
             outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
