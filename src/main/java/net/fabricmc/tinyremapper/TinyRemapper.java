@@ -17,6 +17,7 @@
 
 package net.fabricmc.tinyremapper;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -48,6 +49,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.objectweb.asm.ClassReader;
@@ -415,13 +418,32 @@ public class TinyRemapper {
 		return ret;
 	}
 
+	private static int getMrjVersionFromPath(Path path) {
+		if (File.separator.equals("/")) {
+			return getMrjVersionFromPath(path.toString());
+		} else if (File.separator.equals("\\")) {
+			return getMrjVersionFromPath(path.toString().replace('\\', '/'));
+		} else {
+			throw new RuntimeException("Unknown file separator detected.");
+		}
+	}
+
+	private static int getMrjVersionFromPath(String str) {
+		Pattern pattern = Pattern.compile("(?<=" + ClassInstance.MRJ_PREFIX + "/)[0-9]*");
+		Matcher matcher = pattern.matcher(str);
+		if (matcher.find()) {
+			return Integer.parseInt(matcher.group());
+		}
+		return ClassInstance.MRJ_DEFAULT;
+	}
+
 	private List<ClassInstance> readFile(Path file, boolean isInput, InputTag[] tags, final Path srcPath,
 			List<FileSystem> fsToClose) throws IOException, URISyntaxException {
 		List<ClassInstance> ret = new ArrayList<ClassInstance>();
 
 		if (file.toString().endsWith(".class")) {
-			// flat class file cannot have MRJ, just set it to default version
-			ClassInstance res = analyze(isInput, tags, ClassInstance.MRJ_DEFAULT, srcPath, Files.readAllBytes(file));
+			int mrjVersion = getMrjVersionFromPath(file);
+			ClassInstance res = analyze(isInput, tags, mrjVersion, srcPath, Files.readAllBytes(file));
 			if (res != null) ret.add(res);
 		} else {
 			URI uri = new URI("jar:"+file.toUri().toString());
@@ -432,10 +454,7 @@ public class TinyRemapper {
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					if (file.toString().endsWith(".class")) {
-						int mrjVersion = ClassInstance.MRJ_DEFAULT;
-						if (file.startsWith(ClassInstance.MRJ_PREFIX)) {
-							mrjVersion = Integer.parseInt(file.getName(2).toString());
-						}
+						int mrjVersion = getMrjVersionFromPath(file);
 						ClassInstance res = analyze(isInput, tags, mrjVersion, srcPath, Files.readAllBytes(file));
 						if (res != null) ret.add(res);
 					}
