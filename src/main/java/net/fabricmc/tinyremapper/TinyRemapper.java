@@ -418,32 +418,12 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private static int getMrjVersionFromPath(Path path) {
-		if (File.separator.equals("/")) {
-			return getMrjVersionFromPath(path.toString());
-		} else if (File.separator.equals("\\")) {
-			return getMrjVersionFromPath(path.toString().replace('\\', '/'));
-		} else {
-			throw new RuntimeException("Unknown file separator detected.");
-		}
-	}
-
-	private static int getMrjVersionFromPath(String str) {
-		Pattern pattern = Pattern.compile("(?<=" + ClassInstance.MRJ_PREFIX + "/)[0-9]*");
-		Matcher matcher = pattern.matcher(str);
-		if (matcher.find()) {
-			return Integer.parseInt(matcher.group());
-		}
-		return ClassInstance.MRJ_DEFAULT;
-	}
-
 	private List<ClassInstance> readFile(Path file, boolean isInput, InputTag[] tags, final Path srcPath,
 			List<FileSystem> fsToClose) throws IOException, URISyntaxException {
 		List<ClassInstance> ret = new ArrayList<ClassInstance>();
 
 		if (file.toString().endsWith(".class")) {
-			int mrjVersion = getMrjVersionFromPath(file);
-			ClassInstance res = analyze(isInput, tags, mrjVersion, srcPath, Files.readAllBytes(file));
+			ClassInstance res = analyze(isInput, tags, srcPath, file);
 			if (res != null) ret.add(res);
 		} else {
 			URI uri = new URI("jar:"+file.toUri().toString());
@@ -454,8 +434,7 @@ public class TinyRemapper {
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					if (file.toString().endsWith(".class")) {
-						int mrjVersion = getMrjVersionFromPath(file);
-						ClassInstance res = analyze(isInput, tags, mrjVersion, srcPath, Files.readAllBytes(file));
+						ClassInstance res = analyze(isInput, tags, srcPath, file);
 						if (res != null) ret.add(res);
 					}
 
@@ -467,16 +446,40 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	private ClassInstance analyze(boolean isInput, InputTag[] tags, int mrjVersion, Path srcPath, byte[] data) {
+	private static int analyzeMrjVersion(Path file, String name) {
+		if (File.separator.equals("/")) {
+			return analyzeMrjVersion(file.toString(), name);
+		} else if (File.separator.equals("\\")) {
+			return analyzeMrjVersion(file.toString().replace('\\', '/'), name);
+		} else {
+			throw new RuntimeException("Unknown file separator detected.");
+		}
+	}
+
+	private static int analyzeMrjVersion(String file, String name) {
+		name = name + ".class";
+		if (file.endsWith(name)) {
+			String prefix = file.substring(0, file.length() - name.length());
+			Pattern pattern = Pattern.compile("(?<=" + ClassInstance.MRJ_PREFIX + "/)[0-9]*(?=/$)");
+			Matcher matcher = pattern.matcher(prefix);
+			return matcher.find() ? Integer.parseInt(matcher.group()) : ClassInstance.MRJ_DEFAULT;
+		}
+		throw new RuntimeException("path " + file + " does not agree with class name " + name);
+	}
+
+	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, Path file) throws IOException {
+		byte[] data = Files.readAllBytes(file);
 		ClassReader reader = new ClassReader(data);
+
 		if ((reader.getAccess() & Opcodes.ACC_MODULE) != 0) return null; // special attribute for module-info.class, can't be a regular class
 
-		final ClassInstance ret = new ClassInstance(this, isInput, tags, mrjVersion, srcPath, isInput ? data : null);
+		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, isInput ? data : null);
 
 		reader.accept(new ClassVisitor(Opcodes.ASM9, extraAnalyzeVisitor) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-				ret.init(name, superName, access, interfaces);
+				int mrjVersion = analyzeMrjVersion(file, name);
+				ret.init(name, mrjVersion, superName, access, interfaces);
 
 				super.visit(version, access, name, signature, superName, interfaces);
 			}
