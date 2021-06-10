@@ -141,7 +141,7 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 			addNonClassFiles(srcFile, copyMode, remapper, false);
 		} else if (Files.exists(srcFile)) {
 			if (!srcFile.getFileName().toString().endsWith(classSuffix)) {
-				addNonClassFiles(FileSystems.newFileSystem(srcFile, null).getPath("/"), copyMode, remapper, true);
+				addNonClassFiles(FileSystems.newFileSystem(srcFile, (ClassLoader) null).getPath("/"), copyMode, remapper, true);
 			}
 		} else {
 			throw new FileNotFoundException("file "+srcFile+" doesn't exist");

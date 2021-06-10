@@ -45,10 +45,12 @@ public final class ClassInstance {
 		this.inputTags = inputTags;
 		this.srcPath = srcFile;
 		this.data = data;
+		this.mrjOrigin = this;
 	}
 
-	void init(String name, String superName, int access, String[] interfaces) {
+	void init(String name, int mrjVersion, String superName, int access, String[] interfaces) {
 		this.name = name;
+		this.mrjVersion = mrjVersion;
 		this.superName = superName;
 		this.access = access;
 		this.interfaces = interfaces;
@@ -131,6 +133,8 @@ public final class ClassInstance {
 		return name;
 	}
 
+	public int getMrjVersion() { return mrjVersion; }
+
 	public String getSuperName() {
 		return superName;
 	}
@@ -147,6 +151,8 @@ public final class ClassInstance {
 		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
 	}
 
+	public boolean isMrjCopy() { return mrjOrigin != this; }
+
 	public String[] getInterfaces() {
 		return interfaces;
 	}
@@ -159,12 +165,14 @@ public final class ClassInstance {
 		return members.get(id);
 	}
 
+	public ClassInstance getMrjOrigin() { return mrjOrigin; }
+
 	/**
 	 * Rename the member src to dst and continue propagating in dir.
 	 *
 	 * @param type Member type.
 	 * @param idSrc Existing name.
-	 * @param idDst New name.
+	 * @param nameDst New name.
 	 * @param dir Futher propagation direction.
 	 */
 	void propagate(TinyRemapper remapper, MemberType type, String originatingCls, String idSrc, String nameDst,
@@ -577,10 +585,32 @@ public final class ClassInstance {
 		return ret;
 	}
 
+	ClassInstance constructMrjCopy() {
+		// isInput should be false, since the MRJ copy should not be emitted
+		ClassInstance copy = new ClassInstance(context, false, inputTags, srcPath, data);
+		copy.init(name, mrjVersion, superName, access, interfaces);
+		members.values().forEach(member ->
+				copy.addMember(new MemberInstance(member.type, copy, member.name, member.desc, member.access)));
+		// set the origin
+		copy.mrjOrigin = mrjOrigin;
+		return copy;
+	}
+
 	@Override
 	public String toString() {
 		return name;
 	}
+
+	public static String getMrjName(String clsName, int mrjVersion) {
+		if (mrjVersion != MRJ_DEFAULT) {
+			return MRJ_PREFIX + "/" + mrjVersion + "/" + clsName;
+		} else {
+			return clsName;
+		}
+	}
+
+	public static final int MRJ_DEFAULT = -1;
+	public static final String MRJ_PREFIX = "/META-INF/versions";
 
 	private static final String objectClassName = "java/lang/Object";
 	private static final MemberInstance nullMember = new MemberInstance(null, null, null, null, 0);
@@ -591,11 +621,13 @@ public final class ClassInstance {
 	private volatile InputTag[] inputTags; // cow input tag list, null for none
 	final Path srcPath;
 	byte[] data;
+	private ClassInstance mrjOrigin;
 	private final Map<String, MemberInstance> members = new HashMap<>(); // methods and fields are distinct due to their different desc separators
 	private final ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();
 	final Set<ClassInstance> parents = new HashSet<>();
 	final Set<ClassInstance> children = new HashSet<>();
 	private String name;
+	private int mrjVersion;
 	private String superName;
 	private int access;
 	private String[] interfaces;

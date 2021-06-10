@@ -19,6 +19,7 @@ public final class PackageAccessChecker {
 
 		ClassInstance targetCls = remapper.getClass(targetClass);
 		if (targetCls == null) return;
+		targetCls = targetCls.getMrjOrigin();
 
 		// check if accessible via public, private or same class
 		// private is fine since it can't have been influenced by remapping
@@ -96,9 +97,10 @@ public final class PackageAccessChecker {
 
 		ClassInstance cls = remapper.getClass(owner);
 		if (cls == null) return;
+		cls = cls.getMrjOrigin();
 
 		String id = MemberInstance.getId(type, name, desc, remapper.remapper.ignoreFieldDesc);
-		MemberInstance member = cls.resolve(type, id);
+		MemberInstance member = cls.resolve(type, id);	// cls is already the correct version
 
 		if (member == null) {
 			// should be just missing super classes/interfaces from the analyzed class path, especially java ones
@@ -203,7 +205,7 @@ public final class PackageAccessChecker {
 				&& pkgEnd < clsB.length() // pkg not longer than whole other name
 				&& clsB.charAt(pkgEnd) == '/' // potentially same prefix length
 				&& clsB.indexOf('/', pkgEnd + 1) < 0 // definitely same prefix length
-				&& clsA.regionMatches(0, clsB, 0, pkgEnd - 1); // same prefix -> same package
+				&& clsA.regionMatches(0, clsB, 0, pkgEnd); // same prefix -> same package
 	}
 
 	private static boolean hasSuperCls(String cls, String reqSuperCls, AsmRemapper remapper) {

@@ -24,6 +24,8 @@ dependencies {
 	implementation 'org.ow2.asm:asm-commons:9.0'
 	implementation 'org.ow2.asm:asm-tree:9.0'
 	implementation 'org.ow2.asm:asm-util:9.0'
+
+	testImplementation 'org.junit.jupiter:junit-jupiter:5.6.2'
 }
 
 java {
@@ -40,6 +42,15 @@ tasks.withType(JavaCompile).configureEach {
 
 shadowJar {
 	archiveClassifier = 'fat'
+}
+
+test {
+	useJUnitPlatform()
+	testLogging {
+		showStandardStreams = true
+		exceptionFormat = 'full'
+		events = ['passed', 'failed', 'skipped']
+	}
 }
 
 jar {
