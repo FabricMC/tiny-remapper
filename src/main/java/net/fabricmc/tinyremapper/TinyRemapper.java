@@ -356,19 +356,15 @@ public class TinyRemapper {
 			ClassInstance prev = out.putIfAbsent(name, cls);
 			if (prev == null) return;
 
-			/**
-			 * if {@code prev} is MRJ copy and {@code prev}'s origin version is less than {@code cls}'s
-			 * origin version, then we should update the class.
-			 */
 			if (prev.isMrjCopy() && prev.getMrjVersion() < cls.getMrjVersion()) {
+				// if {@code prev} is MRJ copy and {@code prev}'s origin version is less than {@code cls}'s
+				// origin version, then we should update the class.
 				if (out.replace(name, prev, cls)) {
 					return;
 				} else {
 					// loop
 				}
-			}
-
-			if (cls.isInput) {
+			} else if (cls.isInput) {
 				if (prev.isInput) {
 					System.out.printf("duplicate input class %s, from %s and %s%n", name, prev.srcPath, cls.srcPath);
 					prev.addInputTags(cls.getInputTags());
