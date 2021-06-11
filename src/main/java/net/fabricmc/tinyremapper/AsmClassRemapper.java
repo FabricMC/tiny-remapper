@@ -18,6 +18,8 @@
 package net.fabricmc.tinyremapper;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -44,14 +46,27 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.ParameterNode;
 
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
+import net.fabricmc.tinyremapper.api.ClassHeader;
+import net.fabricmc.tinyremapper.api.FieldHeader;
+import net.fabricmc.tinyremapper.api.MethodHeader;
 
 class AsmClassRemapper extends ClassRemapper {
+
 	public AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper, boolean checkPackageAccess, boolean skipLocalMapping, boolean renameInvalidLocals) {
 		super(cv, remapper);
 
 		this.checkPackageAccess = checkPackageAccess;
 		this.skipLocalMapping = skipLocalMapping;
 		this.renameInvalidLocals = renameInvalidLocals;
+		this.annotationMapper = remapper.remapper.annotationRemapper;
+	}
+
+	@Override
+	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+		super.visit(version, access, name, signature, superName, interfaces);
+		if(annotationMapper != null) {
+			this.header = new ClassHeader(version, access, name, signature, superName, Collections.unmodifiableList(Arrays.asList(interfaces)));
+		}
 	}
 
 	@Override
@@ -72,27 +87,49 @@ class AsmClassRemapper extends ClassRemapper {
 			methodNode = new MethodNode(api, access, name, descriptor, signature, exceptions);
 		}
 
-		return super.visitMethod(access, name, descriptor, signature, exceptions);
+		MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
+		MethodHeader header = null;
+		if(this.header != null) header = new MethodHeader(this.header, access, name, descriptor, signature, Collections.unmodifiableList(Arrays.asList(exceptions)));
+		return new AsmMethodRemapper(mv, remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals, header);
+	}
+
+	@Override
+	public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
+		FieldHeader header = null;
+		if(this.header != null) header = new FieldHeader(this.header, access, name, descriptor, signature, value);
+		return new AsmFieldRemapper(super.visitField(access, name, descriptor, signature, value), remapper, header);
 	}
 
 	@Override
 	protected FieldVisitor createFieldRemapper(FieldVisitor fieldVisitor) {
-		return new AsmFieldRemapper(fieldVisitor, remapper);
+		return fieldVisitor;
 	}
 
 	@Override
 	protected MethodVisitor createMethodRemapper(MethodVisitor mv) {
-		return new AsmMethodRemapper(mv, remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
+		return mv;
 	}
 
 	@Override
 	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-		return createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+		AnnotationVisitor mapper = createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+		AnnotationMapper annotationRemapper = annotationMapper;
+		if(annotationRemapper != null) {
+			return annotationRemapper.wrapClass(header, mapper, descriptor, visible);
+		} else {
+			return mapper;
+		}
 	}
 
 	@Override
 	public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
-		return createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
+		AnnotationVisitor mapper = createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
+		AnnotationMapper annotationRemapper = annotationMapper;
+		if(annotationRemapper != null) {
+			return annotationRemapper.wrapClass(header, mapper, descriptor, visible);
+		} else {
+			return mapper;
+		}
 	}
 
 	public static AnnotationRemapper createAsmAnnotationRemapper(String desc, AnnotationVisitor annotationVisitor, Remapper remapper) {
@@ -110,25 +147,53 @@ class AsmClassRemapper extends ClassRemapper {
 	private final boolean skipLocalMapping;
 	private final boolean renameInvalidLocals;
 	private MethodNode methodNode;
+	private ClassHeader header;
+	private AnnotationMapper annotationMapper;
 
 	private static class AsmFieldRemapper extends FieldRemapper {
-		public AsmFieldRemapper(FieldVisitor fieldVisitor, Remapper remapper) {
+		public AsmFieldRemapper(FieldVisitor fieldVisitor,
+				Remapper remapper,
+				FieldHeader header) {
 			super(fieldVisitor, remapper);
+			this.header = header;
+			this.annotationMapper = ((AsmRemapper)remapper).remapper.annotationRemapper;
 		}
 
 		@Override
 		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+			AnnotationVisitor mapper = createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+			AnnotationMapper annotationRemapper = annotationMapper;
+			if(annotationRemapper != null) {
+				return annotationRemapper.wrapField(header, mapper, descriptor, visible);
+			} else {
+				return mapper;
+			}
 		}
 
 		@Override
 		public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
-			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
+			AnnotationVisitor mapper = createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
+			AnnotationMapper annotationRemapper = annotationMapper;
+			if(annotationRemapper != null) {
+				return annotationRemapper.wrapFieldTypeAnnotation(header, mapper, typeRef, typePath, descriptor, visible);
+			} else {
+				return mapper;
+			}
 		}
+
+		final FieldHeader header;
+		final AnnotationMapper annotationMapper;
 	}
 
 	private static class AsmMethodRemapper extends MethodRemapper {
-		public AsmMethodRemapper(MethodVisitor methodVisitor, Remapper remapper, String owner, MethodNode methodNode, boolean checkPackageAccess, boolean skipLocalMapping, boolean renameInvalidLocals) {
+		public AsmMethodRemapper(MethodVisitor methodVisitor,
+				Remapper remapper,
+				String owner,
+				MethodNode methodNode,
+				boolean checkPackageAccess,
+				boolean skipLocalMapping,
+				boolean renameInvalidLocals,
+				MethodHeader header) {
 			super(methodNode != null ? methodNode : methodVisitor, remapper);
 
 			this.owner = owner;
@@ -137,7 +202,10 @@ class AsmClassRemapper extends ClassRemapper {
 			this.checkPackageAccess = checkPackageAccess;
 			this.skipLocalMapping = skipLocalMapping;
 			this.renameInvalidLocals = renameInvalidLocals;
+			this.header = header;
+			this.annotationMapper = ((AsmRemapper)remapper).remapper.annotationRemapper;
 		}
+
 
 		@Override
 		public AnnotationVisitor visitAnnotationDefault() {
@@ -146,17 +214,35 @@ class AsmClassRemapper extends ClassRemapper {
 
 		@Override
 		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+			AnnotationVisitor mapper = createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+			AnnotationMapper annotationRemapper = annotationMapper;
+			if(annotationRemapper != null) {
+				return annotationRemapper.wrapMethod(header, mapper, descriptor, visible);
+			} else {
+				return mapper;
+			}
 		}
 
 		@Override
 		public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
-			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
+			AnnotationVisitor mapper = createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
+			AnnotationMapper annotationRemapper = annotationMapper;
+			if(annotationRemapper != null) {
+				return annotationRemapper.wrapMethodTypeAnnotation(header, mapper, typeRef, typePath, descriptor, visible);
+			} else {
+				return mapper;
+			}
 		}
 
 		@Override
 		public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {
-			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitParameterAnnotation(parameter, descriptor, visible), remapper);
+			AnnotationVisitor mapper = createAsmAnnotationRemapper(descriptor, super.visitParameterAnnotation(parameter, descriptor, visible), remapper);
+			AnnotationMapper annotationRemapper = annotationMapper;
+			if(annotationRemapper != null) {
+				return annotationRemapper.wrapMethodParameter(header, mapper, parameter, descriptor, visible);
+			} else {
+				return mapper;
+			}
 		}
 
 		@Override
@@ -593,6 +679,8 @@ class AsmClassRemapper extends ClassRemapper {
 		private final boolean checkPackageAccess;
 		private final boolean skipLocalMapping;
 		private final boolean renameInvalidLocals;
+		final AnnotationMapper annotationMapper;
+		final MethodHeader header;
 	}
 
 	private static class AsmAnnotationRemapper extends AnnotationRemapper {

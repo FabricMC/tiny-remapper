@@ -154,13 +154,18 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public Builder annotationRemapper(AnnotationMapper remapper) {
+			this.annotationRemapper = remapper;
+			return this;
+		}
+
 		public TinyRemapper build() {
 			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount,
 					keepInputData,
 					forcePropagation, propagatePrivate, propagateBridges,
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
 					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals,
-					extraAnalyzeVisitor, extraRemapper);
+					extraAnalyzeVisitor, extraRemapper, annotationRemapper);
 
 			return remapper;
 		}
@@ -182,6 +187,7 @@ public class TinyRemapper {
 		private boolean renameInvalidLocals = false;
 		private ClassVisitor extraAnalyzeVisitor;
 		private Remapper extraRemapper;
+		private AnnotationMapper annotationRemapper;
 	}
 
 	private TinyRemapper(Collection<IMappingProvider> mappingProviders, boolean ignoreFieldDesc,
@@ -196,11 +202,12 @@ public class TinyRemapper {
 			boolean rebuildSourceFilenames,
 			boolean skipLocalMapping,
 			boolean renameInvalidLocals,
-			ClassVisitor extraAnalyzeVisitor, Remapper extraRemapper) {
+			ClassVisitor extraAnalyzeVisitor, Remapper extraRemapper, AnnotationMapper remapper) {
 		this.mappingProviders = mappingProviders;
 		this.ignoreFieldDesc = ignoreFieldDesc;
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
 		this.keepInputData = keepInputData;
+		this.annotationRemapper = remapper;
 		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
 		this.forcePropagation = forcePropagation;
 		this.propagatePrivate = propagatePrivate;
@@ -1043,7 +1050,7 @@ public class TinyRemapper {
 		/**
 		 * Propagate names into bridged methods and create additional bridges to keep the original bridged method name intact.
 		 */
-		COMPATIBLE;
+		COMPATIBLE
 	}
 
 	private final boolean check = false;
@@ -1081,6 +1088,7 @@ public class TinyRemapper {
 	private final int threadCount;
 	private final ExecutorService threadPool;
 	private final AsmRemapper remapper = new AsmRemapper(this);
+	final AnnotationMapper annotationRemapper;
 
 	private volatile boolean dirty = true; // volatile to make the state debug asserts more reliable, shouldn't actually see concurrent modifications
 	private Map<ClassInstance, byte[]> outputBuffer;
