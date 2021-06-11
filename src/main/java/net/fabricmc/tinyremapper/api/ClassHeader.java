@@ -2,6 +2,8 @@ package net.fabricmc.tinyremapper.api;
 
 import java.util.List;
 
+import net.fabricmc.tinyremapper.TinyRemapper;
+
 public interface ClassHeader {
 	Classpath getClasspath();
 

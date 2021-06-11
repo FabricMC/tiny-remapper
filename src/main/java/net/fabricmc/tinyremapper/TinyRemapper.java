@@ -945,6 +945,11 @@ public class TinyRemapper implements Classpath {
 		return remapper;
 	}
 
+	@Override
+	public String mapType(String internalName) {
+		return this.getRemapper().mapType(internalName);
+	}
+
 	private static void waitForAll(Iterable<Future<?>> futures) {
 		try {
 			for (Future<?> future : futures) {

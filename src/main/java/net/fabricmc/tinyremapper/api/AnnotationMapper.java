@@ -1,9 +1,10 @@
 package net.fabricmc.tinyremapper.api;
 
 import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.TypePath;
 
-public interface AnnotationMapper {
+public interface AnnotationMapper extends Opcodes {
 	default AnnotationVisitor wrapClass(ClassHeader header, AnnotationVisitor writer, String desc, boolean visible) {
 		return writer;
 	}
