@@ -1,14 +1,7 @@
-package net.fabricmc.tinyremapper;
-
-import java.util.List;
+package net.fabricmc.tinyremapper.api;
 
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.TypePath;
-import org.objectweb.asm.commons.Remapper;
-
-import net.fabricmc.tinyremapper.api.ClassHeader;
-import net.fabricmc.tinyremapper.api.FieldHeader;
-import net.fabricmc.tinyremapper.api.MethodHeader;
 
 public interface AnnotationMapper {
 	default AnnotationVisitor wrapClass(ClassHeader header, AnnotationVisitor writer, String desc, boolean visible) {
@@ -19,13 +12,13 @@ public interface AnnotationMapper {
 		return writer;
 	}
 
-	default AnnotationVisitor wrapField(FieldHeader header, AnnotationVisitor writer,
+	default AnnotationVisitor wrapField(MemberHeader header, AnnotationVisitor writer,
 			String annotationDesc,
 			boolean visible) {
 		return writer;
 	}
 
-	default AnnotationVisitor wrapFieldTypeAnnotation(FieldHeader header, AnnotationVisitor writer,
+	default AnnotationVisitor wrapFieldTypeAnnotation(MemberHeader header, AnnotationVisitor writer,
 			int typeRef,
 			TypePath typePath,
 			String annotationDesc,
@@ -33,13 +26,13 @@ public interface AnnotationMapper {
 		return writer;
 	}
 
-	default AnnotationVisitor wrapMethod(MethodHeader header, AnnotationVisitor writer,
+	default AnnotationVisitor wrapMethod(MemberHeader header, AnnotationVisitor writer,
 			String annotationDesc,
 			boolean visible) {
 		return writer;
 	}
 
-	default AnnotationVisitor wrapMethodTypeAnnotation(MethodHeader header, AnnotationVisitor writer,
+	default AnnotationVisitor wrapMethodTypeAnnotation(MemberHeader header, AnnotationVisitor writer,
 			int typeRef,
 			TypePath typePath,
 			String annotationDesc,
@@ -47,7 +40,7 @@ public interface AnnotationMapper {
 		return writer;
 	}
 
-	default AnnotationVisitor wrapMethodParameter(MethodHeader header, AnnotationVisitor writer,
+	default AnnotationVisitor wrapMethodParameter(MemberHeader header, AnnotationVisitor writer,
 			int parameter,
 			String annotationDesc,
 			boolean visible) {

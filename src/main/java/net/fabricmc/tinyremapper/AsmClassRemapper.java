@@ -46,9 +46,10 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.ParameterNode;
 
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
+import net.fabricmc.tinyremapper.api.AnnotationMapper;
 import net.fabricmc.tinyremapper.api.ClassHeader;
-import net.fabricmc.tinyremapper.api.FieldHeader;
-import net.fabricmc.tinyremapper.api.MethodHeader;
+import net.fabricmc.tinyremapper.api.MemberHeader;
+import net.fabricmc.tinyremapper.impl.ClassHeaderImpl;
 
 class AsmClassRemapper extends ClassRemapper {
 
@@ -65,7 +66,7 @@ class AsmClassRemapper extends ClassRemapper {
 	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 		super.visit(version, access, name, signature, superName, interfaces);
 		if(annotationMapper != null) {
-			this.header = new ClassHeader(version, access, name, signature, superName, Collections.unmodifiableList(Arrays.asList(interfaces)));
+			this.header = new ClassHeaderImpl(((AsmRemapper)remapper).remapper, version, access, name, signature, superName, Collections.unmodifiableList(Arrays.asList(interfaces)));
 		}
 	}
 
@@ -88,15 +89,15 @@ class AsmClassRemapper extends ClassRemapper {
 		}
 
 		MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
-		MethodHeader header = null;
-		if(this.header != null) header = new MethodHeader(this.header, access, name, descriptor, signature, Collections.unmodifiableList(Arrays.asList(exceptions)));
+		MemberHeader header = null;
+		if(this.header != null) header = new MemberHeader(this.header, access, name, descriptor);
 		return new AsmMethodRemapper(mv, remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals, header);
 	}
 
 	@Override
 	public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
-		FieldHeader header = null;
-		if(this.header != null) header = new FieldHeader(this.header, access, name, descriptor, signature, value);
+		MemberHeader header = null;
+		if(this.header != null) header = new MemberHeader(this.header, access, name, descriptor);
 		return new AsmFieldRemapper(super.visitField(access, name, descriptor, signature, value), remapper, header);
 	}
 
@@ -153,7 +154,7 @@ class AsmClassRemapper extends ClassRemapper {
 	private static class AsmFieldRemapper extends FieldRemapper {
 		public AsmFieldRemapper(FieldVisitor fieldVisitor,
 				Remapper remapper,
-				FieldHeader header) {
+				MemberHeader header) {
 			super(fieldVisitor, remapper);
 			this.header = header;
 			this.annotationMapper = ((AsmRemapper)remapper).remapper.annotationRemapper;
@@ -181,7 +182,7 @@ class AsmClassRemapper extends ClassRemapper {
 			}
 		}
 
-		final FieldHeader header;
+		final MemberHeader header;
 		final AnnotationMapper annotationMapper;
 	}
 
@@ -193,7 +194,7 @@ class AsmClassRemapper extends ClassRemapper {
 				boolean checkPackageAccess,
 				boolean skipLocalMapping,
 				boolean renameInvalidLocals,
-				MethodHeader header) {
+				MemberHeader header) {
 			super(methodNode != null ? methodNode : methodVisitor, remapper);
 
 			this.owner = owner;
@@ -680,7 +681,7 @@ class AsmClassRemapper extends ClassRemapper {
 		private final boolean skipLocalMapping;
 		private final boolean renameInvalidLocals;
 		final AnnotationMapper annotationMapper;
-		final MethodHeader header;
+		final MemberHeader header;
 	}
 
 	private static class AsmAnnotationRemapper extends AnnotationRemapper {

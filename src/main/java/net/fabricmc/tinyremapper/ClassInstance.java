@@ -26,6 +26,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,8 +38,11 @@ import org.objectweb.asm.Opcodes;
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.BridgePropagation;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
+import net.fabricmc.tinyremapper.api.Classpath;
+import net.fabricmc.tinyremapper.api.MemberHeader;
+import net.fabricmc.tinyremapper.api.ResolvedClass;
 
-public final class ClassInstance {
+public final class ClassInstance implements ResolvedClass {
 	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
 		this.context = context;
 		this.isInput = isInput;
@@ -47,9 +51,10 @@ public final class ClassInstance {
 		this.data = data;
 	}
 
-	void init(String name, String superName, int access, String[] interfaces) {
+	void init(String name, String sign, String superName, int access, String[] interfaces) {
 		this.name = name;
 		this.superName = superName;
+		this.signature = sign;
 		this.access = access;
 		this.interfaces = interfaces;
 	}
@@ -127,12 +132,52 @@ public final class ClassInstance {
 		return false;
 	}
 
+	@Override
+	public Classpath getClasspath() {
+		return this.context;
+	}
+
+	@Override
+	public int getAccess() {
+		return access;
+	}
+
+	@Override
 	public String getName() {
 		return name;
 	}
 
+	@Override
 	public String getSuperName() {
 		return superName;
+	}
+
+	@Override
+	public String getSignature() {
+		return signature;
+	}
+
+	@Override
+	public MemberHeader getField(String name, String desc) {
+		MemberInstance instance = this.resolvedMembers.get(MemberInstance.getFieldId(name, desc, false));
+		if(instance != null) {
+			return new MemberHeader(this, instance.access, instance.name, instance.desc);
+		}
+		return null;
+	}
+
+	@Override
+	public MemberHeader getMethod(String name, String desc) {
+		MemberInstance instance = this.resolvedMembers.get(MemberInstance.getMethodId(name, desc));
+		if(instance != null) {
+			return new MemberHeader(this, instance.access, instance.name, instance.desc);
+		}
+		return null;
+	}
+
+	@Override
+	public List<String> getInterfaceList() {
+		return Collections.unmodifiableList(Arrays.asList(interfaces));
 	}
 
 	public boolean isInterface() {
@@ -593,6 +638,7 @@ public final class ClassInstance {
 	final Set<ClassInstance> children = new HashSet<>();
 	private String name;
 	private String superName;
+	private String signature;
 	private int access;
 	private String[] interfaces;
 }

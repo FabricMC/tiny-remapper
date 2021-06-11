@@ -61,8 +61,13 @@ import org.objectweb.asm.util.CheckClassAdapter;
 import net.fabricmc.tinyremapper.IMappingProvider.MappingAcceptor;
 import net.fabricmc.tinyremapper.IMappingProvider.Member;
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
+import net.fabricmc.tinyremapper.api.AnnotationMapper;
+import net.fabricmc.tinyremapper.api.Classpath;
+import net.fabricmc.tinyremapper.api.ResolvedClass;
 
-public class TinyRemapper {
+public class TinyRemapper implements Classpath {
+
+
 	public static class Builder {
 		private Builder() { }
 
@@ -443,7 +448,7 @@ public class TinyRemapper {
 		reader.accept(new ClassVisitor(Opcodes.ASM8, extraAnalyzeVisitor) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-				ret.init(name, superName, access, interfaces);
+				ret.init(name, signature, superName, access, interfaces);
 
 				super.visit(version, access, name, signature, superName, interfaces);
 			}
@@ -1051,6 +1056,11 @@ public class TinyRemapper {
 		 * Propagate names into bridged methods and create additional bridges to keep the original bridged method name intact.
 		 */
 		COMPATIBLE
+	}
+
+	@Override
+	public ResolvedClass getByName(String internalName) {
+		return this.classes.get(internalName);
 	}
 
 	private final boolean check = false;
