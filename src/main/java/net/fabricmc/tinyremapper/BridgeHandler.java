@@ -84,27 +84,28 @@ final class BridgeHandler {
 
 	public static void generateCompatBridges(ClassInstance cls, AsmRemapper remapper, ClassVisitor out) {
 		memberLoop: for (MemberInstance m : cls.getMembers()) {
-			MemberInstance bridgeTarget = m.bridgeTarget;
-			String newName;
+			String bridgedName = m.getNewBridgedName();
+			String mappedName;
 
-			if (bridgeTarget == null
-					|| (newName = bridgeTarget.getNewName()) == null
-					|| newName.equals(bridgeTarget.name)) {
+			if (bridgedName == null
+					|| (mappedName = m.getNewMappedName()) == null
+					|| bridgedName.equals(mappedName)) {
 				continue;
 			}
 
 			for (MemberInstance o : cls.getMembers()) {
-				if (o.desc.equals(bridgeTarget.desc)
-						&& remapper.mapMethodName(cls.getName(), o.name, o.desc).equals(bridgeTarget.name)) {
+				if (o != m
+						&& o.desc.equals(m.desc)
+						&& remapper.mapMethodName(cls.getName(), o.name, o.desc).equals(mappedName)) {
 					// nameDesc is already in use, skip generating bridge for it
 					continue memberLoop;
 				}
 			}
 
-			String mappedDesc = remapper.mapDesc(bridgeTarget.desc);
+			String mappedDesc = remapper.mapDesc(m.desc);
 			int lvSize = 1;
 
-			MethodVisitor mv = out.visitMethod(bridgeTarget.access | Opcodes.ACC_BRIDGE | Opcodes.ACC_SYNTHETIC, bridgeTarget.name, mappedDesc, null, null);
+			MethodVisitor mv = out.visitMethod(m.access | Opcodes.ACC_BRIDGE | Opcodes.ACC_SYNTHETIC, mappedName, mappedDesc, null, null);
 			mv.visitCode();
 			mv.visitVarInsn(Opcodes.ALOAD, 0);
 
@@ -115,7 +116,7 @@ final class BridgeHandler {
 				}
 			}
 
-			mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, remapper.map(cls.getName()), newName, mappedDesc, cls.isInterface());
+			mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, remapper.map(cls.getName()), bridgedName, mappedDesc, cls.isInterface());
 
 			Type retType = Type.getReturnType(mappedDesc);
 			mv.visitInsn(retType.getOpcode(Opcodes.IRETURN));

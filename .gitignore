@@ -2,8 +2,11 @@
 /lib/
 /run/
 /build/
+/.settings/
 /.classpath
 /.project
 /.gradle
 *.jar
 *.tiny
+.idea/
+!src/test/resources/**

@@ -36,11 +36,11 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.objectweb.asm.Opcodes;
 
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
-import net.fabricmc.tinyremapper.TinyRemapper.BridgePropagation;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
 import net.fabricmc.tinyremapper.api.Classpath;
 import net.fabricmc.tinyremapper.api.MemberHeader;
 import net.fabricmc.tinyremapper.api.ResolvedClass;
+import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 
 public final class ClassInstance implements ResolvedClass {
 	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
@@ -49,10 +49,12 @@ public final class ClassInstance implements ResolvedClass {
 		this.inputTags = inputTags;
 		this.srcPath = srcFile;
 		this.data = data;
+		this.mrjOrigin = this;
 	}
 
-	void init(String name, String sign, String superName, int access, String[] interfaces) {
+	void init(int mrjVersion, String name, String sign, String superName, int access, String[] interfaces) {
 		this.name = name;
+		this.mrjVersion = mrjVersion;
 		this.superName = superName;
 		this.signature = sign;
 		this.access = access;
@@ -147,7 +149,11 @@ public final class ClassInstance implements ResolvedClass {
 		return name;
 	}
 
+
 	@Override
+	public int getMrjVersion() { return mrjVersion; }
+
+  @Override
 	public String getSuperName() {
 		return superName;
 	}
@@ -184,9 +190,15 @@ public final class ClassInstance implements ResolvedClass {
 		return (access & Opcodes.ACC_INTERFACE) != 0;
 	}
 
+	public boolean isRecord() {
+		return (access & Opcodes.ACC_RECORD) != 0;
+	}
+
 	public boolean isPublicOrPrivate() {
 		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
 	}
+
+	public boolean isMrjCopy() { return mrjOrigin != this; }
 
 	public String[] getInterfaces() {
 		return interfaces;
@@ -200,16 +212,18 @@ public final class ClassInstance implements ResolvedClass {
 		return members.get(id);
 	}
 
+	public ClassInstance getMrjOrigin() { return mrjOrigin; }
+
 	/**
 	 * Rename the member src to dst and continue propagating in dir.
 	 *
 	 * @param type Member type.
 	 * @param idSrc Existing name.
-	 * @param idDst New name.
+	 * @param nameDst New name.
 	 * @param dir Futher propagation direction.
 	 */
 	void propagate(TinyRemapper remapper, MemberType type, String originatingCls, String idSrc, String nameDst,
-			Direction dir, boolean isVirtual, BridgePropagation bridgePropagation,
+			Direction dir, boolean isVirtual, boolean fromBridge,
 			boolean first, Set<ClassInstance> visitedUp, Set<ClassInstance> visitedDown) {
 		/*
 		 * initial private member or static method in interface: only local
@@ -229,7 +243,7 @@ public final class ClassInstance implements ResolvedClass {
 					|| remapper.propagatePrivate
 					|| !remapper.forcePropagation.isEmpty() && remapper.forcePropagation.contains(name.replace('/', '.')+"."+member.name)) { // don't rename private members unless forced or initial (=dir any)
 
-				if (!member.setNewName(nameDst)) {
+				if (!member.setNewName(nameDst, fromBridge)) {
 					remapper.conflicts.computeIfAbsent(member, x -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(originatingCls+"/"+nameDst);
 				} else {
 					member.newNameOriginatingCls = originatingCls;
@@ -240,7 +254,7 @@ public final class ClassInstance implements ResolvedClass {
 					&& ((member.access & Opcodes.ACC_PRIVATE) != 0 // private members don't propagate, but they may get skipped over by overriding virtual methods
 					|| type == MemberType.METHOD && isInterface() && !isVirtual)) { // non-virtual interface methods don't propagate either, the jvm only resolves direct accesses to them
 				return;
-			} else if (bridgePropagation != BridgePropagation.DISABLED
+			} else if (remapper.propagateBridges != LinkedMethodPropagation.DISABLED
 					&& member.cls.isInput
 					&& isVirtual
 					&& (member.access & Opcodes.ACC_BRIDGE) != 0) {
@@ -258,7 +272,7 @@ public final class ClassInstance implements ResolvedClass {
 					visitedDownBridge.add(member.cls);
 
 					propagate(remapper, MemberType.METHOD, originatingCls, bridgeTarget.getId(), nameDst,
-							Direction.DOWN, true, bridgePropagation,
+							Direction.DOWN, true, remapper.propagateBridges == LinkedMethodPropagation.COMPATIBLE,
 							false, visitedUpBridge, visitedDownBridge);
 				}
 			}
@@ -291,7 +305,7 @@ public final class ClassInstance implements ResolvedClass {
 			for (ClassInstance node : parents) {
 				if (visitedUp.add(node)) {
 					node.propagate(remapper, type, originatingCls, idSrc, nameDst,
-							Direction.UP, isVirtual, bridgePropagation,
+							Direction.UP, isVirtual, fromBridge,
 							false, visitedUp, visitedDown);
 				}
 			}
@@ -301,7 +315,7 @@ public final class ClassInstance implements ResolvedClass {
 			for (ClassInstance node : children) {
 				if (visitedDown.add(node)) {
 					node.propagate(remapper, type, originatingCls, idSrc, nameDst,
-							Direction.DOWN, isVirtual, bridgePropagation,
+							Direction.DOWN, isVirtual, fromBridge,
 							false, visitedUp, visitedDown);
 				}
 			}
@@ -618,10 +632,32 @@ public final class ClassInstance implements ResolvedClass {
 		return ret;
 	}
 
+	ClassInstance constructMrjCopy() {
+		// isInput should be false, since the MRJ copy should not be emitted
+		ClassInstance copy = new ClassInstance(context, false, inputTags, srcPath, data);
+		copy.init(name, mrjVersion, superName, access, interfaces);
+		members.values().forEach(member ->
+				copy.addMember(new MemberInstance(member.type, copy, member.name, member.desc, member.access)));
+		// set the origin
+		copy.mrjOrigin = mrjOrigin;
+		return copy;
+	}
+
 	@Override
 	public String toString() {
 		return name;
 	}
+
+	public static String getMrjName(String clsName, int mrjVersion) {
+		if (mrjVersion != MRJ_DEFAULT) {
+			return MRJ_PREFIX + "/" + mrjVersion + "/" + clsName;
+		} else {
+			return clsName;
+		}
+	}
+
+	public static final int MRJ_DEFAULT = -1;
+	public static final String MRJ_PREFIX = "/META-INF/versions";
 
 	private static final String objectClassName = "java/lang/Object";
 	private static final MemberInstance nullMember = new MemberInstance(null, null, null, null, 0);
@@ -632,11 +668,13 @@ public final class ClassInstance implements ResolvedClass {
 	private volatile InputTag[] inputTags; // cow input tag list, null for none
 	final Path srcPath;
 	byte[] data;
+	private ClassInstance mrjOrigin;
 	private final Map<String, MemberInstance> members = new HashMap<>(); // methods and fields are distinct due to their different desc separators
 	private final ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();
 	final Set<ClassInstance> parents = new HashSet<>();
 	final Set<ClassInstance> children = new HashSet<>();
 	private String name;
+	private int mrjVersion;
 	private String superName;
 	private String signature;
 	private int access;

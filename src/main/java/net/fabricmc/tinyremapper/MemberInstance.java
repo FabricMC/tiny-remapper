@@ -59,15 +59,31 @@ public final class MemberInstance {
 	}
 
 	public String getNewName() {
+		String ret = newBridgedName;
+
+		return ret != null ? ret : newName;
+	}
+
+	public String getNewMappedName() {
 		return newName;
 	}
 
-	public boolean setNewName(String name) {
+	public String getNewBridgedName() {
+		return newBridgedName;
+	}
+
+	public boolean setNewName(String name, boolean fromBridge) {
 		if (name == null) throw new NullPointerException("null name");
 
-		boolean ret = newNameUpdater.compareAndSet(this, null, name);
+		if (fromBridge) {
+			boolean ret = newBridgedNameUpdater.compareAndSet(this, null, name);
 
-		return ret || name.equals(newName);
+			return ret || name.equals(newBridgedName);
+		} else {
+			boolean ret = newNameUpdater.compareAndSet(this, null, name);
+
+			return ret || name.equals(newName);
+		}
 	}
 
 	public void forceSetNewName(String name) {
@@ -109,6 +125,7 @@ public final class MemberInstance {
 	}
 
 	private static final AtomicReferenceFieldUpdater<MemberInstance, String> newNameUpdater = AtomicReferenceFieldUpdater.newUpdater(MemberInstance.class, String.class, "newName");
+	private static final AtomicReferenceFieldUpdater<MemberInstance, String> newBridgedNameUpdater = AtomicReferenceFieldUpdater.newUpdater(MemberInstance.class, String.class, "newBridgedName");
 
 	final MemberInstance.MemberType type;
 	final ClassInstance cls;
@@ -116,6 +133,7 @@ public final class MemberInstance {
 	final String desc;
 	final int access;
 	private volatile String newName;
+	private volatile String newBridgedName;
 	String newNameOriginatingCls;
 	MemberInstance bridgeTarget;
 }
