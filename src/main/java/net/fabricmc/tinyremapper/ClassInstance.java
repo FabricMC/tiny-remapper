@@ -149,11 +149,9 @@ public final class ClassInstance implements ResolvedClass {
 		return name;
 	}
 
-
-	@Override
 	public int getMrjVersion() { return mrjVersion; }
 
-  @Override
+    @Override
 	public String getSuperName() {
 		return superName;
 	}
@@ -635,7 +633,7 @@ public final class ClassInstance implements ResolvedClass {
 	ClassInstance constructMrjCopy() {
 		// isInput should be false, since the MRJ copy should not be emitted
 		ClassInstance copy = new ClassInstance(context, false, inputTags, srcPath, data);
-		copy.init(name, mrjVersion, superName, access, interfaces);
+		copy.init(mrjVersion, name, signature, superName, access, interfaces);
 		members.values().forEach(member ->
 				copy.addMember(new MemberInstance(member.type, copy, member.name, member.desc, member.access)));
 		// set the origin

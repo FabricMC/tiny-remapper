@@ -64,14 +64,10 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 	@Override
 	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-		super.visit(version, access, name, signature, superName, interfaces);
 		if(annotationMapper != null) {
 			this.header = new ClassHeaderImpl(((AsmRemapper)remapper).remapper, version, access, name, signature, superName, Collections.unmodifiableList(Arrays.asList(interfaces)));
 		}
-	}
 
-	@Override
-	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 		if (checkPackageAccess) {
 			AsmRemapper remapper = (AsmRemapper) this.remapper;
 
@@ -111,11 +107,14 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 	@Override
 	public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
+		MemberHeader header = null;
+		if(this.header != null) header = new MemberHeader(this.header, access, name, descriptor);
+
 		if (checkPackageAccess) {
 			PackageAccessChecker.checkDesc(className, descriptor, "field descriptor", (AsmRemapper) remapper);
 		}
 
-		return super.visitField(access, name, descriptor, signature, value);
+		return new AsmFieldRemapper(super.visitField(access, name, descriptor, signature, value), remapper, header);
 	}
 
 	@Override
@@ -134,12 +133,6 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		return new AsmMethodRemapper(mv, remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals, header);
 	}
 
-	@Override
-	public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
-		MemberHeader header = null;
-		if(this.header != null) header = new MemberHeader(this.header, access, name, descriptor);
-		return new AsmFieldRemapper(super.visitField(access, name, descriptor, signature, value), remapper, header);
-	}
 
 	@Override
 	protected FieldVisitor createFieldRemapper(FieldVisitor fieldVisitor) {
