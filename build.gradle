@@ -28,7 +28,6 @@ dependencies {
 	implementation 'org.ow2.asm:asm-commons:9.0'
 	implementation 'org.ow2.asm:asm-tree:9.0'
 	implementation 'org.ow2.asm:asm-util:9.0'
-	implementation 'net.fabricmc:sponge-mixin:0.9.2+mixin.0.8.2'
 
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.6.2'
 }
