@@ -2,8 +2,6 @@ package net.fabricmc.tinyremapper.api;
 
 import java.util.List;
 
-import net.fabricmc.tinyremapper.TinyRemapper;
-
 public interface ClassHeader {
 	Classpath getClasspath();
 
@@ -16,4 +14,16 @@ public interface ClassHeader {
 	String getSignature();
 
 	List<String> getInterfaceList();
+
+	/**
+	 * get field by name and descriptor, this is not cached
+	 */
+	MemberHeader getField(String name, String desc);
+
+	/**
+	 * get method by name and descriptor, this is not cached
+	 */
+	MemberHeader getMethod(String name, String desc);
+
+	Iterable<MemberHeader> allMembers();
 }

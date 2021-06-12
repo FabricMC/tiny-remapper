@@ -37,12 +37,12 @@ import org.objectweb.asm.Opcodes;
 
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
+import net.fabricmc.tinyremapper.api.ClassHeader;
 import net.fabricmc.tinyremapper.api.Classpath;
 import net.fabricmc.tinyremapper.api.MemberHeader;
-import net.fabricmc.tinyremapper.api.ResolvedClass;
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 
-public final class ClassInstance implements ResolvedClass {
+public final class ClassInstance implements ClassHeader {
 	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
 		this.context = context;
 		this.isInput = isInput;
@@ -177,6 +177,11 @@ public final class ClassInstance implements ResolvedClass {
 			return new MemberHeader(this, instance.access, instance.name, instance.desc);
 		}
 		return null;
+	}
+
+	@Override
+	public Iterable<MemberHeader> allMembers() {
+		return MappedIterator.map(this.resolvedMembers.values(), i -> new MemberHeader(this, i.access, i.name, i.desc));
 	}
 
 	@Override

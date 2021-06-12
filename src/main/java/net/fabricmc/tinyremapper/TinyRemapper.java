@@ -65,9 +65,9 @@ import org.objectweb.asm.util.CheckClassAdapter;
 import net.fabricmc.tinyremapper.IMappingProvider.MappingAcceptor;
 import net.fabricmc.tinyremapper.IMappingProvider.Member;
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
-import net.fabricmc.tinyremapper.api.AnnotationMapper;
+import net.fabricmc.tinyremapper.api.ClassHeader;
 import net.fabricmc.tinyremapper.api.Classpath;
-import net.fabricmc.tinyremapper.api.ResolvedClass;
+import net.fabricmc.tinyremapper.api.WrapperFunction;
 
 public class TinyRemapper implements Classpath {
 
@@ -168,8 +168,13 @@ public class TinyRemapper implements Classpath {
 			return this;
 		}
 
-		public Builder annotationRemapper(AnnotationMapper remapper) {
-			this.annotationRemapper = remapper;
+		public Builder extraPreVisitor(WrapperFunction func) {
+			this.pre = func;
+			return this;
+		}
+
+		public Builder extraPostVisitor(WrapperFunction function) {
+			this.post = function;
 			return this;
 		}
 
@@ -180,7 +185,7 @@ public class TinyRemapper implements Classpath {
 					propagateBridges, propagateRecordComponents,
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
 					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals,
-					extraAnalyzeVisitor, extraRemapper, annotationRemapper);
+					extraAnalyzeVisitor, extraRemapper, pre, post);
 
 			return remapper;
 		}
@@ -203,7 +208,7 @@ public class TinyRemapper implements Classpath {
 		private boolean renameInvalidLocals = false;
 		private ClassVisitor extraAnalyzeVisitor;
 		private Remapper extraRemapper;
-		private AnnotationMapper annotationRemapper;
+		private WrapperFunction pre, post;
 	}
 
 	private TinyRemapper(Collection<IMappingProvider> mappingProviders, boolean ignoreFieldDesc,
@@ -219,12 +224,13 @@ public class TinyRemapper implements Classpath {
 			boolean rebuildSourceFilenames,
 			boolean skipLocalMapping,
 			boolean renameInvalidLocals,
-			ClassVisitor extraAnalyzeVisitor, Remapper extraRemapper, AnnotationMapper remapper) {
+			ClassVisitor extraAnalyzeVisitor, Remapper extraRemapper, WrapperFunction pre, WrapperFunction post) {
 		this.mappingProviders = mappingProviders;
 		this.ignoreFieldDesc = ignoreFieldDesc;
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
 		this.keepInputData = keepInputData;
-		this.annotationRemapper = remapper;
+		this.pre = pre;
+		this.post = post;
 		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
 		this.forcePropagation = forcePropagation;
 		this.propagatePrivate = propagatePrivate;
@@ -956,11 +962,20 @@ public class TinyRemapper implements Classpath {
 		ClassVisitor visitor = writer;
 
 		if (check) {
-			//noinspection UnusedAssignment
 			visitor = new CheckClassAdapter(visitor);
 		}
 
-		reader.accept(new AsmClassRemapper(visitor, remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals), flags);
+		if(post != null) {
+			visitor = post.wrap(visitor, this.getRemapper(), this);
+		}
+
+		visitor = new AsmClassRemapper(visitor, remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
+
+		if(pre != null) {
+			visitor = pre.wrap(visitor, this.getRemapper(), this);
+		}
+
+		reader.accept(visitor, flags);
 		// TODO: compute frames (-Xverify:all -XX:-FailOverToOldVerifier)
 
 		if (!keepInputData) cls.data = null;
@@ -1178,7 +1193,7 @@ public class TinyRemapper implements Classpath {
 	}
 
 	@Override
-	public ResolvedClass getByName(String internalName) {
+	public ClassHeader getByName(String internalName) {
 		return this.classes.get(internalName);
 	}
 
@@ -1220,7 +1235,7 @@ public class TinyRemapper implements Classpath {
 	private final int threadCount;
 	private final ExecutorService threadPool;
 	private final AsmRemapper remapper = new AsmRemapper(this);
-	final AnnotationMapper annotationRemapper;
+	final WrapperFunction pre, post;
 
 	private volatile boolean dirty = true; // volatile to make the state debug asserts more reliable, shouldn't actually see concurrent modifications
 	private Map<ClassInstance, byte[]> outputBuffer;

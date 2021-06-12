@@ -22,8 +22,9 @@ import org.objectweb.asm.commons.Remapper;
 
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
+import net.fabricmc.tinyremapper.api.ExtendedRemapper;
 
-class AsmRemapper extends Remapper {
+class AsmRemapper extends ExtendedRemapper {
 	public AsmRemapper(TinyRemapper remapper) {
 		this.remapper = remapper;
 	}
@@ -75,6 +76,7 @@ class AsmRemapper extends Remapper {
 		return remapper.extraRemapper != null ? remapper.extraRemapper.mapMethodName(owner, name, desc) : name;
 	}
 
+	@Override
 	public String mapMethodNamePrefixDesc(String owner, String name, String descPrefix) {
 		ClassInstance cls = getClass(owner);
 		if (cls == null) return name;
@@ -97,6 +99,7 @@ class AsmRemapper extends Remapper {
 		return mapMethodNamePrefixDesc(owner, name, null);
 	}
 
+	@Override
 	public String mapMethodArg(String methodOwner, String methodName, String methodDesc, int lvIndex, String name) {
 		String newName = remapper.methodArgMap.get(methodOwner+"/"+MemberInstance.getMethodId(methodName, methodDesc)+lvIndex);
 		if (newName != null) return newName;
