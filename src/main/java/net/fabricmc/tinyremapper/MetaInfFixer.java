@@ -29,10 +29,16 @@ public class MetaInfFixer implements OutputConsumerPath.ResourceRemapper {
 	@Override
 	public void transform(Path destinationDirectory, Path relativePath, InputStream input, TinyRemapper remapper) throws IOException {
 		String fileName = relativePath.getFileName().toString();
+
 		if (fileName.equals("MANIFEST.MF")) {
 			Manifest manifest = new Manifest(input);
 			fixManifest(manifest, remapper);
-			try (OutputStream os = new BufferedOutputStream(Files.newOutputStream(destinationDirectory.resolve(relativePath)))) {
+
+			Path outputFile = destinationDirectory.resolve(relativePath);
+			Path outputDir = outputFile.getParent();
+			if (outputDir != null) Files.createDirectories(outputDir);
+
+			try (OutputStream os = new BufferedOutputStream(Files.newOutputStream(outputFile))) {
 				manifest.write(os);
 			}
 		} else if (remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services")) {
