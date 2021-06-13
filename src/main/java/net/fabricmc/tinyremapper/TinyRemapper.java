@@ -17,7 +17,6 @@
 
 package net.fabricmc.tinyremapper;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -49,8 +48,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.objectweb.asm.ClassReader;
@@ -451,27 +448,36 @@ public class TinyRemapper {
 		return ret;
 	}
 
+	/**
+	 * Determine the MRJ version of the supplied class file and name.
+	 *
+	 * <p>This assumes that the file path follows the usual META-INF/versions/{@code <version>}/pkg/for/cls.class form.
+	 */
 	private static int analyzeMrjVersion(Path file, String name) {
-		if (File.separator.equals("/")) {
-			return analyzeMrjVersion(file.toString(), name);
-		} else if (File.separator.equals("\\")) {
-			return analyzeMrjVersion(file.toString().replace('\\', '/'), name);
-		} else {
-			throw new RuntimeException("Unknown file separator detected.");
-		}
-	}
+		assert file.getFileName().toString().endsWith(".class");
 
-	private static int analyzeMrjVersion(String file, String name) {
-		name = name + ".class";
+		int pkgCount = 0;
+		int pos = 0;
 
-		if (file.endsWith(name)) {
-			String prefix = file.substring(0, file.length() - name.length());
-			Pattern pattern = Pattern.compile("(?<=" + ClassInstance.MRJ_PREFIX + "/)[0-9]*(?=/$)");
-			Matcher matcher = pattern.matcher(prefix);
-			return matcher.find() ? Integer.parseInt(matcher.group()) : ClassInstance.MRJ_DEFAULT;
+		while ((pos = name.indexOf('/', pos) + 1) > 0) {
+			pkgCount++;
 		}
 
-		throw new RuntimeException("path " + file + " does not agree with class name " + name);
+		int pathNameCount = file.getNameCount();
+		int pathNameOffset = pathNameCount - pkgCount - 1; // path index for root package
+
+		if (pathNameOffset >= 3
+				&& file.getName(pathNameOffset - 3).toString().equals("META-INF") // root pkg is in META-INF/x/x
+				&& file.getName(pathNameOffset - 2).toString().equals("versions") // root pkg is in META-INF/versions/x
+				&& file.subpath(pathNameOffset, pathNameCount).toString().replace('\\', '/').regionMatches(0, name, 0, name.length())) { // verify class name == path from root pkg dir, ignores suffix like .class
+			try {
+				return Integer.parseInt(file.getName(pathNameOffset - 1).toString());
+			} catch (NumberFormatException e) {
+				// ignore
+			}
+		}
+
+		return ClassInstance.MRJ_DEFAULT;
 	}
 
 	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, Path file) throws IOException {
@@ -617,7 +623,7 @@ public class TinyRemapper {
 		for (ClassInstance node : classes.values()) {
 			assert node.getSuperName() != null;
 
-			ClassInstance parent = classes.get(node.getSuperName());
+			ClassInstance parent = getClass(node.getSuperName());
 
 			if (parent != null) {
 				node.parents.add(parent);
@@ -625,7 +631,7 @@ public class TinyRemapper {
 			}
 
 			for (String iface : node.getInterfaces()) {
-				parent = classes.get(iface);
+				parent = getClass(iface);
 
 				if (parent != null) {
 					node.parents.add(parent);
@@ -914,8 +920,10 @@ public class TinyRemapper {
 				int clsVersion = cls.getMrjVersion();
 				addClass(cls, mrjClasses.get(clsVersion), false);
 
-				for (int version: mrjClasses.keySet().stream().filter(v -> v > clsVersion).collect(Collectors.toSet())) {
-					addClass(cls.constructMrjCopy(), mrjClasses.get(version), false);
+				for (int version: mrjClasses.keySet()) {
+					if (version > clsVersion) {
+						addClass(cls.constructMrjCopy(), mrjClasses.get(version), false);
+					}
 				}
 			}
 
@@ -932,6 +940,9 @@ public class TinyRemapper {
 	private void mrjRefresh(int mrjVersion) {
 		classes = mrjClasses.get(mrjVersion);
 		outputBuffer = null;
+
+		assert new HashSet<>(classes.values()).size() == classes.size();
+		assert classes.values().stream().map(ClassInstance::getName).distinct().count() == classes.size();
 
 		merge();
 		propagate();
@@ -1026,7 +1037,7 @@ public class TinyRemapper {
 		return remapper;
 	}
 
-	ClassInstance getClass(String owner) {
+	final ClassInstance getClass(String owner) {
 		return classes.get(owner);
 	}
 
@@ -1089,7 +1100,7 @@ public class TinyRemapper {
 
 			for (Map.Entry<String, String> entry : tasks) {
 				String className = getClassName(entry.getKey(), type);
-				ClassInstance cls = classes.get(className);
+				ClassInstance cls = TinyRemapper.this.getClass(className);
 				if (cls == null) continue; // not available for this Side
 
 				String idSrc = stripClassName(entry.getKey(), type);

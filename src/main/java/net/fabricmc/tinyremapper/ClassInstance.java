@@ -40,6 +40,8 @@ import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 
 public final class ClassInstance {
 	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
+		assert !isInput || data != null;
+
 		this.context = context;
 		this.isInput = isInput;
 		this.inputTags = inputTags;
@@ -334,10 +336,10 @@ public final class ClassInstance {
 		String superName = superDesc.substring(superDescStart, superDescEnd);
 		String subName = subDesc.substring(subDescStart, subDescEnd);
 
-		ClassInstance superCls = context.classes.get(superName);
+		ClassInstance superCls = context.getClass(superName);
 		if (superCls != null && superCls.children.isEmpty()) return false;
 
-		ClassInstance subCls = context.classes.get(subName);
+		ClassInstance subCls = context.getClass(subName);
 
 		if (subCls != null) { // sub class known, search upwards
 			if (superCls == null || superCls.isInterface()) {
@@ -361,7 +363,7 @@ public final class ClassInstance {
 					if (curSuperName.equals(superName)) return true;
 					if (curSuperName.equals(objectClassName)) return false;
 
-					subCls = context.classes.get(curSuperName);
+					subCls = context.getClass(curSuperName);
 				} while (subCls != null);
 			}
 		} else if (superCls != null) { // only super class known, search down

@@ -21,16 +21,17 @@ public class MetaInfFixer implements OutputConsumerPath.ResourceRemapper {
 
 	@Override
 	public boolean canTransform(TinyRemapper remapper, Path relativePath) {
-		return shouldStripForFixMeta(relativePath)
-				|| relativePath.getFileName().toString().equals("MANIFEST.MF")
-				|| (remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services"));
+		return relativePath.startsWith("META-INF")
+				&& (shouldStripForFixMeta(relativePath)
+						|| relativePath.getFileName().toString().equals("MANIFEST.MF")
+						|| (remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services")));
 	}
 
 	@Override
 	public void transform(Path destinationDirectory, Path relativePath, InputStream input, TinyRemapper remapper) throws IOException {
 		String fileName = relativePath.getFileName().toString();
 
-		if (fileName.equals("MANIFEST.MF")) {
+		if (relativePath.getNameCount() == 2 && fileName.equals("MANIFEST.MF")) {
 			Manifest manifest = new Manifest(input);
 			fixManifest(manifest, remapper);
 
