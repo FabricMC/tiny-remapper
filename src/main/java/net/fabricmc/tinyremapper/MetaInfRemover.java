@@ -6,7 +6,7 @@ import java.nio.file.Path;
 public class MetaInfRemover implements OutputConsumerPath.ResourceRemapper {
 	public static final MetaInfRemover INSTANCE = new MetaInfRemover();
 
-	protected MetaInfRemover() {}
+	protected MetaInfRemover() { }
 
 	@Override
 	public boolean canTransform(TinyRemapper remapper, Path relativePath) {

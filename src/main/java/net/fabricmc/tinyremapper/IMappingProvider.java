@@ -29,7 +29,7 @@ public interface IMappingProvider {
 		void acceptField(Member field, String dstName);
 	}
 
-	public final class Member {
+	final class Member {
 		public Member(String owner, String name, String desc) {
 			this.owner = owner;
 			this.name = name;

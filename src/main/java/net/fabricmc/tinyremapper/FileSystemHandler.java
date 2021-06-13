@@ -39,7 +39,9 @@ public final class FileSystemHandler {
 
 		try {
 			ret = FileSystems.getFileSystem(uri);
-		} catch (FileSystemNotFoundException e) { }
+		} catch (FileSystemNotFoundException e) {
+			// ignore
+		}
 
 		boolean opened;
 
@@ -73,7 +75,7 @@ public final class FileSystemHandler {
 	}
 
 	private static class RefData {
-		public RefData(boolean opened, int refs) {
+		RefData(boolean opened, int refs) {
 			this.opened = opened;
 			this.refs = refs;
 		}

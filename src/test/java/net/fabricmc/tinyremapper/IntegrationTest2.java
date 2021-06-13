@@ -17,14 +17,8 @@
 
 package net.fabricmc.tinyremapper;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,8 +27,14 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.jar.JarFile;
 
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 public class IntegrationTest2 {
 	private static final String MAPPING2_PATH = "/mapping/mapping2.tiny";
@@ -56,7 +56,6 @@ public class IntegrationTest2 {
 
 	private TinyRemapper setupRemapper() {
 		// copy from Main.java
-		final boolean reverse = false;
 		final boolean ignoreFieldDesc = false;
 		final boolean propagatePrivate = false;
 		final boolean removeFrames = false;
@@ -94,7 +93,8 @@ public class IntegrationTest2 {
 	}
 
 	/**
-	 * This is a test for package access fix
+	 * This is a test for package access fix.
+	 *
 	 * @throws IOException io failure.
 	 */
 	@Test

@@ -24,7 +24,7 @@ import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 
 class AsmRemapper extends Remapper {
-	public AsmRemapper(TinyRemapper remapper) {
+	AsmRemapper(TinyRemapper remapper) {
 		this.remapper = remapper;
 	}
 

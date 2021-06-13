@@ -30,10 +30,11 @@ public class TestUtil {
 
 	public static void copyFile(Class<?> cls, String path)
 			throws IOException {
-		if (folder == null) { throw new RuntimeException("the temporary folder is not created"); }
+		if (folder == null) throw new RuntimeException("the temporary folder is not created");
 
 		try (InputStream input = cls.getResourceAsStream(path)) {
-			if (input == null) { throw new IOException("input is null"); }
+			if (input == null) throw new IOException("input is null");
+
 			byte[] buffer = new byte[input.available()];
 			//noinspection ResultOfMethodCallIgnored
 			input.read(buffer);

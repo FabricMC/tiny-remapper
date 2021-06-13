@@ -17,13 +17,13 @@ import java.util.jar.Manifest;
 public class MetaInfFixer implements OutputConsumerPath.ResourceRemapper {
 	public static final MetaInfFixer INSTANCE = new MetaInfFixer();
 
-	protected MetaInfFixer() {}
+	protected MetaInfFixer() { }
 
 	@Override
 	public boolean canTransform(TinyRemapper remapper, Path relativePath) {
-		return shouldStripForFixMeta(relativePath) ||
-				relativePath.getFileName().toString().equals("MANIFEST.MF") ||
-				(remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services"));
+		return shouldStripForFixMeta(relativePath)
+				|| relativePath.getFileName().toString().equals("MANIFEST.MF")
+				|| (remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services"));
 	}
 
 	@Override

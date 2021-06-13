@@ -329,7 +329,9 @@ public class TinyRemapper {
 			for (FileSystem fs : fsToClose) {
 				try {
 					FileSystemHandler.close(fs);
-				} catch (IOException e) { }
+				} catch (IOException e) {
+					// ignore
+				}
 			}
 
 			if (res != null) {
@@ -340,11 +342,6 @@ public class TinyRemapper {
 
 			assert dirty;
 		});
-	}
-
-	@Deprecated
-	private static void addClass(ClassInstance cls, Map<String, ClassInstance> out) {
-		addClass(cls, out, true);
 	}
 
 	private static void addClass(ClassInstance cls, Map<String, ClassInstance> out, boolean isVersionAware) {
@@ -400,9 +397,9 @@ public class TinyRemapper {
 			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 				String name = file.getFileName().toString();
 
-				if (name.endsWith(".jar") ||
-						name.endsWith(".zip") ||
-						name.endsWith(".class")) {
+				if (name.endsWith(".jar")
+						|| name.endsWith(".zip")
+						|| name.endsWith(".class")) {
 					ret.add(CompletableFuture.supplyAsync(new Supplier<List<ClassInstance>>() {
 						@Override
 						public List<ClassInstance> get() {
@@ -466,12 +463,14 @@ public class TinyRemapper {
 
 	private static int analyzeMrjVersion(String file, String name) {
 		name = name + ".class";
+
 		if (file.endsWith(name)) {
 			String prefix = file.substring(0, file.length() - name.length());
 			Pattern pattern = Pattern.compile("(?<=" + ClassInstance.MRJ_PREFIX + "/)[0-9]*(?=/$)");
 			Matcher matcher = pattern.matcher(prefix);
 			return matcher.find() ? Integer.parseInt(matcher.group()) : ClassInstance.MRJ_DEFAULT;
 		}
+
 		throw new RuntimeException("path " + file + " does not agree with class name " + name);
 	}
 
@@ -557,7 +556,6 @@ public class TinyRemapper {
 				if (dstName == null) throw new NullPointerException("null dst name");
 
 				// TODO Auto-generated method stub
-
 			}
 
 			@Override
@@ -768,7 +766,7 @@ public class TinyRemapper {
 		if (!conflicts.isEmpty() && !ignoreConflicts || unfixableConflicts || targetNameCheckFailed) {
 			if (ignoreConflicts || targetNameCheckFailed) System.out.println("There were unfixable conflicts.");
 
-			System.exit(1);
+			throw new RuntimeException("Unfixable conflicts");
 		}
 	}
 
@@ -871,15 +869,17 @@ public class TinyRemapper {
 		for (int toVersion: versions.stream().sorted().collect(Collectors.toList())) {
 			Map<String, ClassInstance> toClasses = new HashMap<>();
 
-			if(mrjClasses.put(toVersion, toClasses) != null) {
+			if (mrjClasses.put(toVersion, toClasses) != null) {
 				throw new RuntimeException("internal error: duplicate versions in mrjClasses");
 			}
 
 			// find the fromVersion that just lower the the toVersion
 			Optional<Integer> fromVersion = mrjClasses.keySet().stream()
 					.filter(v -> v < toVersion).max(Integer::compare);
+
 			if (fromVersion.isPresent()) {
 				Map<String, ClassInstance> fromClasses = mrjClasses.get(fromVersion.get());
+
 				for (ClassInstance cls: fromClasses.values()) {
 					addClass(cls.constructMrjCopy(), toClasses, false);
 				}
@@ -1077,7 +1077,7 @@ public class TinyRemapper {
 	}
 
 	class Propagation implements Runnable {
-		Propagation(MemberType type, List<Map.Entry<String, String> > tasks) {
+		Propagation(MemberType type, List<Map.Entry<String, String>> tasks) {
 			this.type = type;
 			this.tasks.addAll(tasks);
 		}
@@ -1139,7 +1139,7 @@ public class TinyRemapper {
 		}
 
 		private final MemberType type;
-		private final List<Map.Entry<String, String> > tasks = new ArrayList<Map.Entry<String,String> >();
+		private final List<Map.Entry<String, String>> tasks = new ArrayList<>();
 	}
 
 	public enum LinkedMethodPropagation {

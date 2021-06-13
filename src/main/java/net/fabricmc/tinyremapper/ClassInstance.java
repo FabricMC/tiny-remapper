@@ -133,7 +133,9 @@ public final class ClassInstance {
 		return name;
 	}
 
-	public int getMrjVersion() { return mrjVersion; }
+	public int getMrjVersion() {
+		return mrjVersion;
+	}
 
 	public String getSuperName() {
 		return superName;
@@ -151,7 +153,9 @@ public final class ClassInstance {
 		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
 	}
 
-	public boolean isMrjCopy() { return mrjOrigin != this; }
+	public boolean isMrjCopy() {
+		return mrjOrigin != this;
+	}
 
 	public String[] getInterfaces() {
 		return interfaces;
@@ -165,7 +169,9 @@ public final class ClassInstance {
 		return members.get(id);
 	}
 
-	public ClassInstance getMrjOrigin() { return mrjOrigin; }
+	public ClassInstance getMrjOrigin() {
+		return mrjOrigin;
+	}
 
 	/**
 	 * Rename the member src to dst and continue propagating in dir.
@@ -589,8 +595,11 @@ public final class ClassInstance {
 		// isInput should be false, since the MRJ copy should not be emitted
 		ClassInstance copy = new ClassInstance(context, false, inputTags, srcPath, data);
 		copy.init(name, mrjVersion, superName, access, interfaces);
-		members.values().forEach(member ->
-				copy.addMember(new MemberInstance(member.type, copy, member.name, member.desc, member.access)));
+
+		for (MemberInstance member : members.values()) {
+			copy.addMember(new MemberInstance(member.type, copy, member.name, member.desc, member.access));
+		}
+
 		// set the origin
 		copy.mrjOrigin = mrjOrigin;
 		return copy;
