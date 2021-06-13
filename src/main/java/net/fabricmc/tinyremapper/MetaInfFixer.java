@@ -22,8 +22,8 @@ public class MetaInfFixer implements OutputConsumerPath.ResourceRemapper {
 	@Override
 	public boolean canTransform(TinyRemapper remapper, Path relativePath) {
 		return shouldStripForFixMeta(relativePath) ||
-		       relativePath.getFileName().toString().equals("MANIFEST.MF") ||
-		       (remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services"));
+				relativePath.getFileName().toString().equals("MANIFEST.MF") ||
+				(remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services"));
 	}
 
 	@Override
@@ -42,10 +42,12 @@ public class MetaInfFixer implements OutputConsumerPath.ResourceRemapper {
 				manifest.write(os);
 			}
 		} else if (remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services")) {
-			fileName = mapFullyQualifiedClassName(fileName, remapper);
-			Path newFile = destinationDirectory.resolve(relativePath).getParent().resolve(fileName);
+			Path outputDir = destinationDirectory.resolve(relativePath).getParent();
+			Files.createDirectories(outputDir);
+			Path outputFile = outputDir.resolve(mapFullyQualifiedClassName(fileName, remapper));
+
 			try (BufferedReader reader = new BufferedReader(new InputStreamReader(input));
-			     BufferedWriter writer = Files.newBufferedWriter(newFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
+					BufferedWriter writer = Files.newBufferedWriter(outputFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
 				fixServiceDecl(reader, writer, remapper);
 			}
 		}
@@ -60,9 +62,9 @@ public class MetaInfFixer implements OutputConsumerPath.ResourceRemapper {
 
 		// https://docs.oracle.com/en/java/javase/12/docs/specs/jar/jar.html#signed-jar-file
 		return fileName.endsWith(".SF")
-		       || fileName.endsWith(".DSA")
-		       || fileName.endsWith(".RSA")
-		       || fileName.startsWith("SIG-");
+				|| fileName.endsWith(".DSA")
+				|| fileName.endsWith(".RSA")
+				|| fileName.startsWith("SIG-");
 	}
 
 	private static String mapFullyQualifiedClassName(String name, TinyRemapper remapper) {
