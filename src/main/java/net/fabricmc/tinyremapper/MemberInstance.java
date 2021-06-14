@@ -21,6 +21,8 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import org.objectweb.asm.Opcodes;
 
+import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
+
 public final class MemberInstance {
 	MemberInstance(MemberInstance.MemberType type, ClassInstance cls, String name, String desc, int access) {
 		this.type = type;
@@ -30,12 +32,12 @@ public final class MemberInstance {
 		this.access = access;
 	}
 
-	public TinyRemapper getContext() {
-		return cls.context;
+	public MrjState getContext() {
+		return cls.getContext();
 	}
 
 	public String getId() {
-		return getId(type, name, desc, cls.context.ignoreFieldDesc);
+		return getId(type, name, desc, cls.tr.ignoreFieldDesc);
 	}
 
 	public boolean isStatic() {

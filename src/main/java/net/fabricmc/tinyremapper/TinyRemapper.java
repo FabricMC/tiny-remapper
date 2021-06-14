@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
@@ -241,7 +242,8 @@ public class TinyRemapper {
 		}
 
 		outputBuffer = null;
-		mrjClasses.clear();
+		defaultState.classes.clear();
+		mrjStates.clear();
 	}
 
 	public InputTag createInputTag() {
@@ -517,10 +519,6 @@ public class TinyRemapper {
 		return ret;
 	}
 
-	String mapClass(String className) {
-		return remapper.map(className);
-	}
-
 	private void loadMappings() {
 		MappingAcceptor acceptor = new MappingAcceptor() {
 			@Override
@@ -619,11 +617,11 @@ public class TinyRemapper {
 		}
 	}
 
-	private void merge() {
-		for (ClassInstance node : classes.values()) {
+	private void merge(MrjState state) {
+		for (ClassInstance node : state.classes.values()) {
 			assert node.getSuperName() != null;
 
-			ClassInstance parent = getClass(node.getSuperName());
+			ClassInstance parent = state.getClass(node.getSuperName());
 
 			if (parent != null) {
 				node.parents.add(parent);
@@ -631,7 +629,7 @@ public class TinyRemapper {
 			}
 
 			for (String iface : node.getInterfaces()) {
-				parent = getClass(iface);
+				parent = state.getClass(iface);
 
 				if (parent != null) {
 					node.parents.add(parent);
@@ -641,7 +639,7 @@ public class TinyRemapper {
 		}
 	}
 
-	private void propagate() {
+	private void propagate(MrjState state) {
 		List<Future<?>> futures = new ArrayList<>();
 		List<Map.Entry<String, String>> tasks = new ArrayList<>();
 		int maxTasks = methodMap.size() / threadCount / 4;
@@ -650,36 +648,36 @@ public class TinyRemapper {
 			tasks.add(entry);
 
 			if (tasks.size() >= maxTasks) {
-				futures.add(threadPool.submit(new Propagation(MemberType.METHOD, tasks)));
+				futures.add(threadPool.submit(new Propagation(state, MemberType.METHOD, tasks)));
 				tasks.clear();
 			}
 		}
 
-		futures.add(threadPool.submit(new Propagation(MemberType.METHOD, tasks)));
+		futures.add(threadPool.submit(new Propagation(state, MemberType.METHOD, tasks)));
 		tasks.clear();
 
 		for (Map.Entry<String, String> entry : fieldMap.entrySet()) {
 			tasks.add(entry);
 
 			if (tasks.size() >= maxTasks) {
-				futures.add(threadPool.submit(new Propagation(MemberType.FIELD, tasks)));
+				futures.add(threadPool.submit(new Propagation(state, MemberType.FIELD, tasks)));
 				tasks.clear();
 			}
 		}
 
-		futures.add(threadPool.submit(new Propagation(MemberType.FIELD, tasks)));
+		futures.add(threadPool.submit(new Propagation(state, MemberType.FIELD, tasks)));
 		tasks.clear();
 
 		waitForAll(futures);
 
-		handleConflicts();
+		handleConflicts(state);
 	}
 
-	private void handleConflicts() {
+	private void handleConflicts(MrjState state) {
 		Set<String> testSet = new HashSet<>();
 		boolean targetNameCheckFailed = false;
 
-		for (ClassInstance cls : classes.values()) {
+		for (ClassInstance cls : state.classes.values()) {
 			for (MemberInstance member : cls.getMembers()) {
 				String name = member.getNewMappedName();
 				if (name == null) name = member.name;
@@ -790,22 +788,22 @@ public class TinyRemapper {
 		synchronized (this) { // guard against concurrent apply invocations
 			refresh();
 
-			for (int version: mrjClasses.keySet()) {
-				mrjRefresh(version);
+			if (outputBuffer == null) { // first (inputTags present) or full (no input tags) output invocation, process everything but don't output if input tags are present
+				BiConsumer<ClassInstance, byte[]> immediateOutputConsumer;
 
-				if (outputBuffer == null) { // first (inputTags present) or full (no input tags) output invocation, process everything but don't output if input tags are present
-					BiConsumer<ClassInstance, byte[]> immediateOutputConsumer;
+				if (fixPackageAccess || hasInputTags) { // need re-processing or output buffering for repeated applies
+					outputBuffer = new ConcurrentHashMap<>();
+					immediateOutputConsumer = outputBuffer::put;
+				} else {
+					immediateOutputConsumer = (cls, data) -> outputConsumer.accept(ClassInstance.getMrjName(cls.getContext().remapper.map(cls.getName()), cls.getMrjVersion()), data);
+				}
 
-					if (fixPackageAccess || hasInputTags) { // need re-processing or output buffering for repeated applies
-						outputBuffer = new ConcurrentHashMap<>();
-						immediateOutputConsumer = outputBuffer::put;
-					} else {
-						immediateOutputConsumer = (cls, data) -> outputConsumer.accept(ClassInstance.getMrjName(mapClass(cls.getName()), cls.getMrjVersion()), data);
-					}
+				List<Future<?>> futures = new ArrayList<>();
 
-					List<Future<?>> futures = new ArrayList<>();
+				for (MrjState state : mrjStates.values()) {
+					mrjRefresh(state);
 
-					for (final ClassInstance cls : classes.values()) {
+					for (final ClassInstance cls : state.classes.values()) {
 						if (!cls.isInput) continue;
 
 						if (cls.data == null) {
@@ -815,49 +813,49 @@ public class TinyRemapper {
 
 						futures.add(threadPool.submit(() -> immediateOutputConsumer.accept(cls, apply(cls))));
 					}
-
-					waitForAll(futures);
-
-					boolean needsFixes = !classesToMakePublic.isEmpty() || !membersToMakePublic.isEmpty();
-
-					if (fixPackageAccess) {
-						if (needsFixes) {
-							System.out.printf("Fixing access for %d classes and %d members.%n", classesToMakePublic.size(), membersToMakePublic.size());
-						}
-
-						for (Map.Entry<ClassInstance, byte[]> entry : outputBuffer.entrySet()) {
-							ClassInstance cls = entry.getKey();
-							byte[] data = entry.getValue();
-
-							if (needsFixes) {
-								data = fixClass(cls, data);
-							}
-
-							if (hasInputTags) {
-								entry.setValue(data);
-							} else {
-								outputConsumer.accept(ClassInstance.getMrjName(mapClass(cls.getName()), cls.getMrjVersion()), data);
-							}
-						}
-
-						if (!hasInputTags) outputBuffer = null; // don't expect repeat invocations
-
-						classesToMakePublic.clear();
-						membersToMakePublic.clear();
-					} else if (needsFixes) {
-						throw new RuntimeException(String.format("%d classes and %d members need access fixes", classesToMakePublic.size(), membersToMakePublic.size()));
-					}
 				}
 
-				assert hasInputTags == (outputBuffer != null);
+				waitForAll(futures);
 
-				if (outputBuffer != null) { // partial output selected by input tags
+				boolean needsFixes = !classesToMakePublic.isEmpty() || !membersToMakePublic.isEmpty();
+
+				if (fixPackageAccess) {
+					if (needsFixes) {
+						System.out.printf("Fixing access for %d classes and %d members.%n", classesToMakePublic.size(), membersToMakePublic.size());
+					}
+
 					for (Map.Entry<ClassInstance, byte[]> entry : outputBuffer.entrySet()) {
 						ClassInstance cls = entry.getKey();
+						byte[] data = entry.getValue();
 
-						if (inputTags == null || cls.hasAnyInputTag(inputTags)) {
-							outputConsumer.accept(ClassInstance.getMrjName(mapClass(cls.getName()), cls.getMrjVersion()), entry.getValue());
+						if (needsFixes) {
+							data = fixClass(cls, data);
 						}
+
+						if (hasInputTags) {
+							entry.setValue(data);
+						} else {
+							outputConsumer.accept(ClassInstance.getMrjName(cls.getContext().remapper.map(cls.getName()), cls.getMrjVersion()), data);
+						}
+					}
+
+					if (!hasInputTags) outputBuffer = null; // don't expect repeat invocations
+
+					classesToMakePublic.clear();
+					membersToMakePublic.clear();
+				} else if (needsFixes) {
+					throw new RuntimeException(String.format("%d classes and %d members need access fixes", classesToMakePublic.size(), membersToMakePublic.size()));
+				}
+			}
+
+			assert hasInputTags == (outputBuffer != null);
+
+			if (outputBuffer != null) { // partial output selected by input tags
+				for (Map.Entry<ClassInstance, byte[]> entry : outputBuffer.entrySet()) {
+					ClassInstance cls = entry.getKey();
+
+					if (inputTags == null || cls.hasAnyInputTag(inputTags)) {
+						outputConsumer.accept(ClassInstance.getMrjName(cls.getContext().remapper.map(cls.getName()), cls.getMrjVersion()), entry.getValue());
 					}
 				}
 			}
@@ -868,26 +866,26 @@ public class TinyRemapper {
 	 * This function will setup {@code mrjClasses} with any new MRJ version
 	 * added. It will put the result of {@code constructMrjCopy} from lower
 	 * MRJ version to the new version.
-	 * @param versions the new versions that need to be added in to {@code mrjClasses}
+	 * @param newVersions the new versions that need to be added in to {@code mrjClasses}
 	 */
-	private void fixMrjClasses(Set<Integer> versions) {
+	private void fixMrjClasses(Set<Integer> newVersions) {
 		// ensure the new version is added from lowest to highest
-		for (int toVersion: versions.stream().sorted().collect(Collectors.toList())) {
-			Map<String, ClassInstance> toClasses = new HashMap<>();
+		for (int newVersion: newVersions.stream().sorted().collect(Collectors.toList())) {
+			MrjState newState = new MrjState(this, newVersion);
 
-			if (mrjClasses.put(toVersion, toClasses) != null) {
+			if (mrjStates.put(newVersion, newState) != null) {
 				throw new RuntimeException("internal error: duplicate versions in mrjClasses");
 			}
 
 			// find the fromVersion that just lower the the toVersion
-			Optional<Integer> fromVersion = mrjClasses.keySet().stream()
-					.filter(v -> v < toVersion).max(Integer::compare);
+			Optional<Integer> fromVersion = mrjStates.keySet().stream()
+					.filter(v -> v < newVersion).max(Integer::compare);
 
 			if (fromVersion.isPresent()) {
-				Map<String, ClassInstance> fromClasses = mrjClasses.get(fromVersion.get());
+				Map<String, ClassInstance> fromClasses = mrjStates.get(fromVersion.get()).classes;
 
 				for (ClassInstance cls: fromClasses.values()) {
-					addClass(cls.constructMrjCopy(), toClasses, false);
+					addClass(cls.constructMrjCopy(newState), newState.classes, false);
 				}
 			}
 		}
@@ -901,6 +899,8 @@ public class TinyRemapper {
 			return;
 		}
 
+		outputBuffer = null;
+
 		if (!pendingReads.isEmpty()) {
 			for (CompletableFuture<?> future : pendingReads) {
 				future.join();
@@ -912,17 +912,20 @@ public class TinyRemapper {
 		if (!readClasses.isEmpty()) {
 			// fix any new adding MRJ versions
 			Set<Integer> versions = readClasses.values().stream().map(ClassInstance::getMrjVersion).collect(Collectors.toSet());
-			versions.removeAll(mrjClasses.keySet());
+			versions.removeAll(mrjStates.keySet());
 			fixMrjClasses(versions);
 
 			for (ClassInstance cls : readClasses.values()) {
 				// TODO: this might be able to optimize, any suggestion?
 				int clsVersion = cls.getMrjVersion();
-				addClass(cls, mrjClasses.get(clsVersion), false);
+				MrjState state = mrjStates.get(clsVersion);
+				cls.setContext(state);
+				addClass(cls, state.classes, false);
 
-				for (int version: mrjClasses.keySet()) {
+				for (int version: mrjStates.keySet()) {
 					if (version > clsVersion) {
-						addClass(cls.constructMrjCopy(), mrjClasses.get(version), false);
+						MrjState newState = mrjStates.get(version);
+						addClass(cls.constructMrjCopy(newState), newState.classes, false);
 					}
 				}
 			}
@@ -937,15 +940,12 @@ public class TinyRemapper {
 		dirty = false;
 	}
 
-	private void mrjRefresh(int mrjVersion) {
-		classes = mrjClasses.get(mrjVersion);
-		outputBuffer = null;
+	private void mrjRefresh(MrjState state) {
+		assert new HashSet<>(state.classes.values()).size() == state.classes.size();
+		assert state.classes.values().stream().map(ClassInstance::getName).distinct().count() == state.classes.size();
 
-		assert new HashSet<>(classes.values()).size() == classes.size();
-		assert classes.values().stream().map(ClassInstance::getName).distinct().count() == classes.size();
-
-		merge();
-		propagate();
+		merge(state);
+		propagate(state);
 	}
 
 	private byte[] apply(final ClassInstance cls) {
@@ -960,7 +960,7 @@ public class TinyRemapper {
 			visitor = new CheckClassAdapter(visitor);
 		}
 
-		reader.accept(new AsmClassRemapper(visitor, remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals), flags);
+		reader.accept(new AsmClassRemapper(visitor, cls.getContext().remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals), flags);
 		// TODO: compute frames (-Xverify:all -XX:-FailOverToOldVerifier)
 
 		if (!keepInputData) cls.data = null;
@@ -976,13 +976,14 @@ public class TinyRemapper {
 			if (membersToMakePublic.contains(member)) {
 				if (clsMembersToMakePublic == null) clsMembersToMakePublic = new HashSet<>();
 
+				AsmRemapper remapper = cls.getContext().remapper;
 				String mappedName, mappedDesc;
 
 				if (member.type == MemberType.FIELD) {
-					mappedName = remapper.mapFieldName(cls.getName(), member.name, member.desc);
+					mappedName = remapper.mapFieldName(cls, member.name, member.desc);
 					mappedDesc = remapper.mapDesc(member.desc);
 				} else {
-					mappedName = remapper.mapMethodName(cls.getName(), member.name, member.desc);
+					mappedName = remapper.mapMethodName(cls, member.name, member.desc);
 					mappedDesc = remapper.mapMethodDesc(member.desc);
 				}
 
@@ -1034,11 +1035,7 @@ public class TinyRemapper {
 	public AsmRemapper getRemapper() {
 		refresh();
 
-		return remapper;
-	}
-
-	final ClassInstance getClass(String owner) {
-		return classes.get(owner);
+		return defaultState.remapper;
 	}
 
 	private static void waitForAll(Iterable<Future<?>> futures) {
@@ -1088,7 +1085,8 @@ public class TinyRemapper {
 	}
 
 	class Propagation implements Runnable {
-		Propagation(MemberType type, List<Map.Entry<String, String>> tasks) {
+		Propagation(MrjState state, MemberType type, List<Map.Entry<String, String>> tasks) {
+			this.state = state;
 			this.type = type;
 			this.tasks.addAll(tasks);
 		}
@@ -1100,7 +1098,7 @@ public class TinyRemapper {
 
 			for (Map.Entry<String, String> entry : tasks) {
 				String className = getClassName(entry.getKey(), type);
-				ClassInstance cls = TinyRemapper.this.getClass(className);
+				ClassInstance cls = state.getClass(className);
 				if (cls == null) continue; // not available for this Side
 
 				String idSrc = stripClassName(entry.getKey(), type);
@@ -1149,6 +1147,7 @@ public class TinyRemapper {
 			}
 		}
 
+		private final MrjState state;
 		private final MemberType type;
 		private final List<Map.Entry<String, String>> tasks = new ArrayList<>();
 	}
@@ -1170,6 +1169,25 @@ public class TinyRemapper {
 		 * Propagate names into methods and create additional bridges to keep the normally mapped method name intact.
 		 */
 		COMPATIBLE;
+	}
+
+	static final class MrjState {
+		MrjState(TinyRemapper tr, int version) {
+			Objects.requireNonNull(tr);
+
+			this.tr = tr;
+			this.version = version;
+			this.remapper = new AsmRemapper(this);
+		}
+
+		ClassInstance getClass(String owner) {
+			return classes.get(owner);
+		}
+
+		final TinyRemapper tr;
+		final int version;
+		final Map<String, ClassInstance> classes = new HashMap<>();
+		final AsmRemapper remapper;
 	}
 
 	private final boolean check = false;
@@ -1195,8 +1213,12 @@ public class TinyRemapper {
 	final List<CompletableFuture<?>> pendingReads = new ArrayList<>(); // reads that need to be waited for before continuing processing (assumes lack of external waiting)
 	final Map<String, ClassInstance> readClasses = new ConcurrentHashMap<>(); // classes being potentially concurrently read, to be transferred into unsynchronized classes later
 
-	Map<String, ClassInstance> classes = new HashMap<>();
-	final Map<Integer, Map<String, ClassInstance>> mrjClasses = new HashMap<>();
+	final MrjState defaultState = new MrjState(this, ClassInstance.MRJ_DEFAULT);
+	final Map<Integer, MrjState> mrjStates = new HashMap<>();
+
+	{
+		mrjStates.put(defaultState.version, defaultState);
+	}
 
 	final Map<String, String> classMap = new HashMap<>();
 	final Map<String, String> methodMap = new HashMap<>();
@@ -1209,7 +1231,6 @@ public class TinyRemapper {
 	final boolean ignoreFieldDesc;
 	private final int threadCount;
 	private final ExecutorService threadPool;
-	private final AsmRemapper remapper = new AsmRemapper(this);
 
 	private volatile boolean dirty = true; // volatile to make the state debug asserts more reliable, shouldn't actually see concurrent modifications
 	private Map<ClassInstance, byte[]> outputBuffer;

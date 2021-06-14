@@ -37,12 +37,13 @@ import org.objectweb.asm.Opcodes;
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
+import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
 
 public final class ClassInstance {
-	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
+	ClassInstance(TinyRemapper tr, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
 		assert !isInput || data != null;
 
-		this.context = context;
+		this.tr = tr;
 		this.isInput = isInput;
 		this.inputTags = inputTags;
 		this.srcPath = srcFile;
@@ -56,6 +57,14 @@ public final class ClassInstance {
 		this.superName = superName;
 		this.access = access;
 		this.interfaces = interfaces;
+	}
+
+	void setContext(MrjState context) {
+		this.context = context;
+	}
+
+	MrjState getContext() {
+		return context;
 	}
 
 	MemberInstance addMember(MemberInstance member) {
@@ -288,7 +297,7 @@ public final class ClassInstance {
 	 *
 	 * <p>Primitive types including void need to be identical to match.
 	 */
-	static boolean isAssignableFrom(String superDesc, int superDescStart, String subDesc, int subDescStart, TinyRemapper context) {
+	static boolean isAssignableFrom(String superDesc, int superDescStart, String subDesc, int subDescStart, MrjState context) {
 		char superType = superDesc.charAt(superDescStart);
 		char subType = subDesc.charAt(subDescStart);
 
@@ -477,7 +486,7 @@ public final class ClassInstance {
 	}
 
 	public MemberInstance resolvePartial(MemberType type, String name, String descPrefix) {
-		String idPrefix = MemberInstance.getId(type, name, descPrefix != null ? descPrefix : "", context.ignoreFieldDesc);
+		String idPrefix = MemberInstance.getId(type, name, descPrefix != null ? descPrefix : "", tr.ignoreFieldDesc);
 		boolean isField = type == MemberType.FIELD;
 
 		MemberInstance member = getMemberPartial(type, idPrefix);
@@ -593,10 +602,11 @@ public final class ClassInstance {
 		return ret;
 	}
 
-	ClassInstance constructMrjCopy() {
+	ClassInstance constructMrjCopy(MrjState newContext) {
 		// isInput should be false, since the MRJ copy should not be emitted
-		ClassInstance copy = new ClassInstance(context, false, inputTags, srcPath, data);
+		ClassInstance copy = new ClassInstance(tr, false, inputTags, srcPath, data);
 		copy.init(name, mrjVersion, superName, access, interfaces);
+		copy.setContext(newContext);
 
 		for (MemberInstance member : members.values()) {
 			copy.addMember(new MemberInstance(member.type, copy, member.name, member.desc, member.access));
@@ -627,7 +637,9 @@ public final class ClassInstance {
 	private static final MemberInstance nullMember = new MemberInstance(null, null, null, null, 0);
 	private static final AtomicReferenceFieldUpdater<ClassInstance, InputTag[]> inputTagsUpdater = AtomicReferenceFieldUpdater.newUpdater(ClassInstance.class, InputTag[].class, "inputTags");
 
-	final TinyRemapper context;
+	final TinyRemapper tr;
+	private MrjState context;
+
 	final boolean isInput;
 	private volatile InputTag[] inputTags; // cow input tag list, null for none
 	final Path srcPath;

@@ -68,10 +68,10 @@ public class MetaInfFixer implements OutputConsumerPath.ResourceRemapper {
 				|| fileName.startsWith("SIG-");
 	}
 
-	private static String mapFullyQualifiedClassName(String name, TinyRemapper remapper) {
+	private static String mapFullyQualifiedClassName(String name, TinyRemapper tr) {
 		assert name.indexOf('/') < 0;
 
-		return remapper.mapClass(name.replace('.', '/')).replace('/', '.');
+		return tr.defaultState.remapper.map(name.replace('.', '/')).replace('/', '.');
 	}
 
 	private static void fixManifest(Manifest manifest, TinyRemapper remapper) {
