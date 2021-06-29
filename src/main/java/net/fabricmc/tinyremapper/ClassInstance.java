@@ -41,10 +41,12 @@ import net.fabricmc.tinyremapper.api.ClassHeader;
 import net.fabricmc.tinyremapper.api.Classpath;
 import net.fabricmc.tinyremapper.api.MemberHeader;
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
+import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
 
 public final class ClassInstance implements ClassHeader {
-	ClassInstance(TinyRemapper context, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
-		this.context = context;
+	ClassInstance(TinyRemapper tr, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
+		assert !isInput || data != null;
+		this.tr = tr;
 		this.isInput = isInput;
 		this.inputTags = inputTags;
 		this.srcPath = srcFile;
@@ -59,6 +61,14 @@ public final class ClassInstance implements ClassHeader {
 		this.signature = sign;
 		this.access = access;
 		this.interfaces = interfaces;
+	}
+
+	void setContext(MrjState context) {
+		this.context = context;
+	}
+
+	MrjState getContext() {
+		return context;
 	}
 
 	MemberInstance addMember(MemberInstance member) {
@@ -149,7 +159,9 @@ public final class ClassInstance implements ClassHeader {
 		return name;
 	}
 
-	public int getMrjVersion() { return mrjVersion; }
+	public int getMrjVersion() {
+		return mrjVersion;
+	}
 
     @Override
 	public String getSuperName() {
@@ -201,7 +213,9 @@ public final class ClassInstance implements ClassHeader {
 		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
 	}
 
-	public boolean isMrjCopy() { return mrjOrigin != this; }
+	public boolean isMrjCopy() {
+		return mrjOrigin != this;
+	}
 
 	public String[] getInterfaces() {
 		return interfaces;
@@ -215,7 +229,9 @@ public final class ClassInstance implements ClassHeader {
 		return members.get(id);
 	}
 
-	public ClassInstance getMrjOrigin() { return mrjOrigin; }
+	public ClassInstance getMrjOrigin() {
+		return mrjOrigin;
+	}
 
 	/**
 	 * Rename the member src to dst and continue propagating in dir.
@@ -330,7 +346,7 @@ public final class ClassInstance implements ClassHeader {
 	 *
 	 * <p>Primitive types including void need to be identical to match.
 	 */
-	static boolean isAssignableFrom(String superDesc, int superDescStart, String subDesc, int subDescStart, TinyRemapper context) {
+	static boolean isAssignableFrom(String superDesc, int superDescStart, String subDesc, int subDescStart, MrjState context) {
 		char superType = superDesc.charAt(superDescStart);
 		char subType = subDesc.charAt(subDescStart);
 
@@ -378,10 +394,10 @@ public final class ClassInstance implements ClassHeader {
 		String superName = superDesc.substring(superDescStart, superDescEnd);
 		String subName = subDesc.substring(subDescStart, subDescEnd);
 
-		ClassInstance superCls = context.classes.get(superName);
+		ClassInstance superCls = context.getClass(superName);
 		if (superCls != null && superCls.children.isEmpty()) return false;
 
-		ClassInstance subCls = context.classes.get(subName);
+		ClassInstance subCls = context.getClass(subName);
 
 		if (subCls != null) { // sub class known, search upwards
 			if (superCls == null || superCls.isInterface()) {
@@ -405,7 +421,7 @@ public final class ClassInstance implements ClassHeader {
 					if (curSuperName.equals(superName)) return true;
 					if (curSuperName.equals(objectClassName)) return false;
 
-					subCls = context.classes.get(curSuperName);
+					subCls = context.getClass(curSuperName);
 				} while (subCls != null);
 			}
 		} else if (superCls != null) { // only super class known, search down
@@ -519,7 +535,7 @@ public final class ClassInstance implements ClassHeader {
 	}
 
 	public MemberInstance resolvePartial(MemberType type, String name, String descPrefix) {
-		String idPrefix = MemberInstance.getId(type, name, descPrefix != null ? descPrefix : "", context.ignoreFieldDesc);
+		String idPrefix = MemberInstance.getId(type, name, descPrefix != null ? descPrefix : "", tr.ignoreFieldDesc);
 		boolean isField = type == MemberType.FIELD;
 
 		MemberInstance member = getMemberPartial(type, idPrefix);
@@ -635,12 +651,16 @@ public final class ClassInstance implements ClassHeader {
 		return ret;
 	}
 
-	ClassInstance constructMrjCopy() {
+	ClassInstance constructMrjCopy(MrjState newContext) {
 		// isInput should be false, since the MRJ copy should not be emitted
-		ClassInstance copy = new ClassInstance(context, false, inputTags, srcPath, data);
-		copy.init(mrjVersion, name, signature, superName, access, interfaces);
-		members.values().forEach(member ->
-				copy.addMember(new MemberInstance(member.type, copy, member.name, member.desc, member.access)));
+		ClassInstance copy = new ClassInstance(tr, false, inputTags, srcPath, data);
+		copy.init(name, mrjVersion, superName, access, interfaces);
+		copy.setContext(newContext);
+
+		for (MemberInstance member : members.values()) {
+			copy.addMember(new MemberInstance(member.type, copy, member.name, member.desc, member.access));
+		}
+
 		// set the origin
 		copy.mrjOrigin = mrjOrigin;
 		return copy;
@@ -666,7 +686,9 @@ public final class ClassInstance implements ClassHeader {
 	private static final MemberInstance nullMember = new MemberInstance(null, null, null, null, 0);
 	private static final AtomicReferenceFieldUpdater<ClassInstance, InputTag[]> inputTagsUpdater = AtomicReferenceFieldUpdater.newUpdater(ClassInstance.class, InputTag[].class, "inputTags");
 
-	final TinyRemapper context;
+	final TinyRemapper tr;
+	private MrjState context;
+
 	final boolean isInput;
 	private volatile InputTag[] inputTags; // cow input tag list, null for none
 	final Path srcPath;

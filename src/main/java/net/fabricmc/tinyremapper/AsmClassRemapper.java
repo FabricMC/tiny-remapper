@@ -50,7 +50,7 @@ import net.fabricmc.tinyremapper.api.ClassHeader;
 import net.fabricmc.tinyremapper.api.MemberHeader;
 
 final class AsmClassRemapper extends VisitTrackingClassRemapper {
-	public AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper, boolean rebuildSourceFilenames, boolean checkPackageAccess, boolean skipLocalMapping, boolean renameInvalidLocals) {
+	AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper, boolean rebuildSourceFilenames, boolean checkPackageAccess, boolean skipLocalMapping, boolean renameInvalidLocals) {
 		super(cv, remapper);
 		this.rebuildSourceFilenames = rebuildSourceFilenames;
 		this.checkPackageAccess = checkPackageAccess;
@@ -147,7 +147,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	}
 
 	public static AnnotationRemapper createAsmAnnotationRemapper(String desc, AnnotationVisitor annotationVisitor, Remapper remapper) {
-		return annotationVisitor == null ? null : new AsmAnnotationRemapper(annotationVisitor, remapper, desc);
+		return annotationVisitor == null ? null : new AsmAnnotationRemapper(desc, annotationVisitor, remapper, desc);
 	}
 
 	@Override
@@ -203,7 +203,6 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 				boolean renameInvalidLocals,
 				MemberHeader header) {
 			super(methodNode != null ? methodNode : methodVisitor, remapper);
-
 			this.owner = owner;
 			this.methodNode = methodNode;
 			this.output = methodVisitor;
@@ -302,8 +301,8 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 				bootstrapMethodArguments[i] = remapper.mapValue(bootstrapMethodArguments[i]);
 			}
 
-			mv.visitInvokeDynamicInsn( // bypass remapper
-					name,
+			// bypass remapper
+			mv.visitInvokeDynamicInsn(name,
 					remapper.mapMethodDesc(descriptor), (Handle) remapper.mapValue(bootstrapMethodHandle),
 					bootstrapMethodArguments);
 		}
@@ -638,9 +637,10 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 				 * other variable which already has that name, e.g.:
 				 * (MyClass ?, MyClass2 ?, MyClass ?) -> (MyClass myClass, MyClass2 myClass2, !myClass2 is already taken!)
 				 */
-				for (;nameCounts.putIfAbsent(varName, 1) != null; count++) {
-					varName = baseVarName + Integer.toString(count);
+				while (nameCounts.putIfAbsent(varName, 1) != null) {
+					varName = baseVarName + Integer.toString(count++);
 				}
+
 				nameCounts.put(baseVarName, count); // update name count
 
 				return varName;
@@ -711,8 +711,8 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	}
 
 	private static class AsmAnnotationRemapper extends AnnotationRemapper {
-		public AsmAnnotationRemapper(AnnotationVisitor annotationVisitor, Remapper remapper, String annotationDesc) {
-			super(annotationVisitor, remapper);
+		AsmAnnotationRemapper(String descriptor, AnnotationVisitor annotationVisitor, Remapper remapper, String annotationDesc) {
+			super(descriptor, annotationVisitor, remapper);
 
 			annotationClass = Type.getType(annotationDesc).getInternalName();
 		}

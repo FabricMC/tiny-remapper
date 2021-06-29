@@ -1,13 +1,14 @@
 plugins {
 	id 'java'
 	id 'maven-publish'
+	id 'checkstyle'
 	id 'com.github.johnrengelman.shadow' version '6.1.0'
 }
 
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
-version = '0.3.2'
+version = '0.4.2'
 
 def ENV = System.getenv()
 version = version + (ENV.GITHUB_ACTIONS ? "" : "+local")
@@ -24,10 +25,10 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.ow2.asm:asm:9.0'
-	implementation 'org.ow2.asm:asm-commons:9.0'
-	implementation 'org.ow2.asm:asm-tree:9.0'
-	implementation 'org.ow2.asm:asm-util:9.0'
+	implementation 'org.ow2.asm:asm:9.1'
+	implementation 'org.ow2.asm:asm-commons:9.1'
+	implementation 'org.ow2.asm:asm-tree:9.1'
+	implementation 'org.ow2.asm:asm-util:9.1'
 
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.6.2'
 }
@@ -63,6 +64,11 @@ jar {
 					'Implementation-Version': archiveVersion,
 					'Main-Class': "net.fabricmc.tinyremapper.Main"
 	}
+}
+
+checkstyle {
+	configFile = file("checkstyle.xml")
+	toolVersion = '8.31'
 }
 
 publishing {

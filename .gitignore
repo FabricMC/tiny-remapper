@@ -5,8 +5,10 @@
 /.settings/
 /.classpath
 /.project
+/.checkstyle
 /.gradle
 *.jar
 *.tiny
 .idea/
 !src/test/resources/**
+/tiny-remapper/

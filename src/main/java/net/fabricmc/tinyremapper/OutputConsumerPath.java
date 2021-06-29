@@ -17,14 +17,11 @@
 
 package net.fabricmc.tinyremapper;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
+import java.io.BufferedInputStream;
 import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -36,18 +33,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
-import java.util.jar.Attributes;
-import java.util.jar.Manifest;
 
 public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable {
 	public static class Builder {
@@ -137,11 +131,15 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 	}
 
 	public void addNonClassFiles(Path srcFile, NonClassCopyMode copyMode, TinyRemapper remapper) throws IOException {
+		this.addNonClassFiles(srcFile, remapper, copyMode.remappers);
+	}
+
+	public void addNonClassFiles(Path srcFile, TinyRemapper remapper, List<ResourceRemapper> remappers) throws IOException {
 		if (Files.isDirectory(srcFile)) {
-			addNonClassFiles(srcFile, copyMode, remapper, false);
+			addNonClassFiles(srcFile, remapper, false, remappers);
 		} else if (Files.exists(srcFile)) {
 			if (!srcFile.getFileName().toString().endsWith(classSuffix)) {
-				addNonClassFiles(FileSystems.newFileSystem(srcFile, (ClassLoader) null).getPath("/"), copyMode, remapper, true);
+				addNonClassFiles(FileSystems.newFileSystem(srcFile, (ClassLoader) null).getPath("/"), remapper, true, remappers);
 			}
 		} else {
 			throw new FileNotFoundException("file "+srcFile+" doesn't exist");
@@ -149,6 +147,10 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 	}
 
 	public void addNonClassFiles(Path srcDir, NonClassCopyMode copyMode, TinyRemapper remapper, boolean closeFs) throws IOException {
+		this.addNonClassFiles(srcDir, remapper, closeFs, copyMode.remappers);
+	}
+
+	public void addNonClassFiles(Path srcDir, TinyRemapper remapper, boolean closeFs, List<ResourceRemapper> resourceRemappers) throws IOException {
 		try {
 			if (lock != null) lock.lock();
 			if (closed) throw new IllegalStateException("consumer already closed");
@@ -162,37 +164,17 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 						Path relativePath = srcDir.relativize(file);
 						Path dstFile = dstDir.resolve(relativePath.toString()); // toString bypasses resolve requiring identical fs providers
 
-						if (copyMode == NonClassCopyMode.UNCHANGED
-								|| !relativePath.startsWith("META-INF")
-								|| copyMode == NonClassCopyMode.SKIP_META_INF && relativePath.getNameCount() != 2) { // allow sub-folders of META-INF
-							createParentDirs(dstFile);
-							Files.copy(file, dstFile, StandardCopyOption.REPLACE_EXISTING);
-						} else if (copyMode == NonClassCopyMode.FIX_META_INF && !shouldStripForFixMeta(relativePath)) {
-							createParentDirs(dstFile);
-
-							if (fileName.equals("MANIFEST.MF")) {
-								Manifest manifest;
-
-								try (InputStream is = Files.newInputStream(file)) {
-									manifest = new Manifest(is);
+						for (ResourceRemapper resourceRemapper : resourceRemappers) {
+							if (resourceRemapper.canTransform(remapper, relativePath)) {
+								try (InputStream input = new BufferedInputStream(Files.newInputStream(file))) {
+									resourceRemapper.transform(dstDir, relativePath, input, remapper);
+									return FileVisitResult.CONTINUE;
 								}
-
-								fixManifest(manifest, remapper);
-
-								try (OutputStream os = new BufferedOutputStream(Files.newOutputStream(dstFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE))) {
-									manifest.write(os);
-								}
-							} else if (remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services")) {
-								fileName = mapFullyQualifiedClassName(fileName, remapper);
-
-								try (BufferedReader reader = Files.newBufferedReader(file);
-										BufferedWriter writer = Files.newBufferedWriter(dstFile.getParent().resolve(fileName), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
-									fixServiceDecl(reader, writer, remapper);
-								}
-							} else {
-								Files.copy(file, dstFile, StandardCopyOption.REPLACE_EXISTING);
 							}
 						}
+
+						createParentDirs(dstFile);
+						Files.copy(file, dstFile, StandardCopyOption.REPLACE_EXISTING);
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -202,87 +184,6 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 			if (lock != null) lock.unlock();
 
 			if (closeFs) srcDir.getFileSystem().close();
-		}
-	}
-
-	private static boolean shouldStripForFixMeta(Path file) {
-		if (file.getNameCount() != 2) return false; // not directly inside META-INF dir
-
-		assert file.getName(0).toString().equals("META-INF");
-
-		String fileName = file.getFileName().toString();
-
-		// https://docs.oracle.com/en/java/javase/12/docs/specs/jar/jar.html#signed-jar-file
-		return fileName.endsWith(".SF")
-				|| fileName.endsWith(".DSA")
-				|| fileName.endsWith(".RSA")
-				|| fileName.startsWith("SIG-");
-	}
-
-	private static String mapFullyQualifiedClassName(String name, TinyRemapper remapper) {
-		assert name.indexOf('/') < 0;
-
-		return remapper.mapClass(name.replace('.', '/')).replace('/', '.');
-	}
-
-	private static void fixManifest(Manifest manifest, TinyRemapper remapper) {
-		Attributes mainAttrs = manifest.getMainAttributes();
-
-		if (remapper != null) {
-			String val = mainAttrs.getValue(Attributes.Name.MAIN_CLASS);
-			if (val != null) mainAttrs.put(Attributes.Name.MAIN_CLASS, mapFullyQualifiedClassName(val, remapper));
-
-			val = mainAttrs.getValue("Launcher-Agent-Class");
-			if (val != null) mainAttrs.put("Launcher-Agent-Class", mapFullyQualifiedClassName(val, remapper));
-		}
-
-		mainAttrs.remove(Attributes.Name.SIGNATURE_VERSION);
-
-		for (Iterator<Attributes> it = manifest.getEntries().values().iterator(); it.hasNext(); ) {
-			Attributes attrs = it.next();
-
-			for (Iterator<Object> it2 = attrs.keySet().iterator(); it2.hasNext(); ) {
-				Attributes.Name attrName = (Attributes.Name) it2.next();
-				String name = attrName.toString();
-
-				if (name.endsWith("-Digest") || name.contains("-Digest-") || name.equals("Magic")) {
-					it2.remove();
-				}
-			}
-
-			if (attrs.isEmpty()) it.remove();
-		}
-	}
-
-	private static void fixServiceDecl(BufferedReader reader, BufferedWriter writer, TinyRemapper remapper) throws IOException {
-		String line;
-
-		while ((line = reader.readLine()) != null) {
-			int end = line.indexOf('#');
-			if (end < 0) end = line.length();
-
-			// trim start+end to skip ' ' and '\t'
-
-			int start = 0;
-			char c;
-
-			while (start < end && ((c = line.charAt(start)) == ' ' || c == '\t')) {
-				start++;
-			}
-
-			while (end > start && ((c = line.charAt(end - 1)) == ' ' || c == '\t')) {
-				end--;
-			}
-
-			if (start == end) {
-				writer.write(line);
-			} else {
-				writer.write(line, 0, start);
-				writer.write(mapFullyQualifiedClassName(line.substring(start, end), remapper));
-				writer.write(line, end, line.length() - end);
-			}
-
-			writer.newLine();
 		}
 	}
 
@@ -353,4 +254,10 @@ public class OutputConsumerPath implements BiConsumer<String, byte[]>, Closeable
 	private final Lock lock;
 	private final Predicate<String> classNameFilter;
 	private boolean closed;
+
+	public interface ResourceRemapper {
+		boolean canTransform(TinyRemapper remapper, Path relativePath);
+
+		void transform(Path destinationDirectory, Path relativePath, InputStream input, TinyRemapper remapper) throws IOException;
+	}
 }
