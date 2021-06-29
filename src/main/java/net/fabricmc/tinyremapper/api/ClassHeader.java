@@ -16,12 +16,12 @@ public interface ClassHeader {
 	List<String> getInterfaceList();
 
 	/**
-	 * get field by name and descriptor, this is not cached
+	 * get field by name and descriptor, this is not cached.
 	 */
 	MemberHeader getField(String name, String desc);
 
 	/**
-	 * get method by name and descriptor, this is not cached
+	 * get method by name and descriptor, this is not cached.
 	 */
 	MemberHeader getMethod(String name, String desc);
 

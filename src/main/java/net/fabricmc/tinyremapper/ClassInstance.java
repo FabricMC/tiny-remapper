@@ -163,7 +163,7 @@ public final class ClassInstance implements ClassHeader {
 		return mrjVersion;
 	}
 
-    @Override
+	@Override
 	public String getSuperName() {
 		return superName;
 	}
@@ -176,18 +176,22 @@ public final class ClassInstance implements ClassHeader {
 	@Override
 	public MemberHeader getField(String name, String desc) {
 		MemberInstance instance = this.resolvedMembers.get(MemberInstance.getFieldId(name, desc, false));
-		if(instance != null) {
+
+		if (instance != null) {
 			return new MemberHeader(this, instance.access, instance.name, instance.desc);
 		}
+
 		return null;
 	}
 
 	@Override
 	public MemberHeader getMethod(String name, String desc) {
 		MemberInstance instance = this.resolvedMembers.get(MemberInstance.getMethodId(name, desc));
-		if(instance != null) {
+
+		if (instance != null) {
 			return new MemberHeader(this, instance.access, instance.name, instance.desc);
 		}
+
 		return null;
 	}
 

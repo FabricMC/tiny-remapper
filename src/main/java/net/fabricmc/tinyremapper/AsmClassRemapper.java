@@ -18,8 +18,6 @@
 package net.fabricmc.tinyremapper;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -46,7 +44,6 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.ParameterNode;
 
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
-import net.fabricmc.tinyremapper.api.ClassHeader;
 import net.fabricmc.tinyremapper.api.MemberHeader;
 
 final class AsmClassRemapper extends VisitTrackingClassRemapper {
@@ -100,7 +97,6 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	@Override
 	public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
 		MemberHeader header = null;
-		if(this.header != null) header = new MemberHeader(this.header, access, name, descriptor);
 
 		if (checkPackageAccess) {
 			PackageAccessChecker.checkDesc(className, descriptor, "field descriptor", (AsmRemapper) remapper);
@@ -121,10 +117,8 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 		MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
 		MemberHeader header = null;
-		if(this.header != null) header = new MemberHeader(this.header, access, name, descriptor);
 		return new AsmMethodRemapper(mv, remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals, header);
 	}
-
 
 	@Override
 	protected FieldVisitor createFieldRemapper(FieldVisitor fieldVisitor) {
@@ -170,10 +164,9 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	private final boolean renameInvalidLocals;
 	private boolean sourceNameVisited;
 	private MethodNode methodNode;
-	private ClassHeader header;
 
 	private static class AsmFieldRemapper extends FieldRemapper {
-		public AsmFieldRemapper(FieldVisitor fieldVisitor,
+		AsmFieldRemapper(FieldVisitor fieldVisitor,
 				Remapper remapper,
 				MemberHeader header) {
 			super(fieldVisitor, remapper);
@@ -194,7 +187,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	}
 
 	private static class AsmMethodRemapper extends MethodRemapper {
-		public AsmMethodRemapper(MethodVisitor methodVisitor,
+		AsmMethodRemapper(MethodVisitor methodVisitor,
 				Remapper remapper,
 				String owner,
 				MethodNode methodNode,
@@ -211,7 +204,6 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 			this.renameInvalidLocals = renameInvalidLocals;
 			this.header = header;
 		}
-
 
 		@Override
 		public AnnotationVisitor visitAnnotationDefault() {

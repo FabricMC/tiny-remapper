@@ -68,8 +68,6 @@ import net.fabricmc.tinyremapper.api.Classpath;
 import net.fabricmc.tinyremapper.api.WrapperFunction;
 
 public class TinyRemapper implements Classpath {
-
-
 	public static class Builder {
 		private Builder() { }
 
@@ -976,13 +974,13 @@ public class TinyRemapper implements Classpath {
 			visitor = new CheckClassAdapter(visitor);
 		}
 
-		if(post != null) {
+		if (post != null) {
 			visitor = post.wrap(visitor, this.getRemapper(), this);
 		}
 
 		visitor = new AsmClassRemapper(visitor, cls.getContext().remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
 
-		if(pre != null) {
+		if (pre != null) {
 			visitor = pre.wrap(visitor, this.getRemapper(), this);
 		}
 
@@ -1068,7 +1066,7 @@ public class TinyRemapper implements Classpath {
 	public String mapType(String internalName) {
 		return this.getRemapper().mapType(internalName);
 	}
-  
+
 	ClassInstance getClass(String owner) {
 		return this.defaultState.classes.get(owner);
 	}

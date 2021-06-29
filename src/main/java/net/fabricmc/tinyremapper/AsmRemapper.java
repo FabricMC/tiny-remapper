@@ -18,13 +18,11 @@
 package net.fabricmc.tinyremapper;
 
 import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.commons.Remapper;
 
 import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
-
-import net.fabricmc.tinyremapper.api.ExtendedRemapper;
 import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
+import net.fabricmc.tinyremapper.api.ExtendedRemapper;
 
 class AsmRemapper extends ExtendedRemapper {
 	AsmRemapper(MrjState context) {

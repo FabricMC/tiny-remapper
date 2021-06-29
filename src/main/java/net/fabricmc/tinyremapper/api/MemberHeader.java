@@ -19,6 +19,7 @@ public class MemberHeader {
 		if (this == o) {
 			return true;
 		}
+
 		if (!(o instanceof MemberHeader)) {
 			return false;
 		}
@@ -28,6 +29,7 @@ public class MemberHeader {
 		if (this.access != header1.access) {
 			return false;
 		}
+
 		return Objects.equals(this.header, header1.header) && Objects.equals(this.name, header1.name) && Objects.equals(this.desc, header1.desc);
 	}
 
