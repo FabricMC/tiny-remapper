@@ -146,7 +146,7 @@ public final class ClassInstance implements ClassHeader {
 
 	@Override
 	public Classpath getClasspath() {
-		return this.context;
+		return this.tr;
 	}
 
 	@Override
@@ -654,7 +654,7 @@ public final class ClassInstance implements ClassHeader {
 	ClassInstance constructMrjCopy(MrjState newContext) {
 		// isInput should be false, since the MRJ copy should not be emitted
 		ClassInstance copy = new ClassInstance(tr, false, inputTags, srcPath, data);
-		copy.init(name, mrjVersion, superName, access, interfaces);
+		copy.init(mrjVersion, name, signature, superName, access, interfaces);
 		copy.setContext(newContext);
 
 		for (MemberInstance member : members.values()) {

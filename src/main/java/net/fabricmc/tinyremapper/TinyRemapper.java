@@ -980,7 +980,7 @@ public class TinyRemapper implements Classpath {
 			visitor = post.wrap(visitor, this.getRemapper(), this);
 		}
 
-		visitor = new AsmClassRemapper(visitor, cls.getContext().remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals), flags);
+		visitor = new AsmClassRemapper(visitor, cls.getContext().remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
 
 		if(pre != null) {
 			visitor = pre.wrap(visitor, this.getRemapper(), this);
@@ -1070,7 +1070,7 @@ public class TinyRemapper implements Classpath {
 	}
   
 	ClassInstance getClass(String owner) {
-		return classes.get(owner);
+		return this.defaultState.classes.get(owner);
 	}
 
 	private static void waitForAll(Iterable<Future<?>> futures) {
@@ -1208,7 +1208,7 @@ public class TinyRemapper implements Classpath {
 
 	@Override
 	public ClassHeader getByName(String internalName) {
-		return this.classes.get(internalName);
+		return this.defaultState.classes.get(internalName);
 	}
 
 	static final class MrjState {
@@ -1271,7 +1271,6 @@ public class TinyRemapper implements Classpath {
 	final boolean ignoreFieldDesc;
 	private final int threadCount;
 	private final ExecutorService threadPool;
-	private final AsmRemapper remapper = new AsmRemapper(this);
 	final WrapperFunction pre, post;
 
 	private volatile boolean dirty = true; // volatile to make the state debug asserts more reliable, shouldn't actually see concurrent modifications
