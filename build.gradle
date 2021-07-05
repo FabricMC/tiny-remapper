@@ -18,10 +18,6 @@ archivesBaseName = 'tiny-remapper'
 
 repositories {
 	mavenCentral()
-	maven {
-		name = 'fabric'
-		url = 'https://maven.fabricmc.net/'
-	}
 }
 
 dependencies {

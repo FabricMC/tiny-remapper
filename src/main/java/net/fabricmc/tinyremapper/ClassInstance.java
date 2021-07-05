@@ -175,7 +175,7 @@ public final class ClassInstance implements ClassHeader {
 
 	@Override
 	public MemberHeader getField(String name, String desc) {
-		MemberInstance instance = this.resolvedMembers.get(MemberInstance.getFieldId(name, desc, false));
+		MemberInstance instance = this.resolvedMembers.get(MemberInstance.getFieldId(name, desc, desc == null));
 
 		if (instance != null) {
 			return new MemberHeader(this, instance.access, instance.name, instance.desc);

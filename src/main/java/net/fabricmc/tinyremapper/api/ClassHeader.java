@@ -17,6 +17,7 @@ public interface ClassHeader {
 
 	/**
 	 * get field by name and descriptor, this is not cached.
+	 * @param desc can be null
 	 */
 	MemberHeader getField(String name, String desc);
 
