@@ -169,8 +169,8 @@ public class TinyRemapper implements Classpath {
 			return this;
 		}
 
-		public Builder extraPostVisitor(WrapperFunction function) {
-			this.post = function;
+		public Builder extraPostVisitor(WrapperFunction func) {
+			this.post = func;
 			return this;
 		}
 
