@@ -96,13 +96,12 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 	@Override
 	public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
-		MemberHeader header = null;
 
 		if (checkPackageAccess) {
 			PackageAccessChecker.checkDesc(className, descriptor, "field descriptor", (AsmRemapper) remapper);
 		}
 
-		return new AsmFieldRemapper(super.visitField(access, name, descriptor, signature, value), remapper, header);
+		return new AsmFieldRemapper(super.visitField(access, name, descriptor, signature, value), remapper);
 	}
 
 	@Override
@@ -116,8 +115,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		}
 
 		MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
-		MemberHeader header = null;
-		return new AsmMethodRemapper(mv, remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals, header);
+		return new AsmMethodRemapper(mv, remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
 	}
 
 	@Override
@@ -167,10 +165,8 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 	private static class AsmFieldRemapper extends FieldRemapper {
 		AsmFieldRemapper(FieldVisitor fieldVisitor,
-				Remapper remapper,
-				MemberHeader header) {
+				Remapper remapper) {
 			super(fieldVisitor, remapper);
-			this.header = header;
 		}
 
 		@Override
@@ -183,7 +179,6 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 			return createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
 		}
 
-		final MemberHeader header;
 	}
 
 	private static class AsmMethodRemapper extends MethodRemapper {
@@ -193,8 +188,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 				MethodNode methodNode,
 				boolean checkPackageAccess,
 				boolean skipLocalMapping,
-				boolean renameInvalidLocals,
-				MemberHeader header) {
+				boolean renameInvalidLocals) {
 			super(methodNode != null ? methodNode : methodVisitor, remapper);
 			this.owner = owner;
 			this.methodNode = methodNode;
@@ -202,7 +196,6 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 			this.checkPackageAccess = checkPackageAccess;
 			this.skipLocalMapping = skipLocalMapping;
 			this.renameInvalidLocals = renameInvalidLocals;
-			this.header = header;
 		}
 
 		@Override
@@ -699,7 +692,6 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		private final boolean checkPackageAccess;
 		private final boolean skipLocalMapping;
 		private final boolean renameInvalidLocals;
-		final MemberHeader header;
 	}
 
 	private static class AsmAnnotationRemapper extends AnnotationRemapper {
