@@ -16,9 +16,11 @@ public interface WrapperFunction {
 	static WrapperFunction combine(Iterable<WrapperFunction> functions) {
 		return (visitor, remapper, classpath) -> {
 			ClassVisitor current = visitor;
-			for(WrapperFunction function : functions) {
+
+			for (WrapperFunction function : functions) {
 				current = function.wrap(current, remapper, classpath);
 			}
+
 			return current;
 		};
 	}

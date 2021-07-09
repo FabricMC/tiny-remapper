@@ -975,6 +975,7 @@ public class TinyRemapper implements Classpath {
 		}
 
 		AsmRemapper remapper = cls.getContext().remapper;
+
 		if (post != null) {
 			visitor = post.wrap(visitor, remapper, this);
 		}
