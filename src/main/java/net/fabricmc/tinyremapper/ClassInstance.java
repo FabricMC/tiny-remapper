@@ -19,6 +19,7 @@ package net.fabricmc.tinyremapper;
 
 import java.nio.file.Path;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -26,6 +27,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -218,15 +220,16 @@ public final class ClassInstance {
 		 * different branches of the hierarchy tree that were not visited before may access it.
 		 */
 
-		if (dir == Direction.ANY || dir == Direction.UP || isVirtual && member != null && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0) {
+		boolean trueVirtual = isVirtual && member != null && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
+		if (dir == Direction.ANY || dir == Direction.UP || trueVirtual) {
 			for (ClassInstance node : parents) {
 				if (visitedUp.add(node)) {
-					node.propagate(remapper, type, originatingCls, idSrc, nameDst, Direction.UP, isVirtual, false, visitedUp, visitedDown);
+					node.propagate(remapper, type, originatingCls, idSrc, nameDst, Direction.UP, true, false, visitedUp, visitedDown);
 				}
 			}
 		}
 
-		if (dir == Direction.ANY || dir == Direction.DOWN || isVirtual && member != null && (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0) {
+		if (dir == Direction.ANY || dir == Direction.DOWN || trueVirtual) {
 			for (ClassInstance node : children) {
 				if (visitedDown.add(node)) {
 					node.propagate(remapper, type, originatingCls, idSrc, nameDst, Direction.DOWN, isVirtual, false, visitedUp, visitedDown);
@@ -236,6 +239,16 @@ public final class ClassInstance {
 	}
 
 	public MemberInstance resolve(MemberType type, String id) {
+		return resolve(type, id, null);
+	}
+
+	public List<MemberInstance> multiResolve(MemberType type, String id) {
+		List<MemberInstance> created = new ArrayList<>();
+		this.resolve(type, id, created);
+		return created;
+	}
+
+	public MemberInstance resolve(MemberType type, String id, List<MemberInstance> multiResolve) {
 		MemberInstance member = getMember(type, id);
 		if (member != null) return member;
 
@@ -244,7 +257,7 @@ public final class ClassInstance {
 
 		if (member == null) {
 			// compute
-			member = resolve0(type, id);
+			member = resolve0(type, id, multiResolve);
 			assert member != null;
 
 			// put in cache
@@ -255,7 +268,7 @@ public final class ClassInstance {
 		return member != nullMember ? member : null;
 	}
 
-	private MemberInstance resolve0(MemberType type, String id) {
+	private MemberInstance resolve0(MemberType type, String id, List<MemberInstance> multiResolve) {
 		boolean isField = type == MemberType.FIELD;
 		Set<ClassInstance> visited = Collections.newSetFromMap(new IdentityHashMap<>());
 		Deque<ClassInstance> queue = new ArrayDeque<>();
@@ -274,9 +287,15 @@ public final class ClassInstance {
 				for (ClassInstance parent : cls.parents) {
 					if (parent.isInterface() == isField && visited.add(parent)) {
 						MemberInstance ret = parent.getMember(type, id);
-						if (ret != null) return ret;
-
-						queue.addLast(parent);
+						if (ret != null) {
+							if(multiResolve == null) {
+								return ret;
+							} else {
+								multiResolve.add(ret);
+							}
+						} else {
+							queue.addLast(parent);
+						}
 					}
 				}
 			} while ((cls = queue.pollLast()) != null);
@@ -310,7 +329,12 @@ public final class ClassInstance {
 								if (!isField && (parentMember.access & (Opcodes.ACC_ABSTRACT)) != 0) {
 									secondaryMatch = parentMember;
 								} else {
-									return parentMember;
+									if(multiResolve == null) {
+										return parentMember;
+									} else {
+										multiResolve.add(parentMember);
+										continue;
+									}
 								}
 							}
 						}
@@ -321,7 +345,12 @@ public final class ClassInstance {
 			} while (!isField && (cls = queue.pollFirst()) != null);
 		} while ((context = queue.pollFirst()) != null); // overall-recursion for fields
 
-		return secondaryMatch != null ? secondaryMatch : nullMember;
+		if(multiResolve == null) {
+			return secondaryMatch != null ? secondaryMatch : nullMember;
+		} else {
+			multiResolve.add(secondaryMatch);
+			return nullMember;
+		}
 	}
 
 	public MemberInstance resolvePartial(MemberType type, String name, String descPrefix) {

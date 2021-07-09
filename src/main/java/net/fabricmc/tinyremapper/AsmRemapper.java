@@ -17,6 +17,13 @@
 
 package net.fabricmc.tinyremapper;
 
+import java.util.AbstractCollection;
+import java.util.AbstractList;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 
 import org.objectweb.asm.commons.Remapper;
@@ -53,22 +60,59 @@ class AsmRemapper extends Remapper {
 		return remapper.extraRemapper != null ? remapper.extraRemapper.mapFieldName(owner, name, desc) : name;
 	}
 
+	public Collection<String> mapMultiMethodName(String owner, String name, String desc) {
+		ClassInstance cls = getClass(owner);
+		if (cls == null) return Collections.singletonList(name);
+		List<MemberInstance> instances = cls.multiResolve(MemberType.METHOD, MemberInstance.getMethodId(name, desc));
+		if(instances.isEmpty()) {
+			return Collections.singletonList(mapMember(null, owner, name, desc));
+		} else {
+			return new AbstractCollection<String>() {
+				@Override
+				public Iterator<String> iterator() {
+					return new Iterator<String>() {
+						Iterator<MemberInstance> members = instances.iterator();
+						@Override
+						public boolean hasNext() {
+							return members.hasNext();
+						}
+
+						@Override
+						public String next() {
+							return mapMember(members.next(), owner, name, desc);
+						}
+					};
+				}
+
+				@Override
+				public int size() {
+					return instances.size();
+				}
+			};
+		}
+	}
+
 	@Override
 	public String mapMethodName(String owner, String name, String desc) {
 		ClassInstance cls = getClass(owner);
 		if (cls == null) return name; // TODO: try to map these from just the mappings?, warn if actual class is missing
 
 		MemberInstance member = cls.resolve(MemberType.METHOD, MemberInstance.getMethodId(name, desc));
+		return mapMember(member, owner, name, desc);
+	}
+
+	protected String mapMember(MemberInstance member, String srcOwner, String srcName, String srcDesc) {
 		String newName;
 
 		if (member != null && (newName = member.getNewName()) != null) {
 			return newName;
 		}
 
-		assert (newName = remapper.methodMap.get(owner+"/"+MemberInstance.getMethodId(name, desc))) == null || newName.equals(name);
+		assert (newName = remapper.methodMap.get(srcOwner+"/"+MemberInstance.getMethodId(srcName, srcDesc))) == null || newName.equals(srcName);
 
-		return remapper.extraRemapper != null ? remapper.extraRemapper.mapMethodName(owner, name, desc) : name;
+		return remapper.extraRemapper != null ? remapper.extraRemapper.mapMethodName(srcOwner, srcName, srcDesc) : srcName;
 	}
+
 
 	public String mapMethodNamePrefixDesc(String owner, String name, String descPrefix) {
 		ClassInstance cls = getClass(owner);

@@ -18,8 +18,10 @@
 package net.fabricmc.tinyremapper;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import javax.lang.model.SourceVersion;
@@ -48,7 +50,6 @@ import net.fabricmc.tinyremapper.MemberInstance.MemberType;
 class AsmClassRemapper extends ClassRemapper {
 	public AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper, boolean checkPackageAccess, boolean skipLocalMapping, boolean renameInvalidLocals) {
 		super(cv, remapper);
-
 		this.checkPackageAccess = checkPackageAccess;
 		this.skipLocalMapping = skipLocalMapping;
 		this.renameInvalidLocals = renameInvalidLocals;
@@ -72,7 +73,33 @@ class AsmClassRemapper extends ClassRemapper {
 			methodNode = new MethodNode(api, access, name, descriptor, signature, exceptions);
 		}
 
-		return super.visitMethod(access, name, descriptor, signature, exceptions);
+		String remappedDescriptor = remapper.mapMethodDesc(descriptor);
+		Collection<String> names = ((AsmRemapper) remapper).mapMultiMethodName(className, name, descriptor);
+		MethodVisitor visitor;
+
+		if(names.size() == 1) {
+			visitor = this.cv.visitMethod(
+					access,
+					names.iterator().next(),
+					remappedDescriptor,
+					remapper.mapSignature(signature, false),
+					exceptions == null ? null : remapper.mapTypes(exceptions));
+		} else {
+			List<MethodVisitor> visitorList = new ArrayList<>();
+
+			for(String newName : names) {
+				visitorList.add(this.cv.visitMethod(
+						access,
+						newName,
+						remappedDescriptor,
+						remapper.mapSignature(signature, false),
+						exceptions == null ? null : remapper.mapTypes(exceptions)));
+			}
+
+			visitor = new MultiMethodVisitor(api, visitorList);
+		}
+
+		return visitor == null ? null : createMethodRemapper(visitor);
 	}
 
 	@Override
