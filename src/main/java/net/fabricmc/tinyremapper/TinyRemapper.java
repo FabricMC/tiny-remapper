@@ -974,14 +974,15 @@ public class TinyRemapper implements Classpath {
 			visitor = new CheckClassAdapter(visitor);
 		}
 
+		AsmRemapper remapper = cls.getContext().remapper;
 		if (post != null) {
-			visitor = post.wrap(visitor, this.getRemapper(), this);
+			visitor = post.wrap(visitor, remapper, this);
 		}
 
-		visitor = new AsmClassRemapper(visitor, cls.getContext().remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
+		visitor = new AsmClassRemapper(visitor, remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
 
 		if (pre != null) {
-			visitor = pre.wrap(visitor, this.getRemapper(), this);
+			visitor = pre.wrap(visitor, remapper, this);
 		}
 
 		reader.accept(visitor, flags);
