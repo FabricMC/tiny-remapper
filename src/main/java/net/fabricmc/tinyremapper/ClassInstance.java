@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import org.objectweb.asm.Opcodes;
 
-import net.fabricmc.tinyremapper.MemberInstance.MemberType;
+import net.fabricmc.tinyremapper.api.MemberHeader.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
 import net.fabricmc.tinyremapper.api.ClassHeader;
 import net.fabricmc.tinyremapper.api.Classpath;
@@ -175,29 +175,18 @@ public final class ClassInstance implements ClassHeader {
 
 	@Override
 	public MemberHeader getField(String name, String desc) {
-		MemberInstance instance = this.resolvedMembers.get(MemberInstance.getFieldId(name, desc, desc == null));
-
-		if (instance != null) {
-			return new MemberHeader(this, instance.access, instance.name, instance.desc);
-		}
-
-		return null;
+		return this.resolve(MemberType.FIELD, MemberInstance.getFieldId(name, desc, desc == null));
 	}
 
 	@Override
 	public MemberHeader getMethod(String name, String desc) {
-		MemberInstance instance = this.resolvedMembers.get(MemberInstance.getMethodId(name, desc));
-
-		if (instance != null) {
-			return new MemberHeader(this, instance.access, instance.name, instance.desc);
-		}
-
-		return null;
+		return this.resolve(MemberType.METHOD, MemberInstance.getMethodId(name, desc));
 	}
 
 	@Override
+	@SuppressWarnings("ALL")
 	public Iterable<MemberHeader> allMembers() {
-		return MappedIterator.map(this.resolvedMembers.values(), i -> new MemberHeader(this, i.access, i.name, i.desc));
+		return (Iterable) this.members.values();
 	}
 
 	@Override
@@ -275,13 +264,13 @@ public final class ClassInstance implements ClassHeader {
 
 			if (first
 					&& ((member.access & Opcodes.ACC_PRIVATE) != 0 // private members don't propagate, but they may get skipped over by overriding virtual methods
-					|| type == MemberType.METHOD && isInterface() && !isVirtual)) { // non-virtual interface methods don't propagate either, the jvm only resolves direct accesses to them
+					|| type == MemberHeader.MemberType.METHOD && isInterface() && !isVirtual)) { // non-virtual interface methods don't propagate either, the jvm only resolves direct accesses to them
 				return;
 			} else if (remapper.propagateBridges != LinkedMethodPropagation.DISABLED
 					&& member.cls.isInput
 					&& isVirtual
 					&& (member.access & Opcodes.ACC_BRIDGE) != 0) {
-				assert member.type == MemberType.METHOD;
+				assert member.type == MemberHeader.MemberType.METHOD;
 
 				// try to propagate bridge method mapping to the actual implementation
 
@@ -294,13 +283,11 @@ public final class ClassInstance implements ClassHeader {
 					visitedUpBridge.add(member.cls);
 					visitedDownBridge.add(member.cls);
 
-					propagate(remapper, MemberType.METHOD, originatingCls, bridgeTarget.getId(), nameDst,
-							Direction.DOWN, true, remapper.propagateBridges == LinkedMethodPropagation.COMPATIBLE,
-							false, visitedUpBridge, visitedDownBridge);
+					propagate(remapper, MemberHeader.MemberType.METHOD, originatingCls, bridgeTarget.getId(), nameDst, Direction.DOWN, true, remapper.propagateBridges == LinkedMethodPropagation.COMPATIBLE, false, visitedUpBridge, visitedDownBridge);
 				}
 			}
 		} else { // member == null
-			assert !first && (type == MemberType.FIELD || !isInterface() || isVirtual);
+			assert !first && (type == MemberHeader.MemberType.FIELD || !isInterface() || isVirtual);
 
 			// potentially intermediately accessed location, handled through resolution in the remapper
 		}
@@ -470,7 +457,7 @@ public final class ClassInstance implements ClassHeader {
 	}
 
 	private MemberInstance resolve0(MemberType type, String id) {
-		boolean isField = type == MemberType.FIELD;
+		boolean isField = type == MemberHeader.MemberType.FIELD;
 		Set<ClassInstance> visited = Collections.newSetFromMap(new IdentityHashMap<>());
 		Deque<ClassInstance> queue = new ArrayDeque<>();
 		visited.add(this);
@@ -540,7 +527,7 @@ public final class ClassInstance implements ClassHeader {
 
 	public MemberInstance resolvePartial(MemberType type, String name, String descPrefix) {
 		String idPrefix = MemberInstance.getId(type, name, descPrefix != null ? descPrefix : "", tr.ignoreFieldDesc);
-		boolean isField = type == MemberType.FIELD;
+		boolean isField = type == MemberHeader.MemberType.FIELD;
 
 		MemberInstance member = getMemberPartial(type, idPrefix);
 		if (member == nullMember) return null; // non-unique match

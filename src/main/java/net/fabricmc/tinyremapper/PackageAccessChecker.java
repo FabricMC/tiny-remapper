@@ -6,7 +6,8 @@ import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Type;
 
-import net.fabricmc.tinyremapper.MemberInstance.MemberType;
+import net.fabricmc.tinyremapper.api.MemberHeader.MemberType;
+import net.fabricmc.tinyremapper.api.MemberHeader;
 
 public final class PackageAccessChecker {
 	/**
@@ -76,7 +77,7 @@ public final class PackageAccessChecker {
 			checkDesc(accessingClass, ((Type) value).getDescriptor(), source, remapper);
 		} else if (value instanceof Handle) {
 			Handle handle = (Handle) value;
-			checkMember(accessingClass, handle.getOwner(), handle.getName(), handle.getDesc(), MemberType.METHOD, source, remapper);
+			checkMember(accessingClass, handle.getOwner(), handle.getName(), handle.getDesc(), MemberHeader.MemberType.METHOD, source, remapper);
 		} else if (value instanceof ConstantDynamic) {
 			ConstantDynamic constantDynamic = (ConstantDynamic) value;
 
@@ -162,7 +163,7 @@ public final class PackageAccessChecker {
 
 		String mappedName, mappedDesc;
 
-		if (type == MemberType.FIELD) {
+		if (type == MemberHeader.MemberType.FIELD) {
 			mappedName = remapper.mapFieldName(owner, name, desc);
 			mappedDesc = remapper.mapDesc(desc);
 		} else {

@@ -1,44 +1,30 @@
 package net.fabricmc.tinyremapper.api;
 
-import java.util.Objects;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
 
-public class MemberHeader {
-	public final ClassHeader owner;
-	public final int access;
-	public final String name, desc;
+public interface MemberHeader {
+	ClassHeader getOwner();
 
-	public MemberHeader(ClassHeader owner, int access, String name, String desc) {
-		this.owner = owner;
-		this.access = access;
-		this.name = name;
-		this.desc = desc;
-	}
+	/**
+	 * @see Opcodes
+	 */
+	int getAccess();
 
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) {
-			return true;
-		}
+	/**
+	 * @see ClassVisitor#visitField(int, String, String, String, Object)
+	 */
+	String getName();
 
-		if (!(o instanceof MemberHeader)) {
-			return false;
-		}
+	/**
+	 * @see ClassVisitor#visitField(int, String, String, String, Object)
+	 */
+	String getDesc();
 
-		MemberHeader header1 = (MemberHeader) o;
+	MemberType getType();
 
-		if (this.access != header1.access) {
-			return false;
-		}
-
-		return Objects.equals(this.owner, header1.owner) && Objects.equals(this.name, header1.name) && Objects.equals(this.desc, header1.desc);
-	}
-
-	@Override
-	public int hashCode() {
-		int result = this.owner != null ? this.owner.hashCode() : 0;
-		result = 31 * result + this.access;
-		result = 31 * result + (this.name != null ? this.name.hashCode() : 0);
-		result = 31 * result + (this.desc != null ? this.desc.hashCode() : 0);
-		return result;
+	enum MemberType {
+		METHOD,
+		FIELD
 	}
 }
