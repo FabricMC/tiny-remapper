@@ -50,6 +50,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.zip.ZipError;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -412,10 +413,8 @@ public class TinyRemapper {
 								return readFile(file, isInput, tags, srcPath, fsToClose);
 							} catch (URISyntaxException e) {
 								throw new RuntimeException(e);
-							} catch (IOException e) {
-								System.out.println(file.toAbsolutePath());
-								e.printStackTrace();
-								return Collections.emptyList();
+							} catch (IOException | ZipError e) {
+								throw new RuntimeException("Error reading file "+file, e);
 							}
 						}
 					}, threadPool));
