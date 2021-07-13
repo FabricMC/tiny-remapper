@@ -338,7 +338,13 @@ public class TinyRemapper implements Classpath {
 					.thenApply(ignore -> futures.stream().flatMap(f -> f.join().stream()).collect(Collectors.toList()));
 		}
 
-		dirty = true;
+		if (!dirty) {
+			dirty = true;
+
+			for (MrjState state : mrjStates.values()) {
+				state.dirty = true;
+			}
+		}
 
 		return ret.whenComplete((res, exc) -> {
 			for (FileSystem fs : fsToClose) {
@@ -956,11 +962,17 @@ public class TinyRemapper implements Classpath {
 	}
 
 	private void mrjRefresh(MrjState state) {
+		if (!state.dirty) {
+			return;
+		}
+
 		assert new HashSet<>(state.classes.values()).size() == state.classes.size();
 		assert state.classes.values().stream().map(ClassInstance::getName).distinct().count() == state.classes.size();
 
 		merge(state);
 		propagate(state);
+
+		state.dirty = false;
 	}
 
 	private byte[] apply(final ClassInstance cls) {
@@ -1059,8 +1071,9 @@ public class TinyRemapper implements Classpath {
 		return writer.toByteArray();
 	}
 
-	public AsmRemapper getRemapper() {
+	public synchronized AsmRemapper getRemapper() {
 		refresh();
+		mrjRefresh(defaultState);
 		return defaultState.remapper;
 	}
 
@@ -1228,6 +1241,7 @@ public class TinyRemapper implements Classpath {
 		final int version;
 		final Map<String, ClassInstance> classes = new HashMap<>();
 		final AsmRemapper remapper;
+		volatile boolean dirty = true;
 	}
 
 	private final boolean check = false;
