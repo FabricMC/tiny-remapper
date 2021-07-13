@@ -175,7 +175,11 @@ public final class ClassInstance implements TrClass {
 
 	@Override
 	public TrMember resolveField(String name, String desc) {
-		return this.resolve(MemberType.FIELD, MemberInstance.getFieldId(name, desc, desc == null));
+		if (desc == null) {
+			return this.resolvePartial(MemberType.FIELD, name, ";;");
+		} else {
+			return this.resolve(MemberType.FIELD, MemberInstance.getFieldId(name, desc, tr.ignoreFieldDesc));
+		}
 	}
 
 	@Override
