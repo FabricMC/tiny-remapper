@@ -43,7 +43,7 @@ import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.ParameterNode;
 
-import net.fabricmc.tinyremapper.api.MemberHeader;
+import net.fabricmc.tinyremapper.api.TrMember;
 
 final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper, boolean rebuildSourceFilenames, boolean checkPackageAccess, boolean skipLocalMapping, boolean renameInvalidLocals) {
@@ -254,7 +254,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		@Override
 		public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
 			if (checkPackageAccess) {
-				PackageAccessChecker.checkMember(this.owner, owner, name, descriptor, MemberHeader.MemberType.FIELD, "field instruction", (AsmRemapper) remapper);
+				PackageAccessChecker.checkMember(this.owner, owner, name, descriptor, TrMember.MemberType.FIELD, "field instruction", (AsmRemapper) remapper);
 			}
 
 			super.visitFieldInsn(opcode, owner, name, descriptor);
@@ -263,7 +263,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		@Override
 		public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
 			if (checkPackageAccess) {
-				PackageAccessChecker.checkMember(this.owner, owner, name, descriptor, MemberHeader.MemberType.METHOD, "method instruction", (AsmRemapper) remapper);
+				PackageAccessChecker.checkMember(this.owner, owner, name, descriptor, TrMember.MemberType.METHOD, "method instruction", (AsmRemapper) remapper);
 			}
 
 			super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);

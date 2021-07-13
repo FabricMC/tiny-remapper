@@ -35,15 +35,15 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import org.objectweb.asm.Opcodes;
 
-import net.fabricmc.tinyremapper.api.MemberHeader.MemberType;
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
-import net.fabricmc.tinyremapper.api.ClassHeader;
-import net.fabricmc.tinyremapper.api.Classpath;
-import net.fabricmc.tinyremapper.api.MemberHeader;
+import net.fabricmc.tinyremapper.api.TrClass;
+import net.fabricmc.tinyremapper.api.TrEnvironment;
+import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
 
-public final class ClassInstance implements ClassHeader {
+public final class ClassInstance implements TrClass {
 	ClassInstance(TinyRemapper tr, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
 		assert !isInput || data != null;
 		this.tr = tr;
@@ -145,8 +145,8 @@ public final class ClassInstance implements ClassHeader {
 	}
 
 	@Override
-	public Classpath getClasspath() {
-		return this.tr;
+	public TrEnvironment getClasspath() {
+		return this.context;
 	}
 
 	@Override
@@ -174,19 +174,22 @@ public final class ClassInstance implements ClassHeader {
 	}
 
 	@Override
-	public MemberHeader getField(String name, String desc) {
+	public TrMember resolveField(String name, String desc) {
 		return this.resolve(MemberType.FIELD, MemberInstance.getFieldId(name, desc, desc == null));
 	}
 
 	@Override
-	public MemberHeader getMethod(String name, String desc) {
-		return this.resolve(MemberType.METHOD, MemberInstance.getMethodId(name, desc));
+	public TrMember resolveMethod(String name, String desc) {
+		if (desc == null) {
+			return this.resolvePartial(MemberType.METHOD, name, "(");
+		} else {
+			return this.resolve(MemberType.METHOD, MemberInstance.getMethodId(name, desc));
+		}
 	}
 
 	@Override
-	@SuppressWarnings("ALL")
-	public Iterable<MemberHeader> allMembers() {
-		return (Iterable) this.members.values();
+	public Collection<? extends TrMember> allMembers() {
+		return this.members.values();
 	}
 
 	@Override
@@ -264,13 +267,13 @@ public final class ClassInstance implements ClassHeader {
 
 			if (first
 					&& ((member.access & Opcodes.ACC_PRIVATE) != 0 // private members don't propagate, but they may get skipped over by overriding virtual methods
-					|| type == MemberHeader.MemberType.METHOD && isInterface() && !isVirtual)) { // non-virtual interface methods don't propagate either, the jvm only resolves direct accesses to them
+					|| type == TrMember.MemberType.METHOD && isInterface() && !isVirtual)) { // non-virtual interface methods don't propagate either, the jvm only resolves direct accesses to them
 				return;
 			} else if (remapper.propagateBridges != LinkedMethodPropagation.DISABLED
 					&& member.cls.isInput
 					&& isVirtual
 					&& (member.access & Opcodes.ACC_BRIDGE) != 0) {
-				assert member.type == MemberHeader.MemberType.METHOD;
+				assert member.type == TrMember.MemberType.METHOD;
 
 				// try to propagate bridge method mapping to the actual implementation
 
@@ -283,11 +286,11 @@ public final class ClassInstance implements ClassHeader {
 					visitedUpBridge.add(member.cls);
 					visitedDownBridge.add(member.cls);
 
-					propagate(remapper, MemberHeader.MemberType.METHOD, originatingCls, bridgeTarget.getId(), nameDst, Direction.DOWN, true, remapper.propagateBridges == LinkedMethodPropagation.COMPATIBLE, false, visitedUpBridge, visitedDownBridge);
+					propagate(remapper, TrMember.MemberType.METHOD, originatingCls, bridgeTarget.getId(), nameDst, Direction.DOWN, true, remapper.propagateBridges == LinkedMethodPropagation.COMPATIBLE, false, visitedUpBridge, visitedDownBridge);
 				}
 			}
 		} else { // member == null
-			assert !first && (type == MemberHeader.MemberType.FIELD || !isInterface() || isVirtual);
+			assert !first && (type == TrMember.MemberType.FIELD || !isInterface() || isVirtual);
 
 			// potentially intermediately accessed location, handled through resolution in the remapper
 		}
@@ -457,7 +460,7 @@ public final class ClassInstance implements ClassHeader {
 	}
 
 	private MemberInstance resolve0(MemberType type, String id) {
-		boolean isField = type == MemberHeader.MemberType.FIELD;
+		boolean isField = type == TrMember.MemberType.FIELD;
 		Set<ClassInstance> visited = Collections.newSetFromMap(new IdentityHashMap<>());
 		Deque<ClassInstance> queue = new ArrayDeque<>();
 		visited.add(this);
@@ -527,7 +530,7 @@ public final class ClassInstance implements ClassHeader {
 
 	public MemberInstance resolvePartial(MemberType type, String name, String descPrefix) {
 		String idPrefix = MemberInstance.getId(type, name, descPrefix != null ? descPrefix : "", tr.ignoreFieldDesc);
-		boolean isField = type == MemberHeader.MemberType.FIELD;
+		boolean isField = type == TrMember.MemberType.FIELD;
 
 		MemberInstance member = getMemberPartial(type, idPrefix);
 		if (member == nullMember) return null; // non-unique match

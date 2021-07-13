@@ -22,11 +22,11 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import org.objectweb.asm.Opcodes;
 
 import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
-import net.fabricmc.tinyremapper.api.ClassHeader;
-import net.fabricmc.tinyremapper.api.MemberHeader;
+import net.fabricmc.tinyremapper.api.TrClass;
+import net.fabricmc.tinyremapper.api.TrMember;
 
-public final class MemberInstance implements MemberHeader {
-	MemberInstance(MemberHeader.MemberType type, ClassInstance cls, String name, String desc, int access) {
+public final class MemberInstance implements TrMember {
+	MemberInstance(TrMember.MemberType type, ClassInstance cls, String name, String desc, int access) {
 		this.type = type;
 		this.cls = cls;
 		this.name = name;
@@ -47,11 +47,11 @@ public final class MemberInstance implements MemberHeader {
 	}
 
 	public boolean isVirtual() {
-		return type == MemberHeader.MemberType.METHOD && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
+		return type == TrMember.MemberType.METHOD && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
 	}
 
 	public boolean isBridge() {
-		return type == MemberHeader.MemberType.METHOD && (access & Opcodes.ACC_BRIDGE) != 0;
+		return type == TrMember.MemberType.METHOD && (access & Opcodes.ACC_BRIDGE) != 0;
 	}
 
 	public boolean isPublicOrPrivate() {
@@ -99,8 +99,8 @@ public final class MemberInstance implements MemberHeader {
 		return String.format("%s/%s%s", cls.getName(), name, desc);
 	}
 
-	public static String getId(MemberHeader.MemberType type, String name, String desc, boolean ignoreFieldDesc) {
-		return type == MemberHeader.MemberType.METHOD ? getMethodId(name, desc) : getFieldId(name, desc, ignoreFieldDesc);
+	public static String getId(TrMember.MemberType type, String name, String desc, boolean ignoreFieldDesc) {
+		return type == TrMember.MemberType.METHOD ? getMethodId(name, desc) : getFieldId(name, desc, ignoreFieldDesc);
 	}
 
 	public static String getMethodId(String name, String desc) {
@@ -111,11 +111,11 @@ public final class MemberInstance implements MemberHeader {
 		return ignoreDesc ? name : name+";;"+desc;
 	}
 
-	public static String getNameFromId(MemberHeader.MemberType type, String id, boolean ignoreFieldDesc) {
-		if (ignoreFieldDesc && type == MemberHeader.MemberType.FIELD) {
+	public static String getNameFromId(TrMember.MemberType type, String id, boolean ignoreFieldDesc) {
+		if (ignoreFieldDesc && type == TrMember.MemberType.FIELD) {
 			return id;
 		} else {
-			String separator = type == MemberHeader.MemberType.METHOD ? "(" : ";;";
+			String separator = type == TrMember.MemberType.METHOD ? "(" : ";;";
 			int pos = id.lastIndexOf(separator);
 			if (pos < 0) throw new IllegalArgumentException(String.format("invalid %s id: %s", type.name(), id));
 
@@ -127,7 +127,7 @@ public final class MemberInstance implements MemberHeader {
 	private static final AtomicReferenceFieldUpdater<MemberInstance, String> newBridgedNameUpdater = AtomicReferenceFieldUpdater.newUpdater(MemberInstance.class, String.class, "newBridgedName");
 
 	@Override
-	public ClassHeader getOwner() {
+	public TrClass getOwner() {
 		return this.cls;
 	}
 
@@ -151,7 +151,7 @@ public final class MemberInstance implements MemberHeader {
 		return this.type;
 	}
 
-	final MemberHeader.MemberType type;
+	final TrMember.MemberType type;
 	final ClassInstance cls;
 	final String name;
 	final String desc;

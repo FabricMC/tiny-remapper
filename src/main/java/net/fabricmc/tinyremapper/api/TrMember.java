@@ -3,8 +3,8 @@ package net.fabricmc.tinyremapper.api;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
 
-public interface MemberHeader {
-	ClassHeader getOwner();
+public interface TrMember {
+	TrClass getOwner();
 
 	/**
 	 * @see Opcodes

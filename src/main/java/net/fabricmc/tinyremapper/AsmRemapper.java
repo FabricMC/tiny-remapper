@@ -22,7 +22,7 @@ import org.objectweb.asm.ClassVisitor;
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
 import net.fabricmc.tinyremapper.api.ExtendedRemapper;
-import net.fabricmc.tinyremapper.api.MemberHeader;
+import net.fabricmc.tinyremapper.api.TrMember;
 
 class AsmRemapper extends ExtendedRemapper {
 	AsmRemapper(MrjState context) {
@@ -47,7 +47,7 @@ class AsmRemapper extends ExtendedRemapper {
 	}
 
 	final String mapFieldName(ClassInstance cls, String name, String desc) {
-		MemberInstance member = cls.resolve(MemberHeader.MemberType.FIELD, MemberInstance.getFieldId(name, desc, tr.ignoreFieldDesc));
+		MemberInstance member = cls.resolve(TrMember.MemberType.FIELD, MemberInstance.getFieldId(name, desc, tr.ignoreFieldDesc));
 		String newName;
 
 		if (member != null && (newName = member.getNewName()) != null) {
@@ -73,7 +73,7 @@ class AsmRemapper extends ExtendedRemapper {
 	}
 
 	final String mapMethodName(ClassInstance cls, String name, String desc) {
-		MemberInstance member = cls.resolve(MemberHeader.MemberType.METHOD, MemberInstance.getMethodId(name, desc));
+		MemberInstance member = cls.resolve(TrMember.MemberType.METHOD, MemberInstance.getMethodId(name, desc));
 		String newName;
 
 		if (member != null && (newName = member.getNewName()) != null) {
@@ -90,7 +90,7 @@ class AsmRemapper extends ExtendedRemapper {
 		ClassInstance cls = getClass(owner);
 		if (cls == null) return name;
 
-		MemberInstance member = cls.resolvePartial(MemberHeader.MemberType.METHOD, name, descPrefix);
+		MemberInstance member = cls.resolvePartial(TrMember.MemberType.METHOD, name, descPrefix);
 		String newName;
 
 		if (member != null && (newName = member.getNewName()) != null) {
@@ -116,7 +116,7 @@ class AsmRemapper extends ExtendedRemapper {
 		ClassInstance cls = getClass(methodOwner);
 		if (cls == null) return name;
 
-		MemberInstance originatingMethod = cls.resolve(MemberHeader.MemberType.METHOD, MemberInstance.getMethodId(methodName, methodDesc));
+		MemberInstance originatingMethod = cls.resolve(TrMember.MemberType.METHOD, MemberInstance.getMethodId(methodName, methodDesc));
 		if (originatingMethod == null) return name;
 
 		String originatingNewName = tr.methodArgMap.get(originatingMethod.newNameOriginatingCls+"/"+MemberInstance.getMethodId(originatingMethod.name, originatingMethod.desc)+lvIndex);

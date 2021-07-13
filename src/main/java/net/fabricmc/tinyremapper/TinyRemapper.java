@@ -62,13 +62,13 @@ import org.objectweb.asm.util.CheckClassAdapter;
 
 import net.fabricmc.tinyremapper.IMappingProvider.MappingAcceptor;
 import net.fabricmc.tinyremapper.IMappingProvider.Member;
-import net.fabricmc.tinyremapper.api.MemberHeader.MemberType;
-import net.fabricmc.tinyremapper.api.ClassHeader;
-import net.fabricmc.tinyremapper.api.Classpath;
-import net.fabricmc.tinyremapper.api.MemberHeader;
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
+import net.fabricmc.tinyremapper.api.TrClass;
+import net.fabricmc.tinyremapper.api.TrEnvironment;
+import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.WrapperFunction;
 
-public class TinyRemapper implements Classpath {
+public class TinyRemapper {
 	public static class Builder {
 		private Builder() { }
 
@@ -523,7 +523,7 @@ public class TinyRemapper implements Classpath {
 
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-				MemberInstance prev = ret.addMember(new MemberInstance(MemberHeader.MemberType.METHOD, ret, name, desc, access));
+				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.METHOD, ret, name, desc, access));
 				if (prev != null) throw new RuntimeException(String.format("duplicate method %s/%s%s in inputs", ret.getName(), name, desc));
 
 				return super.visitMethod(access, name, desc, signature, exceptions);
@@ -531,7 +531,7 @@ public class TinyRemapper implements Classpath {
 
 			@Override
 			public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
-				MemberInstance prev = ret.addMember(new MemberInstance(MemberHeader.MemberType.FIELD, ret, name, desc, access));
+				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.FIELD, ret, name, desc, access));
 				if (prev != null) throw new RuntimeException(String.format("duplicate field %s/%s;;%s in inputs", ret.getName(), name, desc));
 
 				return super.visitField(access, name, desc, signature, value);
@@ -670,24 +670,24 @@ public class TinyRemapper implements Classpath {
 			tasks.add(entry);
 
 			if (tasks.size() >= maxTasks) {
-				futures.add(threadPool.submit(new Propagation(state, MemberHeader.MemberType.METHOD, tasks)));
+				futures.add(threadPool.submit(new Propagation(state, TrMember.MemberType.METHOD, tasks)));
 				tasks.clear();
 			}
 		}
 
-		futures.add(threadPool.submit(new Propagation(state, MemberHeader.MemberType.METHOD, tasks)));
+		futures.add(threadPool.submit(new Propagation(state, TrMember.MemberType.METHOD, tasks)));
 		tasks.clear();
 
 		for (Map.Entry<String, String> entry : fieldMap.entrySet()) {
 			tasks.add(entry);
 
 			if (tasks.size() >= maxTasks) {
-				futures.add(threadPool.submit(new Propagation(state, MemberHeader.MemberType.FIELD, tasks)));
+				futures.add(threadPool.submit(new Propagation(state, TrMember.MemberType.FIELD, tasks)));
 				tasks.clear();
 			}
 		}
 
-		futures.add(threadPool.submit(new Propagation(state, MemberHeader.MemberType.FIELD, tasks)));
+		futures.add(threadPool.submit(new Propagation(state, TrMember.MemberType.FIELD, tasks)));
 		tasks.clear();
 
 		waitForAll(futures);
@@ -764,7 +764,7 @@ public class TinyRemapper implements Classpath {
 				System.out.printf("  %s %s %s (%s) -> %s%n", member.cls.getName(), member.type.name(), member.name, member.desc, names);
 
 				if (ignoreConflicts) {
-					Map<String, String> mappings = member.type == MemberHeader.MemberType.METHOD ? methodMap : fieldMap;
+					Map<String, String> mappings = member.type == TrMember.MemberType.METHOD ? methodMap : fieldMap;
 					String mappingName = mappings.get(member.cls.getName()+"/"+member.getId());
 
 					if (mappingName == null) { // no direct mapping match, try parents
@@ -987,16 +987,17 @@ public class TinyRemapper implements Classpath {
 			visitor = new CheckClassAdapter(visitor);
 		}
 
+		MrjState state = cls.getContext();
 		AsmRemapper remapper = cls.getContext().remapper;
 
 		if (post != null) {
-			visitor = post.wrap(visitor, remapper, this);
+			visitor = post.wrap(visitor, remapper, state);
 		}
 
 		visitor = new AsmClassRemapper(visitor, remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
 
 		if (pre != null) {
-			visitor = pre.wrap(visitor, remapper, this);
+			visitor = pre.wrap(visitor, remapper, state);
 		}
 
 		reader.accept(visitor, flags);
@@ -1019,7 +1020,7 @@ public class TinyRemapper implements Classpath {
 				AsmRemapper remapper = cls.getContext().remapper;
 				String mappedName, mappedDesc;
 
-				if (member.type == MemberHeader.MemberType.FIELD) {
+				if (member.type == TrMember.MemberType.FIELD) {
 					mappedName = remapper.mapFieldName(cls, member.name, member.desc);
 					mappedDesc = remapper.mapDesc(member.desc);
 				} else {
@@ -1078,15 +1079,6 @@ public class TinyRemapper implements Classpath {
 		return defaultState.remapper;
 	}
 
-	@Override
-	public String mapType(String internalName) {
-		return this.getRemapper().mapType(internalName);
-	}
-
-	ClassInstance getClass(String owner) {
-		return this.defaultState.classes.get(owner);
-	}
-
 	private static void waitForAll(Iterable<Future<?>> futures) {
 		try {
 			for (Future<?> future : futures) {
@@ -1116,7 +1108,7 @@ public class TinyRemapper implements Classpath {
 	private static int getDescStart(String nameDesc, MemberType type) {
 		int ret;
 
-		if (type == MemberHeader.MemberType.METHOD) {
+		if (type == TrMember.MemberType.METHOD) {
 			ret = nameDesc.indexOf('(');
 		} else {
 			ret = nameDesc.indexOf(";;");
@@ -1178,15 +1170,15 @@ public class TinyRemapper implements Classpath {
 
 				if (propagateRecordComponents != LinkedMethodPropagation.DISABLED
 						&& cls.isRecord()
-						&& type == MemberHeader.MemberType.FIELD
+						&& type == TrMember.MemberType.FIELD
 						&& (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL)) == (Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL)) { // not static, but private+final
 					String getterIdSrc = MemberInstance.getMethodId(member.name, "()".concat(member.desc));
-					MemberInstance getter = cls.getMember(MemberHeader.MemberType.METHOD, getterIdSrc);
+					MemberInstance getter = cls.getMember(TrMember.MemberType.METHOD, getterIdSrc);
 
 					if (getter != null && getter.isVirtual()) {
 						visitedUp.add(cls);
 						visitedDown.add(cls);
-						cls.propagate(TinyRemapper.this, MemberHeader.MemberType.METHOD, className, getterIdSrc, nameDst, Direction.ANY, true, true, true, visitedUp, visitedDown);
+						cls.propagate(TinyRemapper.this, TrMember.MemberType.METHOD, className, getterIdSrc, nameDst, Direction.ANY, true, true, true, visitedUp, visitedDown);
 						visitedUp.clear();
 						visitedDown.clear();
 					}
@@ -1218,12 +1210,7 @@ public class TinyRemapper implements Classpath {
 		COMPATIBLE
 	}
 
-	@Override
-	public ClassHeader getByName(String internalName) {
-		return this.defaultState.classes.get(internalName);
-	}
-
-	static final class MrjState {
+	static final class MrjState implements TrEnvironment {
 		MrjState(TinyRemapper tr, int version) {
 			Objects.requireNonNull(tr);
 
@@ -1241,6 +1228,16 @@ public class TinyRemapper implements Classpath {
 		final Map<String, ClassInstance> classes = new HashMap<>();
 		final AsmRemapper remapper;
 		volatile boolean dirty = true;
+
+		@Override
+		public TrClass getByName(String internalName) {
+			return this.getClass(internalName);
+		}
+
+		@Override
+		public String mapType(String internalName) {
+			return this.remapper.mapType(internalName);
+		}
 	}
 
 	private final boolean check = false;

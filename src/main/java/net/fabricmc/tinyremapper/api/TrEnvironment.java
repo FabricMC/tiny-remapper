@@ -1,10 +1,10 @@
 package net.fabricmc.tinyremapper.api;
 
-public interface Classpath {
+public interface TrEnvironment {
 	/**
 	 * @return the class with the passed name, or null if not found.
 	 */
-	ClassHeader getByName(String internalName);
+	TrClass getByName(String internalName);
 
 	String mapType(String internalName);
 }
