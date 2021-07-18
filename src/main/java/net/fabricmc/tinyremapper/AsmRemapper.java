@@ -142,7 +142,7 @@ class AsmRemapper extends ExtendedRemapper {
 	}
 
 	ClassInstance getClass(String owner) {
-		return context.getClass(owner);
+		return context.getClass0(owner);
 	}
 
 	final MrjState context;

@@ -643,15 +643,15 @@ public class TinyRemapper {
 		for (ClassInstance node : state.classes.values()) {
 			assert node.getSuperName() != null;
 
-			ClassInstance parent = state.getClass(node.getSuperName());
+			ClassInstance parent = state.getClass0(node.getSuperName());
 
 			if (parent != null) {
 				node.parents.add(parent);
 				parent.children.add(node);
 			}
 
-			for (String iface : node.getInterfaces()) {
-				parent = state.getClass(iface);
+			for (String iface : node.getInterfaces0()) {
+				parent = state.getClass0(iface);
 
 				if (parent != null) {
 					node.parents.add(parent);
@@ -700,14 +700,14 @@ public class TinyRemapper {
 		boolean targetNameCheckFailed = false;
 
 		for (ClassInstance cls : state.classes.values()) {
-			for (MemberInstance member : cls.getMembers()) {
+			for (MemberInstance member : cls.getMembers0()) {
 				String name = member.getNewMappedName();
 				if (name == null) name = member.name;
 
 				testSet.add(MemberInstance.getId(member.type, name, member.desc, ignoreFieldDesc));
 			}
 
-			if (testSet.size() != cls.getMembers().size()) {
+			if (testSet.size() != cls.getMembers0().size()) {
 				if (!targetNameCheckFailed) {
 					targetNameCheckFailed = true;
 					System.out.println("Mapping target name conflicts detected:");
@@ -715,7 +715,7 @@ public class TinyRemapper {
 
 				Map<String, List<MemberInstance>> duplicates = new HashMap<>();
 
-				for (MemberInstance member : cls.getMembers()) {
+				for (MemberInstance member : cls.getMembers0()) {
 					String name = member.getNewMappedName();
 					if (name == null) name = member.name;
 
@@ -1013,7 +1013,7 @@ public class TinyRemapper {
 		boolean makeClsPublic = classesToMakePublic.contains(cls);
 		Set<String> clsMembersToMakePublic = null;
 
-		for (MemberInstance member : cls.getMembers()) {
+		for (MemberInstance member : cls.getMembers0()) {
 			if (membersToMakePublic.contains(member)) {
 				if (clsMembersToMakePublic == null) clsMembersToMakePublic = new HashSet<>();
 
@@ -1139,7 +1139,7 @@ public class TinyRemapper {
 
 			for (Map.Entry<String, String> entry : tasks) {
 				String className = getClassName(entry.getKey(), type);
-				ClassInstance cls = state.getClass(className);
+				ClassInstance cls = state.getClass0(className);
 				if (cls == null) continue; // not available for this Side
 
 				String idSrc = stripClassName(entry.getKey(), type);
@@ -1219,7 +1219,7 @@ public class TinyRemapper {
 			this.remapper = new AsmRemapper(this);
 		}
 
-		ClassInstance getClass(String owner) {
+		ClassInstance getClass0(String owner) {
 			return classes.get(owner);
 		}
 
@@ -1230,8 +1230,8 @@ public class TinyRemapper {
 		volatile boolean dirty = true;
 
 		@Override
-		public TrClass getByName(String internalName) {
-			return this.getClass(internalName);
+		public TrClass getClass(String internalName) {
+			return this.getClass0(internalName);
 		}
 
 		@Override

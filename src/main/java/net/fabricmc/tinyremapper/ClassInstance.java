@@ -192,12 +192,12 @@ public final class ClassInstance implements TrClass {
 	}
 
 	@Override
-	public Collection<? extends TrMember> allMembers() {
+	public Collection<? extends TrMember> getMembers() {
 		return this.members.values();
 	}
 
 	@Override
-	public List<String> getInterfaceList() {
+	public List<String> getInterfaces() {
 		return Collections.unmodifiableList(Arrays.asList(interfaces));
 	}
 
@@ -217,11 +217,11 @@ public final class ClassInstance implements TrClass {
 		return mrjOrigin != this;
 	}
 
-	public String[] getInterfaces() {
+	public String[] getInterfaces0() {
 		return interfaces;
 	}
 
-	public Collection<MemberInstance> getMembers() {
+	public Collection<MemberInstance> getMembers0() {
 		return members.values();
 	}
 
@@ -392,10 +392,10 @@ public final class ClassInstance implements TrClass {
 		String superName = superDesc.substring(superDescStart, superDescEnd);
 		String subName = subDesc.substring(subDescStart, subDescEnd);
 
-		ClassInstance superCls = context.getClass(superName);
+		ClassInstance superCls = context.getClass0(superName);
 		if (superCls != null && superCls.children.isEmpty()) return false;
 
-		ClassInstance subCls = context.getClass(subName);
+		ClassInstance subCls = context.getClass0(subName);
 
 		if (subCls != null) { // sub class known, search upwards
 			if (superCls == null || superCls.isInterface()) {
@@ -419,7 +419,7 @@ public final class ClassInstance implements TrClass {
 					if (curSuperName.equals(superName)) return true;
 					if (curSuperName.equals(objectClassName)) return false;
 
-					subCls = context.getClass(curSuperName);
+					subCls = context.getClass0(curSuperName);
 				} while (subCls != null);
 			}
 		} else if (superCls != null) { // only super class known, search down

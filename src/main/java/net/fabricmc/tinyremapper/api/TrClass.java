@@ -14,7 +14,7 @@ public interface TrClass {
 
 	String getSignature();
 
-	List<String> getInterfaceList();
+	List<String> getInterfaces();
 
 	/**
 	 * @param desc can be null
@@ -25,5 +25,5 @@ public interface TrClass {
 	 */
 	TrMember resolveMethod(String name, String desc);
 
-	Collection<? extends TrMember> allMembers();
+	Collection<? extends TrMember> getMembers();
 }
