@@ -26,7 +26,6 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,13 +34,13 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import org.objectweb.asm.Opcodes;
 
-import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
+import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
+import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.api.TrMember;
-import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
-import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 
 public final class ClassInstance implements TrClass {
 	ClassInstance(TinyRemapper tr, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
@@ -174,6 +173,24 @@ public final class ClassInstance implements TrClass {
 	}
 
 	@Override
+	public TrMember getField(String name, String desc) {
+		if (desc == null) {
+			return getMemberPartial(MemberType.FIELD, ";;");
+		} else {
+			return getMember(MemberType.FIELD, MemberInstance.getFieldId(name, desc, tr.ignoreFieldDesc));
+		}
+	}
+
+	@Override
+	public TrMember getMethod(String name, String desc) {
+		if (desc == null) {
+			return getMemberPartial(MemberType.METHOD, "(");
+		} else {
+			return getMember(MemberType.METHOD, MemberInstance.getMethodId(name, desc));
+		}
+	}
+
+	@Override
 	public TrMember resolveField(String name, String desc) {
 		if (desc == null) {
 			return this.resolvePartial(MemberType.FIELD, name, ";;");
@@ -189,16 +206,6 @@ public final class ClassInstance implements TrClass {
 		} else {
 			return this.resolve(MemberType.METHOD, MemberInstance.getMethodId(name, desc));
 		}
-	}
-
-	@Override
-	public Collection<? extends TrMember> allMembers() {
-		return this.members.values();
-	}
-
-	@Override
-	public List<String> getInterfaceList() {
-		return Collections.unmodifiableList(Arrays.asList(interfaces));
 	}
 
 	public boolean isInterface() {
@@ -217,8 +224,8 @@ public final class ClassInstance implements TrClass {
 		return mrjOrigin != this;
 	}
 
-	public String[] getInterfaces() {
-		return interfaces;
+	public Collection<String> getInterfaces() {
+		return Arrays.asList(interfaces);
 	}
 
 	public Collection<MemberInstance> getMembers() {

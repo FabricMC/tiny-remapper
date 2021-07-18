@@ -62,10 +62,9 @@ import org.objectweb.asm.util.CheckClassAdapter;
 
 import net.fabricmc.tinyremapper.IMappingProvider.MappingAcceptor;
 import net.fabricmc.tinyremapper.IMappingProvider.Member;
-import net.fabricmc.tinyremapper.api.TrMember.MemberType;
-import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.api.TrMember;
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.api.WrapperFunction;
 
 public class TinyRemapper {
@@ -1219,8 +1218,14 @@ public class TinyRemapper {
 			this.remapper = new AsmRemapper(this);
 		}
 
-		ClassInstance getClass(String owner) {
+		@Override
+		public ClassInstance getClass(String owner) {
 			return classes.get(owner);
+		}
+
+		@Override
+		public int getMrjVersion() {
+			return version;
 		}
 
 		final TinyRemapper tr;
@@ -1228,16 +1233,6 @@ public class TinyRemapper {
 		final Map<String, ClassInstance> classes = new HashMap<>();
 		final AsmRemapper remapper;
 		volatile boolean dirty = true;
-
-		@Override
-		public TrClass getByName(String internalName) {
-			return this.getClass(internalName);
-		}
-
-		@Override
-		public String mapType(String internalName) {
-			return this.remapper.mapType(internalName);
-		}
 	}
 
 	private final boolean check = false;

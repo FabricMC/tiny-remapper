@@ -1,7 +1,6 @@
 package net.fabricmc.tinyremapper.api;
 
 import java.util.Collection;
-import java.util.List;
 
 public interface TrClass {
 	TrEnvironment getClasspath();
@@ -14,16 +13,15 @@ public interface TrClass {
 
 	String getSignature();
 
-	List<String> getInterfaceList();
+	Collection<String> getInterfaces();
 
-	/**
-	 * @param desc can be null
-	 */
+	Collection<? extends TrMember> getMembers();
+
+	TrMember getField(String name, String desc);
+
+	TrMember getMethod(String name, String desc);
+
 	TrMember resolveField(String name, String desc);
 
-	/**
-	 */
 	TrMember resolveMethod(String name, String desc);
-
-	Collection<? extends TrMember> allMembers();
 }
