@@ -154,6 +154,10 @@ public class TinyRemapper {
 		}
 
 		public Builder extraAnalyzeVisitor(ClassVisitor visitor) {
+			return this.extraAnalyzeVisitor(() -> visitor);
+		}
+
+		public Builder extraAnalyzeVisitor(Supplier<ClassVisitor> visitor) {
 			extraAnalyzeVisitor = visitor;
 			return this;
 		}
@@ -201,7 +205,7 @@ public class TinyRemapper {
 		private boolean rebuildSourceFilenames = false;
 		private boolean skipLocalMapping = false;
 		private boolean renameInvalidLocals = false;
-		private ClassVisitor extraAnalyzeVisitor;
+		private Supplier<ClassVisitor> extraAnalyzeVisitor = () -> null;
 		private Remapper extraRemapper;
 		private WrapperFunction pre, post;
 	}
@@ -219,7 +223,7 @@ public class TinyRemapper {
 			boolean rebuildSourceFilenames,
 			boolean skipLocalMapping,
 			boolean renameInvalidLocals,
-			ClassVisitor extraAnalyzeVisitor, Remapper extraRemapper, WrapperFunction pre, WrapperFunction post) {
+			Supplier<ClassVisitor> extraAnalyzeVisitor, Remapper extraRemapper, WrapperFunction pre, WrapperFunction post) {
 		this.mappingProviders = mappingProviders;
 		this.ignoreFieldDesc = ignoreFieldDesc;
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
@@ -511,7 +515,7 @@ public class TinyRemapper {
 
 		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, isInput ? data : null);
 
-		reader.accept(new ClassVisitor(Opcodes.ASM9, extraAnalyzeVisitor) {
+		reader.accept(new ClassVisitor(Opcodes.ASM9, extraAnalyzeVisitor.get()) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 				int mrjVersion = analyzeMrjVersion(file, name);
@@ -1252,7 +1256,7 @@ public class TinyRemapper {
 	private final boolean rebuildSourceFilenames;
 	private final boolean skipLocalMapping;
 	private final boolean renameInvalidLocals;
-	private final ClassVisitor extraAnalyzeVisitor;
+	private final Supplier<ClassVisitor> extraAnalyzeVisitor;
 	final Remapper extraRemapper;
 
 	final AtomicReference<Map<InputTag, InputTag[]>> singleInputTags = new AtomicReference<>(Collections.emptyMap()); // cache for tag -> { tag }
