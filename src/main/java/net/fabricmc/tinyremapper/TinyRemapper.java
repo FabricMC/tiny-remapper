@@ -63,7 +63,6 @@ import org.objectweb.asm.util.CheckClassAdapter;
 import net.fabricmc.tinyremapper.IMappingProvider.MappingAcceptor;
 import net.fabricmc.tinyremapper.IMappingProvider.Member;
 import net.fabricmc.tinyremapper.api.TrEnvironment;
-import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.api.WrapperFunction;
 
@@ -522,7 +521,7 @@ public class TinyRemapper {
 
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.METHOD, ret, name, desc, access));
+				MemberInstance prev = ret.addMember(new MemberInstance(MemberType.METHOD, ret, name, desc, access));
 				if (prev != null) throw new RuntimeException(String.format("duplicate method %s/%s%s in inputs", ret.getName(), name, desc));
 
 				return super.visitMethod(access, name, desc, signature, exceptions);
@@ -530,7 +529,7 @@ public class TinyRemapper {
 
 			@Override
 			public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
-				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.FIELD, ret, name, desc, access));
+				MemberInstance prev = ret.addMember(new MemberInstance(MemberType.FIELD, ret, name, desc, access));
 				if (prev != null) throw new RuntimeException(String.format("duplicate field %s/%s;;%s in inputs", ret.getName(), name, desc));
 
 				return super.visitField(access, name, desc, signature, value);
@@ -669,24 +668,24 @@ public class TinyRemapper {
 			tasks.add(entry);
 
 			if (tasks.size() >= maxTasks) {
-				futures.add(threadPool.submit(new Propagation(state, TrMember.MemberType.METHOD, tasks)));
+				futures.add(threadPool.submit(new Propagation(state, MemberType.METHOD, tasks)));
 				tasks.clear();
 			}
 		}
 
-		futures.add(threadPool.submit(new Propagation(state, TrMember.MemberType.METHOD, tasks)));
+		futures.add(threadPool.submit(new Propagation(state, MemberType.METHOD, tasks)));
 		tasks.clear();
 
 		for (Map.Entry<String, String> entry : fieldMap.entrySet()) {
 			tasks.add(entry);
 
 			if (tasks.size() >= maxTasks) {
-				futures.add(threadPool.submit(new Propagation(state, TrMember.MemberType.FIELD, tasks)));
+				futures.add(threadPool.submit(new Propagation(state, MemberType.FIELD, tasks)));
 				tasks.clear();
 			}
 		}
 
-		futures.add(threadPool.submit(new Propagation(state, TrMember.MemberType.FIELD, tasks)));
+		futures.add(threadPool.submit(new Propagation(state, MemberType.FIELD, tasks)));
 		tasks.clear();
 
 		waitForAll(futures);
@@ -763,7 +762,7 @@ public class TinyRemapper {
 				System.out.printf("  %s %s %s (%s) -> %s%n", member.cls.getName(), member.type.name(), member.name, member.desc, names);
 
 				if (ignoreConflicts) {
-					Map<String, String> mappings = member.type == TrMember.MemberType.METHOD ? methodMap : fieldMap;
+					Map<String, String> mappings = member.type == MemberType.METHOD ? methodMap : fieldMap;
 					String mappingName = mappings.get(member.cls.getName()+"/"+member.getId());
 
 					if (mappingName == null) { // no direct mapping match, try parents
@@ -1019,7 +1018,7 @@ public class TinyRemapper {
 				AsmRemapper remapper = cls.getContext().remapper;
 				String mappedName, mappedDesc;
 
-				if (member.type == TrMember.MemberType.FIELD) {
+				if (member.type == MemberType.FIELD) {
 					mappedName = remapper.mapFieldName(cls, member.name, member.desc);
 					mappedDesc = remapper.mapDesc(member.desc);
 				} else {
@@ -1075,6 +1074,7 @@ public class TinyRemapper {
 	public synchronized AsmRemapper getRemapper() {
 		refresh();
 		mrjRefresh(defaultState);
+
 		return defaultState.remapper;
 	}
 
@@ -1107,7 +1107,7 @@ public class TinyRemapper {
 	private static int getDescStart(String nameDesc, MemberType type) {
 		int ret;
 
-		if (type == TrMember.MemberType.METHOD) {
+		if (type == MemberType.METHOD) {
 			ret = nameDesc.indexOf('(');
 		} else {
 			ret = nameDesc.indexOf(";;");
@@ -1169,15 +1169,17 @@ public class TinyRemapper {
 
 				if (propagateRecordComponents != LinkedMethodPropagation.DISABLED
 						&& cls.isRecord()
-						&& type == TrMember.MemberType.FIELD
+						&& type == MemberType.FIELD
 						&& (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL)) == (Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL)) { // not static, but private+final
 					String getterIdSrc = MemberInstance.getMethodId(member.name, "()".concat(member.desc));
-					MemberInstance getter = cls.getMember(TrMember.MemberType.METHOD, getterIdSrc);
+					MemberInstance getter = cls.getMember(MemberType.METHOD, getterIdSrc);
 
 					if (getter != null && getter.isVirtual()) {
 						visitedUp.add(cls);
 						visitedDown.add(cls);
-						cls.propagate(TinyRemapper.this, TrMember.MemberType.METHOD, className, getterIdSrc, nameDst, Direction.ANY, true, true, true, visitedUp, visitedDown);
+						cls.propagate(TinyRemapper.this, MemberType.METHOD, className, getterIdSrc, nameDst,
+								Direction.ANY, true, true,
+								true, visitedUp, visitedDown);
 						visitedUp.clear();
 						visitedDown.clear();
 					}
@@ -1206,7 +1208,7 @@ public class TinyRemapper {
 		/**
 		 * Propagate names into methods and create additional bridges to keep the normally mapped method name intact.
 		 */
-		COMPATIBLE
+		COMPATIBLE;
 	}
 
 	static final class MrjState implements TrEnvironment {

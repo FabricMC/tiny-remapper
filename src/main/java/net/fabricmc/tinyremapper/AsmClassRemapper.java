@@ -43,11 +43,12 @@ import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.ParameterNode;
 
-import net.fabricmc.tinyremapper.api.TrMember;
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 
 final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper, boolean rebuildSourceFilenames, boolean checkPackageAccess, boolean skipLocalMapping, boolean renameInvalidLocals) {
 		super(cv, remapper);
+
 		this.rebuildSourceFilenames = rebuildSourceFilenames;
 		this.checkPackageAccess = checkPackageAccess;
 		this.skipLocalMapping = skipLocalMapping;
@@ -99,7 +100,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 			PackageAccessChecker.checkDesc(className, descriptor, "field descriptor", (AsmRemapper) remapper);
 		}
 
-		return new AsmFieldRemapper(super.visitField(access, name, descriptor, signature, value), remapper);
+		return super.visitField(access, name, descriptor, signature, value);
 	}
 
 	@Override
@@ -112,18 +113,17 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 			methodNode = new MethodNode(api, access, name, descriptor, signature, exceptions);
 		}
 
-		MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
-		return new AsmMethodRemapper(mv, remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
+		return super.visitMethod(access, name, descriptor, signature, exceptions);
 	}
 
 	@Override
 	protected FieldVisitor createFieldRemapper(FieldVisitor fieldVisitor) {
-		return fieldVisitor;
+		return new AsmFieldRemapper(fieldVisitor, remapper);
 	}
 
 	@Override
 	protected MethodVisitor createMethodRemapper(MethodVisitor mv) {
-		return mv;
+		return new AsmMethodRemapper(mv, remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
 	}
 
 	@Override
@@ -162,31 +162,25 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	private MethodNode methodNode;
 
 	private static class AsmFieldRemapper extends FieldRemapper {
-		AsmFieldRemapper(FieldVisitor fieldVisitor,
-				Remapper remapper) {
+		AsmFieldRemapper(FieldVisitor fieldVisitor, Remapper remapper) {
 			super(fieldVisitor, remapper);
 		}
 
 		@Override
 		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-			return createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
 		}
 
 		@Override
 		public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
-			return createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
 		}
 	}
 
 	private static class AsmMethodRemapper extends MethodRemapper {
-		AsmMethodRemapper(MethodVisitor methodVisitor,
-				Remapper remapper,
-				String owner,
-				MethodNode methodNode,
-				boolean checkPackageAccess,
-				boolean skipLocalMapping,
-				boolean renameInvalidLocals) {
+		AsmMethodRemapper(MethodVisitor methodVisitor, Remapper remapper, String owner, MethodNode methodNode, boolean checkPackageAccess, boolean skipLocalMapping, boolean renameInvalidLocals) {
 			super(methodNode != null ? methodNode : methodVisitor, remapper);
+
 			this.owner = owner;
 			this.methodNode = methodNode;
 			this.output = methodVisitor;
@@ -202,17 +196,17 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 		@Override
 		public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
-			return createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitAnnotation(descriptor, visible), remapper);
 		}
 
 		@Override
 		public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String descriptor, boolean visible) {
-			return createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), remapper);
 		}
 
 		@Override
 		public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {
-			return createAsmAnnotationRemapper(descriptor, super.visitParameterAnnotation(parameter, descriptor, visible), remapper);
+			return AsmClassRemapper.createAsmAnnotationRemapper(descriptor, super.visitParameterAnnotation(parameter, descriptor, visible), remapper);
 		}
 
 		@Override
@@ -254,7 +248,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		@Override
 		public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
 			if (checkPackageAccess) {
-				PackageAccessChecker.checkMember(this.owner, owner, name, descriptor, TrMember.MemberType.FIELD, "field instruction", (AsmRemapper) remapper);
+				PackageAccessChecker.checkMember(this.owner, owner, name, descriptor, MemberType.FIELD, "field instruction", (AsmRemapper) remapper);
 			}
 
 			super.visitFieldInsn(opcode, owner, name, descriptor);
@@ -263,7 +257,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		@Override
 		public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
 			if (checkPackageAccess) {
-				PackageAccessChecker.checkMember(this.owner, owner, name, descriptor, TrMember.MemberType.METHOD, "method instruction", (AsmRemapper) remapper);
+				PackageAccessChecker.checkMember(this.owner, owner, name, descriptor, MemberType.METHOD, "method instruction", (AsmRemapper) remapper);
 			}
 
 			super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);

@@ -26,7 +26,7 @@ import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
 
 public final class MemberInstance implements TrMember {
-	MemberInstance(TrMember.MemberType type, ClassInstance cls, String name, String desc, int access) {
+	MemberInstance(MemberType type, ClassInstance cls, String name, String desc, int access) {
 		this.type = type;
 		this.cls = cls;
 		this.name = name;
@@ -47,11 +47,11 @@ public final class MemberInstance implements TrMember {
 	}
 
 	public boolean isVirtual() {
-		return type == TrMember.MemberType.METHOD && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
+		return type == MemberType.METHOD && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
 	}
 
 	public boolean isBridge() {
-		return type == TrMember.MemberType.METHOD && (access & Opcodes.ACC_BRIDGE) != 0;
+		return type == MemberType.METHOD && (access & Opcodes.ACC_BRIDGE) != 0;
 	}
 
 	public boolean isPublicOrPrivate() {
@@ -99,8 +99,8 @@ public final class MemberInstance implements TrMember {
 		return String.format("%s/%s%s", cls.getName(), name, desc);
 	}
 
-	public static String getId(TrMember.MemberType type, String name, String desc, boolean ignoreFieldDesc) {
-		return type == TrMember.MemberType.METHOD ? getMethodId(name, desc) : getFieldId(name, desc, ignoreFieldDesc);
+	public static String getId(MemberType type, String name, String desc, boolean ignoreFieldDesc) {
+		return type == MemberType.METHOD ? getMethodId(name, desc) : getFieldId(name, desc, ignoreFieldDesc);
 	}
 
 	public static String getMethodId(String name, String desc) {
@@ -111,11 +111,11 @@ public final class MemberInstance implements TrMember {
 		return ignoreDesc ? name : name+";;"+desc;
 	}
 
-	public static String getNameFromId(TrMember.MemberType type, String id, boolean ignoreFieldDesc) {
-		if (ignoreFieldDesc && type == TrMember.MemberType.FIELD) {
+	public static String getNameFromId(MemberType type, String id, boolean ignoreFieldDesc) {
+		if (ignoreFieldDesc && type == MemberType.FIELD) {
 			return id;
 		} else {
-			String separator = type == TrMember.MemberType.METHOD ? "(" : ";;";
+			String separator = type == MemberType.METHOD ? "(" : ";;";
 			int pos = id.lastIndexOf(separator);
 			if (pos < 0) throw new IllegalArgumentException(String.format("invalid %s id: %s", type.name(), id));
 
@@ -151,7 +151,7 @@ public final class MemberInstance implements TrMember {
 		return this.type;
 	}
 
-	final TrMember.MemberType type;
+	final MemberType type;
 	final ClassInstance cls;
 	final String name;
 	final String desc;

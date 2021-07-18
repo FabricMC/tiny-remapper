@@ -3,7 +3,7 @@ package net.fabricmc.tinyremapper.api;
 import java.util.Collection;
 
 public interface TrClass {
-	TrEnvironment getClasspath();
+	TrEnvironment getEnvironment();
 
 	int getAccess();
 

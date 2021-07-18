@@ -45,6 +45,7 @@ import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 public final class ClassInstance implements TrClass {
 	ClassInstance(TinyRemapper tr, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
 		assert !isInput || data != null;
+
 		this.tr = tr;
 		this.isInput = isInput;
 		this.inputTags = inputTags;
@@ -144,7 +145,7 @@ public final class ClassInstance implements TrClass {
 	}
 
 	@Override
-	public TrEnvironment getClasspath() {
+	public TrEnvironment getEnvironment() {
 		return this.context;
 	}
 
@@ -278,13 +279,13 @@ public final class ClassInstance implements TrClass {
 
 			if (first
 					&& ((member.access & Opcodes.ACC_PRIVATE) != 0 // private members don't propagate, but they may get skipped over by overriding virtual methods
-					|| type == TrMember.MemberType.METHOD && isInterface() && !isVirtual)) { // non-virtual interface methods don't propagate either, the jvm only resolves direct accesses to them
+					|| type == MemberType.METHOD && isInterface() && !isVirtual)) { // non-virtual interface methods don't propagate either, the jvm only resolves direct accesses to them
 				return;
 			} else if (remapper.propagateBridges != LinkedMethodPropagation.DISABLED
 					&& member.cls.isInput
 					&& isVirtual
 					&& (member.access & Opcodes.ACC_BRIDGE) != 0) {
-				assert member.type == TrMember.MemberType.METHOD;
+				assert member.type == MemberType.METHOD;
 
 				// try to propagate bridge method mapping to the actual implementation
 
@@ -297,11 +298,13 @@ public final class ClassInstance implements TrClass {
 					visitedUpBridge.add(member.cls);
 					visitedDownBridge.add(member.cls);
 
-					propagate(remapper, TrMember.MemberType.METHOD, originatingCls, bridgeTarget.getId(), nameDst, Direction.DOWN, true, remapper.propagateBridges == LinkedMethodPropagation.COMPATIBLE, false, visitedUpBridge, visitedDownBridge);
+					propagate(remapper, MemberType.METHOD, originatingCls, bridgeTarget.getId(), nameDst,
+							Direction.DOWN, true, remapper.propagateBridges == LinkedMethodPropagation.COMPATIBLE,
+							false, visitedUpBridge, visitedDownBridge);
 				}
 			}
 		} else { // member == null
-			assert !first && (type == TrMember.MemberType.FIELD || !isInterface() || isVirtual);
+			assert !first && (type == MemberType.FIELD || !isInterface() || isVirtual);
 
 			// potentially intermediately accessed location, handled through resolution in the remapper
 		}
@@ -471,7 +474,7 @@ public final class ClassInstance implements TrClass {
 	}
 
 	private MemberInstance resolve0(MemberType type, String id) {
-		boolean isField = type == TrMember.MemberType.FIELD;
+		boolean isField = type == MemberType.FIELD;
 		Set<ClassInstance> visited = Collections.newSetFromMap(new IdentityHashMap<>());
 		Deque<ClassInstance> queue = new ArrayDeque<>();
 		visited.add(this);
@@ -541,7 +544,7 @@ public final class ClassInstance implements TrClass {
 
 	public MemberInstance resolvePartial(MemberType type, String name, String descPrefix) {
 		String idPrefix = MemberInstance.getId(type, name, descPrefix != null ? descPrefix : "", tr.ignoreFieldDesc);
-		boolean isField = type == TrMember.MemberType.FIELD;
+		boolean isField = type == MemberType.FIELD;
 
 		MemberInstance member = getMemberPartial(type, idPrefix);
 		if (member == nullMember) return null; // non-unique match
