@@ -1234,6 +1234,11 @@ public class TinyRemapper {
 		}
 
 		@Override
+		public int getMrjVersion() {
+			return version;
+		}
+
+		@Override
 		public String mapType(String internalName) {
 			return this.remapper.mapType(internalName);
 		}

@@ -42,24 +42,12 @@ public final class MemberInstance implements TrMember {
 		return getId(type, name, desc, cls.tr.ignoreFieldDesc);
 	}
 
-	public boolean isStatic() {
-		return (access & Opcodes.ACC_STATIC) != 0;
-	}
-
 	public boolean isVirtual() {
 		return type == TrMember.MemberType.METHOD && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
 	}
 
-	public boolean isBridge() {
-		return type == TrMember.MemberType.METHOD && (access & Opcodes.ACC_BRIDGE) != 0;
-	}
-
 	public boolean isPublicOrPrivate() {
 		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
-	}
-
-	public boolean isProtected() {
-		return (access & Opcodes.ACC_PROTECTED) != 0;
 	}
 
 	public String getNewName() {
