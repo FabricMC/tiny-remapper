@@ -19,7 +19,7 @@ final class BridgeHandler {
 		String bridgeId = bridgeMethod.getId();
 		int descStart = bridgeId.indexOf('(');
 
-		for (MemberInstance m : bridgeMethod.cls.getMembers()) {
+		for (MemberInstance m : bridgeMethod.cls.getMembers0()) {
 			if (m != bridgeMethod // same method
 					&& m.isVirtual() // not a method or not relevant
 					&& !m.isBridge() // method is a bridge on its own
@@ -85,7 +85,7 @@ final class BridgeHandler {
 	}
 
 	public static void generateCompatBridges(ClassInstance cls, AsmRemapper remapper, ClassVisitor out) {
-		memberLoop: for (MemberInstance m : cls.getMembers()) {
+		memberLoop: for (MemberInstance m : cls.getMembers0()) {
 			String bridgedName = m.getNewBridgedName();
 			String mappedName;
 
@@ -95,7 +95,7 @@ final class BridgeHandler {
 				continue;
 			}
 
-			for (MemberInstance o : cls.getMembers()) {
+			for (MemberInstance o : cls.getMembers0()) {
 				if (o != m
 						&& o.desc.equals(m.desc)
 						&& remapper.mapMethodName(cls.getName(), o.name, o.desc).equals(mappedName)) {

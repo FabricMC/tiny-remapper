@@ -26,6 +26,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,15 +35,17 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import org.objectweb.asm.Opcodes;
 
-import net.fabricmc.tinyremapper.MemberInstance.MemberType;
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
+import net.fabricmc.tinyremapper.api.TrClass;
+import net.fabricmc.tinyremapper.api.TrEnvironment;
+import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
 
-public final class ClassInstance {
+public final class ClassInstance implements TrClass {
 	ClassInstance(TinyRemapper tr, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
 		assert !isInput || data != null;
-
 		this.tr = tr;
 		this.isInput = isInput;
 		this.inputTags = inputTags;
@@ -51,10 +54,11 @@ public final class ClassInstance {
 		this.mrjOrigin = this;
 	}
 
-	void init(String name, int mrjVersion, String superName, int access, String[] interfaces) {
+	void init(int mrjVersion, String name, String sign, String superName, int access, String[] interfaces) {
 		this.name = name;
 		this.mrjVersion = mrjVersion;
 		this.superName = superName;
+		this.signature = sign;
 		this.access = access;
 		this.interfaces = interfaces;
 	}
@@ -140,6 +144,17 @@ public final class ClassInstance {
 		return false;
 	}
 
+	@Override
+	public TrEnvironment getClasspath() {
+		return this.context;
+	}
+
+	@Override
+	public int getAccess() {
+		return access;
+	}
+
+	@Override
 	public String getName() {
 		return name;
 	}
@@ -148,8 +163,42 @@ public final class ClassInstance {
 		return mrjVersion;
 	}
 
+	@Override
 	public String getSuperName() {
 		return superName;
+	}
+
+	@Override
+	public String getSignature() {
+		return signature;
+	}
+
+	@Override
+	public TrMember resolveField(String name, String desc) {
+		if (desc == null) {
+			return this.resolvePartial(MemberType.FIELD, name, ";;");
+		} else {
+			return this.resolve(MemberType.FIELD, MemberInstance.getFieldId(name, desc, tr.ignoreFieldDesc));
+		}
+	}
+
+	@Override
+	public TrMember resolveMethod(String name, String desc) {
+		if (desc == null) {
+			return this.resolvePartial(MemberType.METHOD, name, "(");
+		} else {
+			return this.resolve(MemberType.METHOD, MemberInstance.getMethodId(name, desc));
+		}
+	}
+
+	@Override
+	public Collection<? extends TrMember> getMembers() {
+		return this.members.values();
+	}
+
+	@Override
+	public List<String> getInterfaces() {
+		return Collections.unmodifiableList(Arrays.asList(interfaces));
 	}
 
 	public boolean isInterface() {
@@ -168,11 +217,11 @@ public final class ClassInstance {
 		return mrjOrigin != this;
 	}
 
-	public String[] getInterfaces() {
+	public String[] getInterfaces0() {
 		return interfaces;
 	}
 
-	public Collection<MemberInstance> getMembers() {
+	public Collection<MemberInstance> getMembers0() {
 		return members.values();
 	}
 
@@ -222,13 +271,13 @@ public final class ClassInstance {
 
 			if (first
 					&& ((member.access & Opcodes.ACC_PRIVATE) != 0 // private members don't propagate, but they may get skipped over by overriding virtual methods
-					|| type == MemberType.METHOD && isInterface() && !isVirtual)) { // non-virtual interface methods don't propagate either, the jvm only resolves direct accesses to them
+					|| type == TrMember.MemberType.METHOD && isInterface() && !isVirtual)) { // non-virtual interface methods don't propagate either, the jvm only resolves direct accesses to them
 				return;
 			} else if (remapper.propagateBridges != LinkedMethodPropagation.DISABLED
 					&& member.cls.isInput
 					&& isVirtual
 					&& (member.access & Opcodes.ACC_BRIDGE) != 0) {
-				assert member.type == MemberType.METHOD;
+				assert member.type == TrMember.MemberType.METHOD;
 
 				// try to propagate bridge method mapping to the actual implementation
 
@@ -241,13 +290,11 @@ public final class ClassInstance {
 					visitedUpBridge.add(member.cls);
 					visitedDownBridge.add(member.cls);
 
-					propagate(remapper, MemberType.METHOD, originatingCls, bridgeTarget.getId(), nameDst,
-							Direction.DOWN, true, remapper.propagateBridges == LinkedMethodPropagation.COMPATIBLE,
-							false, visitedUpBridge, visitedDownBridge);
+					propagate(remapper, TrMember.MemberType.METHOD, originatingCls, bridgeTarget.getId(), nameDst, Direction.DOWN, true, remapper.propagateBridges == LinkedMethodPropagation.COMPATIBLE, false, visitedUpBridge, visitedDownBridge);
 				}
 			}
 		} else { // member == null
-			assert !first && (type == MemberType.FIELD || !isInterface() || isVirtual);
+			assert !first && (type == TrMember.MemberType.FIELD || !isInterface() || isVirtual);
 
 			// potentially intermediately accessed location, handled through resolution in the remapper
 		}
@@ -345,10 +392,10 @@ public final class ClassInstance {
 		String superName = superDesc.substring(superDescStart, superDescEnd);
 		String subName = subDesc.substring(subDescStart, subDescEnd);
 
-		ClassInstance superCls = context.getClass(superName);
+		ClassInstance superCls = context.getClass0(superName);
 		if (superCls != null && superCls.children.isEmpty()) return false;
 
-		ClassInstance subCls = context.getClass(subName);
+		ClassInstance subCls = context.getClass0(subName);
 
 		if (subCls != null) { // sub class known, search upwards
 			if (superCls == null || superCls.isInterface()) {
@@ -372,7 +419,7 @@ public final class ClassInstance {
 					if (curSuperName.equals(superName)) return true;
 					if (curSuperName.equals(objectClassName)) return false;
 
-					subCls = context.getClass(curSuperName);
+					subCls = context.getClass0(curSuperName);
 				} while (subCls != null);
 			}
 		} else if (superCls != null) { // only super class known, search down
@@ -417,7 +464,7 @@ public final class ClassInstance {
 	}
 
 	private MemberInstance resolve0(MemberType type, String id) {
-		boolean isField = type == MemberType.FIELD;
+		boolean isField = type == TrMember.MemberType.FIELD;
 		Set<ClassInstance> visited = Collections.newSetFromMap(new IdentityHashMap<>());
 		Deque<ClassInstance> queue = new ArrayDeque<>();
 		visited.add(this);
@@ -487,7 +534,7 @@ public final class ClassInstance {
 
 	public MemberInstance resolvePartial(MemberType type, String name, String descPrefix) {
 		String idPrefix = MemberInstance.getId(type, name, descPrefix != null ? descPrefix : "", tr.ignoreFieldDesc);
-		boolean isField = type == MemberType.FIELD;
+		boolean isField = type == TrMember.MemberType.FIELD;
 
 		MemberInstance member = getMemberPartial(type, idPrefix);
 		if (member == nullMember) return null; // non-unique match
@@ -605,7 +652,7 @@ public final class ClassInstance {
 	ClassInstance constructMrjCopy(MrjState newContext) {
 		// isInput should be false, since the MRJ copy should not be emitted
 		ClassInstance copy = new ClassInstance(tr, false, inputTags, srcPath, data);
-		copy.init(name, mrjVersion, superName, access, interfaces);
+		copy.init(mrjVersion, name, signature, superName, access, interfaces);
 		copy.setContext(newContext);
 
 		for (MemberInstance member : members.values()) {
@@ -652,6 +699,7 @@ public final class ClassInstance {
 	private String name;
 	private int mrjVersion;
 	private String superName;
+	private String signature;
 	private int access;
 	private String[] interfaces;
 }
