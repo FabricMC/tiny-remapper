@@ -463,6 +463,7 @@ public final class ClassInstance implements TrClass {
 		return member != nullMember ? member : null;
 	}
 
+	// TODO: can this one be implemented using resolvePartial?
 	private MemberInstance resolve0(MemberType type, String id) {
 		boolean isField = type == TrMember.MemberType.FIELD;
 		Set<ClassInstance> visited = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -532,6 +533,7 @@ public final class ClassInstance implements TrClass {
 		return secondaryMatch != null ? secondaryMatch : nullMember;
 	}
 
+	// TODO: result not cached
 	public MemberInstance resolvePartial(MemberType type, String name, String descPrefix) {
 		String idPrefix = MemberInstance.getId(type, name, descPrefix != null ? descPrefix : "", tr.ignoreFieldDesc);
 		boolean isField = type == TrMember.MemberType.FIELD;
