@@ -19,6 +19,7 @@ package net.fabricmc.tinyremapper;
 
 import java.nio.file.Path;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -32,16 +33,19 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.objectweb.asm.Opcodes;
 
-import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.TinyRemapper.Direction;
+import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
+import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.api.TrMember;
-import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
-import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 
 public final class ClassInstance implements TrClass {
 	ClassInstance(TinyRemapper tr, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
@@ -145,7 +149,7 @@ public final class ClassInstance implements TrClass {
 	}
 
 	@Override
-	public TrEnvironment getClasspath() {
+	public TrEnvironment getEnvironment() {
 		return this.context;
 	}
 
@@ -174,41 +178,206 @@ public final class ClassInstance implements TrClass {
 	}
 
 	@Override
-	public TrMember resolveField(String name, String desc) {
-		if (desc == null) {
-			return this.resolvePartial(MemberType.FIELD, name, ";;");
-		} else {
-			return this.resolve(MemberType.FIELD, MemberInstance.getFieldId(name, desc, tr.ignoreFieldDesc));
-		}
-	}
-
-	@Override
-	public TrMember resolveMethod(String name, String desc) {
-		if (desc == null) {
-			return this.resolvePartial(MemberType.METHOD, name, "(");
-		} else {
-			return this.resolve(MemberType.METHOD, MemberInstance.getMethodId(name, desc));
-		}
-	}
-
-	@Override
-	public Collection<? extends TrMember> getMembers() {
-		return this.members.values();
-	}
-
-	@Override
 	public List<String> getInterfaces() {
 		return Collections.unmodifiableList(Arrays.asList(interfaces));
 	}
 
-	public boolean isInterface() {
-		return (access & Opcodes.ACC_INTERFACE) != 0;
+	/**
+	 * The result is cached in the {@link ClassInstance#resolvedInterfaces}.
+	 */
+	private List<ClassInstance> resolveInterfaces0() {
+		synchronized (this.resolvedInterfaces) {	// this must be sync-ed to avoid race-condition
+			if (this.resolvedInterfaces.isEmpty()) {
+				// if {@code resolvedInterfaces} is non-empty, it must already been
+				// resolved.
+
+				for (ClassInstance parent : this.parents) {
+					if (resolvedInterfaces.contains(parent)) {
+						// No need to proceed, {@code parent} must already resolved
+					} else {
+						if (parent.isInterface()) {
+							resolvedInterfaces.add(parent);
+						}
+
+						parent.resolveInterfaces0().forEach(cls -> {
+							if (cls.isInterface() && !resolvedInterfaces.contains(cls)) {
+								// only add if there is no duplicate
+								resolvedInterfaces.add(cls);
+							}
+						});
+					}
+				}
+
+				// sort the result based on partial order. This is the best we can do, because it's partial order.
+				for (int s = 0; s < resolvedInterfaces.size(); s += 1) {    // 0 to (s - 1) is sorted, inclusive
+					for (int i = s; i < resolvedInterfaces.size(); i += 1) {    // find the smallest interface first
+						boolean smallest = true;
+
+						for (int j = s; j < resolvedInterfaces.size(); j += 1) {    // iterate to see if i is super-interface of others
+							if (resolvedInterfaces.get(j).resolveInterfaces0().contains(resolvedInterfaces.get(i))) {
+								smallest = false;
+								break;
+							}
+						}
+
+						if (smallest) {
+							Collections.swap(resolvedInterfaces, s, i);
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		return this.resolvedInterfaces;
 	}
 
-	public boolean isRecord() {
-		return (access & Opcodes.ACC_RECORD) != 0;
+	@Override
+	public List<String> resolveInterfaces() {
+		return resolveInterfaces0().stream().map(ClassInstance::getName).collect(Collectors.toList());
 	}
 
+	/**
+	 * Do nothing if a member with same name & desc already exists.
+	 */
+	private void putIfAbsent(Collection<TrMember> collection, TrMember member) {
+		boolean noneMatch = collection.stream().noneMatch(
+				m -> m.getName().equals(member.getName()) && m.getDesc().equals(member.getDesc())
+		);
+
+		if (noneMatch) {
+			collection.add(member);
+		}
+	}
+
+	@Override
+	public Collection<TrMember> getMethods(String name, String descPrefix, boolean isDescPrefix, Predicate<TrMember> filter, Collection<TrMember> collection) {
+		if (name != null && descPrefix != null && !isDescPrefix) {
+			// we can take advantage of map.
+			TrMember member = members.get(MemberInstance.getMethodId(name, descPrefix));
+
+			if (collection == null) {
+				return Collections.singletonList(member);
+			} else {
+				putIfAbsent(collection, member);
+				return collection;
+			}
+		} else {
+			Stream<TrMember> result = members.values().stream()
+					.filter(m -> {
+						boolean isMethod = m.getType().equals(MemberType.METHOD);
+						boolean isSameName = (name == null) || m.getName().equals(name);
+						boolean isSameDesc = (descPrefix == null) || (isDescPrefix ? m.getDesc().startsWith(descPrefix) : m.getDesc().equals(descPrefix));
+						return isMethod && isSameName && isSameDesc && filter.test(m);
+					}).map(m -> m);
+
+			if (collection == null) {
+				return result.collect(Collectors.toList());
+			} else {
+				result.forEach(m -> putIfAbsent(collection, m));
+				return collection;
+			}
+		}
+	}
+
+	@Override
+	public Collection<TrMember> getFields(String name, String descPrefix, boolean isDescPrefix, Predicate<TrMember> filter, Collection<TrMember> collection) {
+		if (name != null && descPrefix != null && !isDescPrefix) {
+			// we can take advantage of map.
+			TrMember member = members.get(MemberInstance.getFieldId(name, descPrefix, tr.ignoreFieldDesc));
+
+			if (collection == null) {
+				return Collections.singletonList(member);
+			} else {
+				putIfAbsent(collection, member);
+				return collection;
+			}
+		} else {
+			Stream<TrMember> result = members.values().stream()
+					.filter(m -> {
+						boolean isField = m.getType().equals(MemberType.FIELD);
+						boolean isSameName = (name == null) || m.getName().equals(name);
+						boolean isSameDesc = (descPrefix == null) || (isDescPrefix ? m.getDesc().startsWith(descPrefix) : m.getDesc().equals(descPrefix));
+						return isField && isSameName && isSameDesc && filter.test(m);
+					}).map(m -> m);
+
+			if (collection == null) {
+				return result.collect(Collectors.toList());
+			} else {
+				result.forEach(m -> putIfAbsent(collection, m));
+				return collection;
+			}
+		}
+	}
+
+	@Override
+	public Collection<TrMember> resolveMethods(String name, String descPrefix, boolean isDescPrefix, Predicate<TrMember> filter, Collection<TrMember> collection) {
+		// See: https://docs.oracle.com/javase/specs/jvms/se16/html/jvms-5.html#jvms-5.4.3.3
+		// for section 5.4.3.3 & 5.4.3.4
+		if (collection == null) {
+			collection = new ArrayList<>();
+		}
+
+		ClassInstance cls = this;
+
+		// Method resolution attempts to locate the referenced method in C and its superclasses.
+		while (cls != null) {
+			cls.getMethods(name, descPrefix, isDescPrefix, filter, collection);
+
+			// Java guarantee there is at most one super-class
+			cls = cls.parents.stream()
+					.filter(parent -> !parent.isInterface())
+					.findAny()
+					.orElse(null);
+		}
+
+		// Method resolution attempts to locate the referenced method in the superinterfaces of the specified class C.
+		for (ClassInstance cls2 : resolveInterfaces0()) {
+			cls2.getMethods(name, descPrefix, isDescPrefix, filter, collection);
+		}
+
+		return collection;
+	}
+
+	@Override
+	public Collection<TrMember> resolveFields(String name, String descPrefix, boolean isDescPrefix, Predicate<TrMember> filter, Collection<TrMember> collection) {
+		// See: https://docs.oracle.com/javase/specs/jvms/se16/html/jvms-5.html#jvms-5.4.3.2
+		// for section 5.4.3.2
+		if (collection == null) {
+			collection = new ArrayList<>();
+		}
+
+		final Deque<ClassInstance> deque = new ArrayDeque<>();
+		final Set<String> visited = new HashSet<>();
+
+		ClassInstance cls = this;
+
+		while (cls != null) {
+			// C declares a field with the name and descriptor specified by the field reference
+			cls.getFields(name, descPrefix, isDescPrefix, filter, collection);
+
+			// Field lookup is applied recursively to the direct superinterfaces of the specified class or interface C
+			deque.push(cls);
+
+			for (ClassInstance parent : cls.parents) {
+				if (parent.isInterface() && visited.add(parent.getName())) {
+					parent.getFields(name, descPrefix, isDescPrefix, filter, collection);
+					deque.addLast(parent);
+				}
+			}
+
+			// If C has a superclass S, field lookup is applied recursively to S.
+			// Java guarantee there is at most one super-class
+			cls = cls.parents.stream()
+					.filter(parent -> !parent.isInterface())
+					.findAny()
+					.orElse(null);
+		}
+
+		return collection;
+	}
+
+	// TODO: based on JLS, a class cannot be private
 	public boolean isPublicOrPrivate() {
 		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
 	}
@@ -463,6 +632,7 @@ public final class ClassInstance implements TrClass {
 		return member != nullMember ? member : null;
 	}
 
+	// This is more efficient than getMethods or getFields, and this method cache result
 	private MemberInstance resolve0(MemberType type, String id) {
 		boolean isField = type == TrMember.MemberType.FIELD;
 		Set<ClassInstance> visited = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -533,120 +703,25 @@ public final class ClassInstance implements TrClass {
 	}
 
 	public MemberInstance resolvePartial(MemberType type, String name, String descPrefix) {
-		String idPrefix = MemberInstance.getId(type, name, descPrefix != null ? descPrefix : "", tr.ignoreFieldDesc);
-		boolean isField = type == TrMember.MemberType.FIELD;
+		if (type.equals(MemberType.FIELD)) {
+			Collection<TrMember> member = resolveFields(name, descPrefix, true, null);
 
-		MemberInstance member = getMemberPartial(type, idPrefix);
-		if (member == nullMember) return null; // non-unique match
-
-		Set<ClassInstance> visited = Collections.newSetFromMap(new IdentityHashMap<>());
-		Deque<ClassInstance> queue = new ArrayDeque<>();
-		queue.add(this);
-		ClassInstance context = this;
-		MemberInstance secondaryMatch = null;
-
-		do { // overall-recursion for fields
-			// step 1
-			// method: search in all super classes recursively
-			// field: search in all direct super interfaces recursively
-
-			ClassInstance cls = context;
-
-			do {
-				for (ClassInstance parent : cls.parents) {
-					if (parent.isInterface() == isField && visited.add(parent)) {
-						MemberInstance ret = parent.getMemberPartial(type, idPrefix);
-
-						if (ret != null) {
-							if (ret == nullMember) {
-								return null; // non-unique match
-							} else if (member == null) {
-								member = ret;
-							} else if (!member.desc.equals(ret.desc)) {
-								return null; // non-unique match
-							}
-						}
-
-						queue.addLast(parent);
-					}
-				}
-			} while ((cls = queue.pollLast()) != null);
-
-			if (!isField) {
-				visited.clear();
-				visited.add(context);
+			if (member.size() == 1) {
+				return (MemberInstance) member.stream().findAny().get();
+			} else {
+				return null;
 			}
+		} else if (type.equals(MemberType.METHOD)) {
+			Collection<TrMember> member = resolveMethods(name, descPrefix, true, null);
 
-			// step 2
-			// method: search for non-static, non-private, non-abstract in all super interfaces recursively
-			//         (breadth first search to obtain the potentially maximally-specific superinterface directly)
-			// field: search in all super classes recursively (self-lookup and queue only, outer loop will recurse)
-			// step 3
-			// method: search for non-static, non-private in all super interfaces recursively
-
-			// step 3 is a super set of step 2 with any option being able to be "arbitrarily chosen" as per the jvm
-			// spec, so step 2 ignoring the "exactly one" match requirement doesn't matter and >potentially<
-			// maximally-specific superinterface is good enough
-
-			cls = context;
-
-			do {
-				for (ClassInstance parent : cls.parents) {
-					if ((!isField || !parent.isInterface()) && visited.add(parent)) { // field -> class, method -> any
-						if (parent.isInterface() != isField) { // field -> class, method -> interface; look in parent
-							MemberInstance parentMember = parent.getMemberPartial(type, idPrefix);
-
-							if (parentMember != null
-									&& (isField || (parentMember.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0)) { // potential match
-								if (parentMember == nullMember) {
-									return null; // non-unique match
-								} else if (member == null) {
-									if (!isField && (parentMember.access & (Opcodes.ACC_ABSTRACT)) != 0) {
-										if (secondaryMatch != null && !secondaryMatch.desc.equals(parentMember.desc)) {
-											return null; // non-unique match
-										} else {
-											secondaryMatch = parentMember;
-										}
-									} else {
-										member = parentMember;
-									}
-								} else if (!member.desc.equals(parentMember.desc)) {
-									return null; // non-unique match
-								}
-							}
-						}
-
-						queue.addLast(parent);
-					}
-				}
-			} while (!isField && (cls = queue.pollFirst()) != null);
-		} while ((context = queue.pollFirst()) != null); // overall-recursion for fields
-
-		if (secondaryMatch == null) {
-			return member;
-		} else if (member == null) {
-			return secondaryMatch;
-		} else if (member.desc.equals(secondaryMatch.desc)) {
-			return member;
+			if (member.size() == 1) {
+				return (MemberInstance) member.stream().findAny().get();
+			} else {
+				return null;
+			}
 		} else {
-			return null; // non-unique match
+			return null;
 		}
-	}
-
-	private MemberInstance getMemberPartial(MemberType type, String idPrefix) {
-		MemberInstance ret = null;
-
-		for (Map.Entry<String, MemberInstance> entry : members.entrySet()) {
-			if (entry.getValue().type == type && entry.getKey().startsWith(idPrefix)) {
-				if (ret == null) {
-					ret = entry.getValue();
-				} else {
-					return nullMember; // non-unique match
-				}
-			}
-		}
-
-		return ret;
 	}
 
 	ClassInstance constructMrjCopy(MrjState newContext) {
@@ -677,6 +752,24 @@ public final class ClassInstance implements TrClass {
 		}
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+
+		ClassInstance that = (ClassInstance) o;
+
+		if (mrjVersion != that.mrjVersion) return false;
+		return name.equals(that.name);
+	}
+
+	@Override
+	public int hashCode() {
+		int result = name.hashCode();
+		result = 31 * result + mrjVersion;
+		return result;
+	}
+
 	public static final int MRJ_DEFAULT = -1;
 	public static final String MRJ_PREFIX = "/META-INF/versions";
 
@@ -696,6 +789,9 @@ public final class ClassInstance implements TrClass {
 	private final ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();
 	final Set<ClassInstance> parents = new HashSet<>();
 	final Set<ClassInstance> children = new HashSet<>();
+	// This guarantees a partial order such that for two interface A, B; A will appear before B if A extends B
+	private final List<ClassInstance> resolvedInterfaces = new ArrayList<>();
+
 	private String name;
 	private int mrjVersion;
 	private String superName;

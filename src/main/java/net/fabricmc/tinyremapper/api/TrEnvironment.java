@@ -6,5 +6,7 @@ public interface TrEnvironment {
 	 */
 	TrClass getClass(String internalName);
 
+	int getMrjVersion();
+
 	String mapType(String internalName);
 }
