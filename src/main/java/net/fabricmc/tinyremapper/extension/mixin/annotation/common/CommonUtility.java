@@ -1,13 +1,19 @@
 package net.fabricmc.tinyremapper.extension.mixin.annotation.common;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.objectweb.asm.commons.Remapper;
 
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.api.TrMember;
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.extension.mixin.common.Logger;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationType;
 import net.fabricmc.tinyremapper.extension.mixin.data.IMappingHolder;
@@ -114,16 +120,32 @@ public final class CommonUtility {
 
 			if (srcDesc.isEmpty()) {    // if desc is empty, then so does type
 				TrClass _class = environment.getClass(srcOwner);
-				TrMember member;
+				Collection<TrMember> members = new ArrayList<>();
 
-				if ((member = _class.resolveField(srcName, null)) != null) {
+				// collect both methods and fields
+				_class.resolveFields(srcName, members);
+				_class.resolveMethods(srcName, members);
+
+				Stream<TrMember> normalStream = members.stream().filter(m -> !m.isSynthetic());
+				Stream<TrMember> syntheticStream = members.stream().filter(TrMember::isSynthetic);
+
+				if (normalStream.count() > 1) {
+					Logger.error("Ambiguous target member " + normalStream.map(m -> m.getName() + m.getDesc()).collect(Collectors.joining(", "))
+							+ ". Please specify descriptor");
+					return srcInfo;
+				} else if (normalStream.count() == 1) {
+					TrMember member = Objects.requireNonNull(normalStream.findAny().orElse(null));
 					srcDesc = member.getDesc();
-					type = AnnotationType.FIELD;
-				} else if ((member = _class.resolveMethod(srcName, null)) != null) {
+					type = member.getType().equals(MemberType.FIELD) ? AnnotationType.FIELD : AnnotationType.METHOD;
+				} else if (syntheticStream.count() > 1) {
+					Logger.error("Ambiguous target member " + syntheticStream.map(m -> m.getName() + m.getDesc()).collect(Collectors.joining(", "))
+							+ ". Please specify descriptor");
+					return srcInfo;
+				} else if (syntheticStream.count() == 1) {
+					TrMember member = Objects.requireNonNull(syntheticStream.findAny().orElse(null));
 					srcDesc = member.getDesc();
-					type = AnnotationType.METHOD;
+					type = member.getType().equals(MemberType.FIELD) ? AnnotationType.FIELD : AnnotationType.METHOD;
 				} else {
-					// Cannot find desc
 					return srcInfo;
 				}
 			}
@@ -134,9 +156,7 @@ public final class CommonUtility {
 
 			return new MemberInfo(srcInfo.type,
 					srcInfo.owner.isEmpty() ? "" : classNameToDesc(dstOwner),
-					srcInfo.name.isEmpty() ? "" : dstName,
-					srcInfo.quantifier,
-					srcInfo.desc.isEmpty() ? "" : dstDesc);
+					dstName, srcInfo.quantifier, dstDesc);
 		}
 	}
 
@@ -150,11 +170,13 @@ public final class CommonUtility {
 			if (!srcInfo.name.equals(tmp.name)) {
 				if (dstInfo == null) {
 					dstInfo = tmp;
-				} else if (dstInfo.name.equals(tmp.name)) {
+				} else if (dstInfo.name.equals(tmp.name) && dstInfo.desc.equals(tmp.desc)) {
 					// they are the same name, ignore
 				} else {
-					Logger.error("Detect conflict mapping " + srcInfo.name + " -> " + dstInfo.name + "; "
-							+ srcInfo.name + " -> " + tmp.name + ". This is a serious issue!");
+					Logger.error("Detect conflict mapping " + srcInfo.name + srcInfo.desc
+							+ " -> " + dstInfo.name + dstInfo.desc + "; "
+							+ srcInfo.name + srcInfo.desc
+							+ " -> " + tmp.name + tmp.desc + ".");
 					return srcInfo;
 				}
 			}
