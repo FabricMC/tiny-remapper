@@ -1,26 +1,36 @@
 package net.fabricmc.tinyremapper.api;
 
-import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
 
 public interface TrMember {
+	/**
+	 * Get the owner of the member.
+	 */
 	TrClass getOwner();
 
 	/**
-	 * @see Opcodes
+	 * Get the access opcode.
 	 */
 	int getAccess();
 
 	/**
-	 * @see ClassVisitor#visitField(int, String, String, String, Object)
+	 * Get the name of the member.
 	 */
 	String getName();
 
 	/**
-	 * @see ClassVisitor#visitField(int, String, String, String, Object)
+	 * Get the descriptor of the member.
 	 */
 	String getDesc();
 
+	/**
+	 * Get the ASM visit index of the member.
+	 */
+	int getIndex();
+
+	/**
+	 * Get the type of the member.
+	 */
 	MemberType getType();
 
 	enum MemberType {

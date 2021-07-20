@@ -743,7 +743,7 @@ public final class ClassInstance implements TrClass {
 		copy.setContext(newContext);
 
 		for (MemberInstance member : members.values()) {
-			copy.addMember(new MemberInstance(member.type, copy, member.name, member.desc, member.access));
+			copy.addMember(new MemberInstance(member.type, copy, member.name, member.desc, member.access, member.index));
 		}
 
 		// set the origin
@@ -768,7 +768,7 @@ public final class ClassInstance implements TrClass {
 	public static final String MRJ_PREFIX = "/META-INF/versions";
 
 	private static final String objectClassName = "java/lang/Object";
-	private static final MemberInstance nullMember = new MemberInstance(null, null, null, null, 0);
+	private static final MemberInstance nullMember = new MemberInstance(null, null, null, null, 0, 0);
 	private static final AtomicReferenceFieldUpdater<ClassInstance, InputTag[]> inputTagsUpdater = AtomicReferenceFieldUpdater.newUpdater(ClassInstance.class, InputTag[].class, "inputTags");
 
 	final TinyRemapper tr;
