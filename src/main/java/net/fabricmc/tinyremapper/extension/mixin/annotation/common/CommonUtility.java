@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.objectweb.asm.commons.Remapper;
 
@@ -126,23 +125,20 @@ public final class CommonUtility {
 				_class.resolveFields(srcName, members);
 				_class.resolveMethods(srcName, members);
 
-				Stream<TrMember> normalStream = members.stream().filter(m -> !m.isSynthetic());
-				Stream<TrMember> syntheticStream = members.stream().filter(TrMember::isSynthetic);
-
-				if (normalStream.count() > 1) {
-					Logger.error("Ambiguous target member " + normalStream.map(m -> m.getName() + m.getDesc()).collect(Collectors.joining(", "))
+				if (members.stream().filter(m -> !m.isSynthetic()).count() > 1) {
+					Logger.error("Ambiguous target member " + members.stream().filter(m -> !m.isSynthetic()).map(m -> m.getName() + m.getDesc()).collect(Collectors.joining(", "))
 							+ ". Please specify descriptor");
 					return srcInfo;
-				} else if (normalStream.count() == 1) {
-					TrMember member = Objects.requireNonNull(normalStream.findAny().orElse(null));
+				} else if (members.stream().filter(m -> !m.isSynthetic()).count() == 1) {
+					TrMember member = Objects.requireNonNull(members.stream().filter(m -> !m.isSynthetic()).findAny().orElse(null));
 					srcDesc = member.getDesc();
 					type = member.getType().equals(MemberType.FIELD) ? AnnotationType.FIELD : AnnotationType.METHOD;
-				} else if (syntheticStream.count() > 1) {
-					Logger.error("Ambiguous target member " + syntheticStream.map(m -> m.getName() + m.getDesc()).collect(Collectors.joining(", "))
+				} else if (members.stream().filter(TrMember::isSynthetic).count() > 1) {
+					Logger.error("Ambiguous target member " + members.stream().filter(TrMember::isSynthetic).map(m -> m.getName() + m.getDesc()).collect(Collectors.joining(", "))
 							+ ". Please specify descriptor");
 					return srcInfo;
-				} else if (syntheticStream.count() == 1) {
-					TrMember member = Objects.requireNonNull(syntheticStream.findAny().orElse(null));
+				} else if (members.stream().filter(TrMember::isSynthetic).count() == 1) {
+					TrMember member = Objects.requireNonNull(members.stream().filter(TrMember::isSynthetic).findAny().orElse(null));
 					srcDesc = member.getDesc();
 					type = member.getType().equals(MemberType.FIELD) ? AnnotationType.FIELD : AnnotationType.METHOD;
 				} else {
@@ -154,8 +150,7 @@ public final class CommonUtility {
 			String dstName = remap(remapper, type, srcOwner, srcName, srcDesc);
 			String dstDesc = type.equals(AnnotationType.FIELD) ? remapper.mapDesc(srcDesc) : remapper.mapMethodDesc(srcDesc);
 
-			return new MemberInfo(srcInfo.type,
-					srcInfo.owner.isEmpty() ? "" : classNameToDesc(dstOwner),
+			return new MemberInfo(type, srcInfo.owner.isEmpty() ? "" : classNameToDesc(dstOwner),
 					dstName, srcInfo.quantifier, dstDesc);
 		}
 	}
