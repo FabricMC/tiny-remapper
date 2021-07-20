@@ -27,7 +27,7 @@ public class SliceAnnotationVisitor extends AnnotationVisitor {
 		AnnotationVisitor annotationVisitor = super.visitAnnotation(name, descriptor);
 
 		if (name.equals(AnnotationElement.FROM.get()) || name.equals(AnnotationElement.TO.get())) {
-			if (!descriptor.equals(Annotation.AT.get())) {
+			if (!descriptor.equals(Annotation.AT)) {
 				throw new RuntimeException("Unexpected annotation " + descriptor);
 			}
 

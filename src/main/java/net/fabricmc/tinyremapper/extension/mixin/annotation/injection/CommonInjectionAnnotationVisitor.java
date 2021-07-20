@@ -80,14 +80,14 @@ class CommonInjectionSecondPassAnnotationVisitor extends AnnotationVisitor {
 		AnnotationVisitor annotationVisitor = super.visitAnnotation(name, descriptor);
 
 		if (name.equals(AnnotationElement.AT.get())) {	// @ModifyArg, @ModifyArgs, @Redirect, @ModifyVariable
-			if (!descriptor.equals(Annotation.AT.get())) {
+			if (!descriptor.equals(Annotation.AT)) {
 				throw new RuntimeException("Unexpected annotation " + descriptor);
 			}
 
 			CommonDataHolder data = CommonInjectionSecondPassAnnotationVisitor.this.data.alterAnnotationVisitor(annotationVisitor);
 			annotationVisitor = new AtAnnotationVisitor(data, remap, targets);
 		} else if (name.equals(AnnotationElement.SLICE.get())) {	// @ModifyArg, @ModifyArgs, @Redirect, @ModifyVariable
-			if (!descriptor.equals(Annotation.SLICE.get())) {
+			if (!descriptor.equals(Annotation.SLICE)) {
 				throw new RuntimeException("Unexpected annotation " + descriptor);
 			}
 
@@ -106,7 +106,7 @@ class CommonInjectionSecondPassAnnotationVisitor extends AnnotationVisitor {
 			return new AnnotationVisitor(Constant.ASM_VERSION, annotationVisitor) {
 				@Override
 				public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-					if (!descriptor.equals(Annotation.DESC.get())) {
+					if (!descriptor.equals(Annotation.DESC)) {
 						throw new RuntimeException("Unexpected annotation " + descriptor);
 					}
 
@@ -133,7 +133,7 @@ class CommonInjectionSecondPassAnnotationVisitor extends AnnotationVisitor {
 			return new AnnotationVisitor(Constant.ASM_VERSION, annotationVisitor) {
 				@Override
 				public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-					if (!descriptor.equals(Annotation.AT.get())) {
+					if (!descriptor.equals(Annotation.AT)) {
 						throw new RuntimeException("Unexpected annotation " + descriptor);
 					}
 
@@ -147,7 +147,7 @@ class CommonInjectionSecondPassAnnotationVisitor extends AnnotationVisitor {
 			return new AnnotationVisitor(Constant.ASM_VERSION, annotationVisitor) {
 				@Override
 				public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-					if (!descriptor.equals(Annotation.SLICE.get())) {
+					if (!descriptor.equals(Annotation.SLICE)) {
 						throw new RuntimeException("Unexpected annotation " + descriptor);
 					}
 

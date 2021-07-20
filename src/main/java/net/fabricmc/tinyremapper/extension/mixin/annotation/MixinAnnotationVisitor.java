@@ -31,7 +31,7 @@ class MixinFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
 	private final List<String> targets;
 
 	MixinFirstPassAnnotationVisitor(CommonDataHolder data, AtomicBoolean remapOut, List<String> targetsOut) {
-		super(Annotation.MIXIN.get(), true);
+		super(Annotation.MIXIN, true);
 		this.data = Objects.requireNonNull(data);
 		this.remap0 = Objects.requireNonNull(remapOut);
 		this.targets = Objects.requireNonNull(targetsOut);

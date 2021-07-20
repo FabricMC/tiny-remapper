@@ -68,9 +68,9 @@ class FirstPassClassVisitor extends ClassNode {
 		ClassAnnotationVisitorFactory factory = new ClassAnnotationVisitorFactory(
 				data, annotationVisitor);
 
-		if (Annotation.MIXIN.get().equals(descriptor)) {
+		if (Annotation.MIXIN.equals(descriptor)) {
 			annotationVisitor = factory.mixin(remap, targets);
-		} else if (Annotation.IMPLEMENTS.get().equals(descriptor)) {
+		} else if (Annotation.IMPLEMENTS.equals(descriptor)) {
 			annotationVisitor = factory._implements(interfaces);
 		}
 
@@ -129,9 +129,9 @@ class SecondPassClassVisitor extends ClassVisitor {
 		ClassAnnotationVisitorFactory factory = new ClassAnnotationVisitorFactory(
 				data, annotationVisitor);
 
-		if (Annotation.DESCRIPTORS.get().equals(descriptor)) {
+		if (Annotation.DESCRIPTORS.equals(descriptor)) {
 			annotationVisitor = factory.descriptors(remap, targets);
-		} else if (Annotation.DESC.get().equals(descriptor)) {
+		} else if (Annotation.DESC.equals(descriptor)) {
 			annotationVisitor = factory.desc(remap, targets);
 		}
 

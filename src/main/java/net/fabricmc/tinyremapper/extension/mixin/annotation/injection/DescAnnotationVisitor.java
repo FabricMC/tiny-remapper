@@ -36,7 +36,7 @@ class DescFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
 	private String ret;
 
 	DescFirstPassAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
-		super(Annotation.DESC.get(), remap);
+		super(Annotation.DESC, remap);
 
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);

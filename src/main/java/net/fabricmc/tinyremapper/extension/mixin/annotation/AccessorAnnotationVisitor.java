@@ -32,7 +32,7 @@ class AccessorFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
 	private final List<String> targets;
 
 	AccessorFirstPassAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
-		super(Annotation.ACCESSOR.get(), remap);
+		super(Annotation.ACCESSOR, remap);
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);
 	}

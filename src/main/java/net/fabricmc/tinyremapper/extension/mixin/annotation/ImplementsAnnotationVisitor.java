@@ -80,7 +80,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 			return new AnnotationVisitor(Constant.ASM_VERSION, annotationVisitor) {
 				@Override
 				public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-					if (!descriptor.equals(Annotation.INTERFACE.get())) {
+					if (!descriptor.equals(Annotation.INTERFACE)) {
 						throw new RuntimeException("Unexpected annotation " + descriptor);
 					}
 

@@ -33,7 +33,7 @@ class AtFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
 	private String value;
 
 	AtFirstPassAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
-		super(Annotation.ACCESSOR.get(), remap);
+		super(Annotation.ACCESSOR, remap);
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);
 	}
@@ -107,7 +107,7 @@ class AtSecondPassAnnotationVisitor extends AnnotationVisitor {
 		AnnotationVisitor annotationVisitor = super.visitAnnotation(name, descriptor);
 
 		if (name.equals(AnnotationElement.DESC.get())) {
-			if (!descriptor.equals(Annotation.DESC.get())) {
+			if (!descriptor.equals(Annotation.DESC)) {
 				throw new RuntimeException("Unexpected annotation " + descriptor);
 			}
 

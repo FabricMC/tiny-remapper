@@ -12,6 +12,6 @@ import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
  */
 public class InjectAnnotationVisitor extends CommonInjectionAnnotationVisitor {
 	public InjectAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
-		super(Annotation.INJECT.get(), data, remap, targets);
+		super(Annotation.INJECT, data, remap, targets);
 	}
 }

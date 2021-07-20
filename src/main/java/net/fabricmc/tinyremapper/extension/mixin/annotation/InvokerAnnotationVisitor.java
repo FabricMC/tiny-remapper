@@ -30,7 +30,7 @@ class InvokerFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
 	private final List<String> targets;
 
 	InvokerFirstPassAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
-		super(Annotation.INVOKER.get(), remap);
+		super(Annotation.INVOKER, remap);
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);
 	}

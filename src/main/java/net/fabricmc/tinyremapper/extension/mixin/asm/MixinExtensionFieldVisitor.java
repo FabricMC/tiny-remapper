@@ -33,7 +33,7 @@ class MixinExtensionFieldVisitor extends FieldVisitor {
 		AnnotationVisitor annotationVisitor = super.visitAnnotation(descriptor, visible);
 		FieldAnnotationVisitorFactory factory = new FieldAnnotationVisitorFactory(data, annotationVisitor);
 
-		if (Annotation.SHADOW.get().equals(descriptor)) {
+		if (Annotation.SHADOW.equals(descriptor)) {
 			annotationVisitor = factory.shadow(remap, targets);
 		}
 

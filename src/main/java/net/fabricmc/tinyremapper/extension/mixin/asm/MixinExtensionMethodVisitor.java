@@ -34,29 +34,29 @@ class MixinExtensionMethodVisitor extends MethodVisitor {
 		MethodAnnotationVisitorFactory factory = new MethodAnnotationVisitorFactory(
 				data, annotationVisitor);
 
-		if (Annotation.SHADOW.get().equals(descriptor)) {
+		if (Annotation.SHADOW.equals(descriptor)) {
 			annotationVisitor = factory.shadow(remap, targets);
-		} else if (Annotation.OVERWRITE.get().equals(descriptor)) {
+		} else if (Annotation.OVERWRITE.equals(descriptor)) {
 			annotationVisitor = factory.overwrite(remap, targets);
-		} else if (Annotation.ACCESSOR.get().equals(descriptor)) {
+		} else if (Annotation.ACCESSOR.equals(descriptor)) {
 			annotationVisitor = factory.accessor(remap, targets);
-		} else if (Annotation.INVOKER.get().equals(descriptor)) {
+		} else if (Annotation.INVOKER.equals(descriptor)) {
 			annotationVisitor = factory.invoker(remap, targets);
-		} else if (Annotation.DESCRIPTORS.get().equals(descriptor)) {
+		} else if (Annotation.DESCRIPTORS.equals(descriptor)) {
 			annotationVisitor = factory.descriptors(remap, targets);
-		} else if (Annotation.DESC.get().equals(descriptor)) {
+		} else if (Annotation.DESC.equals(descriptor)) {
 			annotationVisitor = factory.desc(remap, targets);
-		} else if (Annotation.INJECT.get().equals(descriptor)) {
+		} else if (Annotation.INJECT.equals(descriptor)) {
 			annotationVisitor = factory.inject(remap, targets);
-		} else if (Annotation.MODIFY_ARG.get().equals(descriptor)) {
+		} else if (Annotation.MODIFY_ARG.equals(descriptor)) {
 			annotationVisitor = factory.modifyArg(remap, targets);
-		} else if (Annotation.MODIFY_ARGS.get().equals(descriptor)) {
+		} else if (Annotation.MODIFY_ARGS.equals(descriptor)) {
 			annotationVisitor = factory.modifyArgs(remap, targets);
-		} else if (Annotation.REDIRECT.get().equals(descriptor)) {
+		} else if (Annotation.REDIRECT.equals(descriptor)) {
 			annotationVisitor = factory.redirect(remap, targets);
-		} else if (Annotation.MODIFY_CONSTANT.get().equals(descriptor)) {
+		} else if (Annotation.MODIFY_CONSTANT.equals(descriptor)) {
 			annotationVisitor = factory.modifyConstant(remap, targets);
-		} else if (Annotation.MODIFY_VARIABLE.get().equals(descriptor)) {
+		} else if (Annotation.MODIFY_VARIABLE.equals(descriptor)) {
 			annotationVisitor = factory.modifyVariable(remap, targets);
 		}
 

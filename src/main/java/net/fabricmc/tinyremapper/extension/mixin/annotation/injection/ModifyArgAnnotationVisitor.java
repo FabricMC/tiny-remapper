@@ -7,6 +7,6 @@ import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
 
 public class ModifyArgAnnotationVisitor extends CommonInjectionAnnotationVisitor {
 	public ModifyArgAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
-		super(Annotation.MODIFY_ARG.get(), data, remap, targets);
+		super(Annotation.MODIFY_ARG, data, remap, targets);
 	}
 }
