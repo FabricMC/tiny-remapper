@@ -6,7 +6,7 @@ import java.util.Objects;
 import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.extension.mixin.annotation.common.CommonUtility;
-import net.fabricmc.tinyremapper.extension.mixin.common.Logger;
+import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
 import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
@@ -54,7 +54,7 @@ public class ShadowAnnotationVisitor extends AnnotationVisitor {
 					srcName, srcDesc);
 
 			if (srcName.equals(dstName) && !Constant.UNMAP_NAMES.contains(srcName)) {
-				Logger.remapFail("@Shadow", ShadowAnnotationVisitor.this.targets, data.className, srcName);
+				LoggerOld.remapFail("@Shadow", ShadowAnnotationVisitor.this.targets, data.className, srcName);
 			} else {
 				srcName = data.memberName;
 				dstName = data.memberName.startsWith(prefix) ? prefix + dstName : dstName;

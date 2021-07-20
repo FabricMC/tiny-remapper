@@ -13,7 +13,7 @@ import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
-import net.fabricmc.tinyremapper.extension.mixin.common.Logger;
+import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationType;
 import net.fabricmc.tinyremapper.extension.mixin.data.IMappingHolder;
 import net.fabricmc.tinyremapper.extension.mixin.data.MemberInfo;
@@ -80,7 +80,7 @@ public final class CommonUtility {
 				} else if (dstName.equals(tmp)) {
 					// they are the same name, ignore
 				} else {
-					Logger.error("Detect conflict mapping " + srcName + " -> " + dstName + "; "
+					LoggerOld.error("Detect conflict mapping " + srcName + " -> " + dstName + "; "
 							+ srcName + " -> " + tmp + ". This is a serious issue!");
 					return srcName;
 				}
@@ -126,7 +126,7 @@ public final class CommonUtility {
 				_class.resolveMethods(srcName, members);
 
 				if (members.stream().filter(m -> !m.isSynthetic()).count() > 1) {
-					Logger.error("Ambiguous target member " + members.stream().filter(m -> !m.isSynthetic()).map(m -> m.getName() + m.getDesc()).collect(Collectors.joining(", "))
+					LoggerOld.error("Ambiguous target member " + members.stream().filter(m -> !m.isSynthetic()).map(m -> m.getName() + m.getDesc()).collect(Collectors.joining(", "))
 							+ ". Please specify descriptor");
 					return srcInfo;
 				} else if (members.stream().filter(m -> !m.isSynthetic()).count() == 1) {
@@ -134,7 +134,7 @@ public final class CommonUtility {
 					srcDesc = member.getDesc();
 					type = member.getType().equals(MemberType.FIELD) ? AnnotationType.FIELD : AnnotationType.METHOD;
 				} else if (members.stream().filter(TrMember::isSynthetic).count() > 1) {
-					Logger.error("Ambiguous target member " + members.stream().filter(TrMember::isSynthetic).map(m -> m.getName() + m.getDesc()).collect(Collectors.joining(", "))
+					LoggerOld.error("Ambiguous target member " + members.stream().filter(TrMember::isSynthetic).map(m -> m.getName() + m.getDesc()).collect(Collectors.joining(", "))
 							+ ". Please specify descriptor");
 					return srcInfo;
 				} else if (members.stream().filter(TrMember::isSynthetic).count() == 1) {
@@ -168,7 +168,7 @@ public final class CommonUtility {
 				} else if (dstInfo.name.equals(tmp.name) && dstInfo.desc.equals(tmp.desc)) {
 					// they are the same name, ignore
 				} else {
-					Logger.error("Detect conflict mapping " + srcInfo.name + srcInfo.desc
+					LoggerOld.error("Detect conflict mapping " + srcInfo.name + srcInfo.desc
 							+ " -> " + dstInfo.name + dstInfo.desc + "; "
 							+ srcInfo.name + srcInfo.desc
 							+ " -> " + tmp.name + tmp.desc + ".");

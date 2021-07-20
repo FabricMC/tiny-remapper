@@ -9,7 +9,7 @@ import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.extension.mixin.annotation.common.CommonUtility;
 import net.fabricmc.tinyremapper.extension.mixin.annotation.common.FirstPassAnnotationVisitor;
-import net.fabricmc.tinyremapper.extension.mixin.common.Logger;
+import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationType;
@@ -89,7 +89,7 @@ class AccessorSecondPassAnnotationVisitor extends AnnotationVisitor {
 					AccessorSecondPassAnnotationVisitor.this.targets, srcName, srcDesc);
 
 			if (srcName.equals(dstName) && !Constant.UNMAP_NAMES.contains(srcName)) {
-				Logger.remapFail("@Accessor", AccessorSecondPassAnnotationVisitor.this.targets, data.className, srcName);
+				LoggerOld.remapFail("@Accessor", AccessorSecondPassAnnotationVisitor.this.targets, data.className, srcName);
 			}
 
 			value = dstName;
@@ -122,7 +122,7 @@ class AccessorSecondPassAnnotationVisitor extends AnnotationVisitor {
 					AccessorSecondPassAnnotationVisitor.this.targets, srcName, srcDesc);
 
 			if (srcName.equals(dstName) && !Constant.UNMAP_NAMES.contains(srcName)) {
-				Logger.remapFail("@Accessor", AccessorSecondPassAnnotationVisitor.this.targets, data.className, srcName);
+				LoggerOld.remapFail("@Accessor", AccessorSecondPassAnnotationVisitor.this.targets, data.className, srcName);
 			} else {
 				srcName = data.memberName;
 				srcDesc = data.memberDesc;

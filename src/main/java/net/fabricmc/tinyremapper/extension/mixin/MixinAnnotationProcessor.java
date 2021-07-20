@@ -9,6 +9,11 @@ import net.fabricmc.tinyremapper.extension.mixin.asm.MixinExtensionClassVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.data.IMappingHolder;
 import net.fabricmc.tinyremapper.extension.mixin.data.SimpleMappingHolder;
 
+/**
+ * Currently remap mixin annotation.
+ * <p>Soft-target: Mixin, Invoker, Accessor, Inject, ModifyArg, ModifyArgs, Redirect, ModifyVariable, ModifyConstant, At, Slice.</p>
+ * <p>Hard-target: Shadow, Overwrite, Accessor, Invoker.</p>
+ */
 public class MixinAnnotationProcessor {
 	private final IMappingHolder mapping = new SimpleMappingHolder();
 

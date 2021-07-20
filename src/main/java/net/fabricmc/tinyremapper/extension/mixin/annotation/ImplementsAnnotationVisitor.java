@@ -13,7 +13,7 @@ import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.extension.mixin.annotation.ImplementsAnnotationVisitor.Interface;
 import net.fabricmc.tinyremapper.extension.mixin.annotation.ImplementsAnnotationVisitor.Interface.Remap;
 import net.fabricmc.tinyremapper.extension.mixin.annotation.common.CommonUtility;
-import net.fabricmc.tinyremapper.extension.mixin.common.Logger;
+import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationType;
@@ -123,7 +123,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 								srcName, srcDesc);
 
 						if (srcName.equals(dstName) && !Constant.UNMAP_NAMES.contains(srcName)) {    // no mapping found
-							Logger.remapFail("@Implements", Collections.singletonList(target), owner, srcName);
+							LoggerOld.remapFail("@Implements", Collections.singletonList(target), owner, srcName);
 						} else { // continue process
 							srcName = methodName;
 							dstName = prefix + dstName;
@@ -134,7 +134,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 						}
 					}
 				} else {	// cannot find this method in target
-					Logger.warn("Interface " + target + " does not contains method " + srcName + ", " + srcDesc);
+					LoggerOld.warn("Interface " + target + " does not contains method " + srcName + ", " + srcDesc);
 				}
 			} else {	// handle non-prefix member
 				String srcName = methodName;
@@ -148,7 +148,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 
 						if (srcName.equals(dstName) && !Constant.UNMAP_NAMES.contains(srcName)) {
 							if (remap.equals(Remap.FORCE)) {
-								Logger.remapFail("@Implements", Collections.singletonList(target), owner, srcName);
+								LoggerOld.remapFail("@Implements", Collections.singletonList(target), owner, srcName);
 							}
 						} else {
 							CommonUtility.emit(

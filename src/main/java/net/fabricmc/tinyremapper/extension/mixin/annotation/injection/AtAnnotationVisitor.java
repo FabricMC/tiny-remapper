@@ -8,7 +8,7 @@ import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.extension.mixin.annotation.common.CommonUtility;
 import net.fabricmc.tinyremapper.extension.mixin.annotation.common.FirstPassAnnotationVisitor;
-import net.fabricmc.tinyremapper.extension.mixin.common.Logger;
+import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
@@ -80,9 +80,9 @@ class AtSecondPassAnnotationVisitor extends AnnotationVisitor {
 
 			if (srcInfo.name.equals(dstInfo.name) && !Constant.UNMAP_NAMES.contains(srcInfo.name)) {
 				if (srcInfo.owner.isEmpty()) {
-					Logger.remapFail("@At", targets, data.className, srcInfo.name);
+					LoggerOld.remapFail("@At", targets, data.className, srcInfo.name);
 				} else {
-					Logger.remapFail("@At", Collections.singletonList(CommonUtility.classDescToName(srcInfo.owner)),
+					LoggerOld.remapFail("@At", Collections.singletonList(CommonUtility.classDescToName(srcInfo.owner)),
 							data.className, srcInfo.name);
 				}
 			}
@@ -134,7 +134,7 @@ class AtSecondPassAnnotationVisitor extends AnnotationVisitor {
 						String dstName = remapTargetSelector(srcName);
 
 						if (srcName.equals(dstName)) {
-							Logger.remapFail("@At", argument, data.className);
+							LoggerOld.remapFail("@At", argument, data.className);
 						}
 
 						value = prefix + dstName;

@@ -10,7 +10,7 @@ import org.objectweb.asm.Type;
 
 import net.fabricmc.tinyremapper.extension.mixin.annotation.common.CommonUtility;
 import net.fabricmc.tinyremapper.extension.mixin.annotation.common.FirstPassAnnotationVisitor;
-import net.fabricmc.tinyremapper.extension.mixin.common.Logger;
+import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationType;
@@ -130,12 +130,12 @@ class DescSecondPassAnnotationVisitor extends AnnotationVisitor {
 			} else if (fieldDstName.equals(methodDstName)) {
 				dstName = fieldDstName;
 			} else {
-				Logger.error("Detect conflict mapping " + srcName + " -> " + fieldDstName + "; "
+				LoggerOld.error("Detect conflict mapping " + srcName + " -> " + fieldDstName + "; "
 						+ srcName + " -> " + methodDstName + ". This is a serious issue!");
 			}
 
 			if (srcName.equals(dstName)) {
-				Logger.remapFail("@Desc", owners, data.className, srcName);
+				LoggerOld.remapFail("@Desc", owners, data.className, srcName);
 			}
 
 			value = dstName;

@@ -4,7 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-public final class Logger {
+@Deprecated
+public final class LoggerOld {
 	public enum Level {
 		WARN, ERROR
 	}
@@ -39,31 +40,31 @@ public final class Logger {
 	private static Level level = Level.WARN;
 
 	public static void setLogLevel(Level level) {
-		Logger.level = level;
+		LoggerOld.level = level;
 	}
 
 	private static final List<Pattern> ignoreTargets = new ArrayList<>();
 	private static final List<Pair<Pattern, Pattern>> ignoreMembers = new ArrayList<>();
 
 	public static void suppressRemapFail(String target) {
-		Logger.ignoreTargets.add(Pattern.compile(target));
+		LoggerOld.ignoreTargets.add(Pattern.compile(target));
 	}
 
 	public static void suppressRemapFail(String target, String member) {
-		Logger.ignoreMembers.add(Pair.of(Pattern.compile(target), Pattern.compile(member)));
+		LoggerOld.ignoreMembers.add(Pair.of(Pattern.compile(target), Pattern.compile(member)));
 	}
 
 	public static void resetSuppressRemapFail() {
-		Logger.ignoreTargets.clear();
-		Logger.ignoreMembers.clear();
+		LoggerOld.ignoreTargets.clear();
+		LoggerOld.ignoreMembers.clear();
 	}
 
 	private static boolean isPrint(String target) {
-		return Logger.ignoreTargets.stream().noneMatch(x -> x.matcher(target).matches());
+		return LoggerOld.ignoreTargets.stream().noneMatch(x -> x.matcher(target).matches());
 	}
 
 	private static boolean isPrint(List<String> targets, String member) {
-		return Logger.ignoreMembers.stream().noneMatch(
+		return LoggerOld.ignoreMembers.stream().noneMatch(
 				x -> targets.stream().anyMatch(
 						target -> x.first().matcher(target).matches()
 				) && x.second().matcher(member).matches());

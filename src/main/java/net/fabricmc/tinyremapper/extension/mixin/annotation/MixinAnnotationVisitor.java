@@ -8,7 +8,7 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
 
 import net.fabricmc.tinyremapper.extension.mixin.annotation.common.FirstPassAnnotationVisitor;
-import net.fabricmc.tinyremapper.extension.mixin.common.Logger;
+import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
@@ -78,7 +78,7 @@ class MixinSecondPassAnnotationVisitor extends AnnotationVisitor {
 						dstName = data.remapper.map(srcName);
 
 						if (srcName.equals(dstName)) {
-							Logger.remapFail("@Mixin", srcName, data.className);
+							LoggerOld.remapFail("@Mixin", srcName, data.className);
 						}
 					}
 

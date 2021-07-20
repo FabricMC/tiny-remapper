@@ -8,7 +8,7 @@ import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.extension.mixin.annotation.common.CommonUtility;
 import net.fabricmc.tinyremapper.extension.mixin.annotation.common.FirstPassAnnotationVisitor;
-import net.fabricmc.tinyremapper.extension.mixin.common.Logger;
+import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
@@ -63,9 +63,9 @@ class CommonInjectionSecondPassAnnotationVisitor extends AnnotationVisitor {
 
 			if (srcInfo.name.equals(dstInfo.name) && !Constant.UNMAP_NAMES.contains(srcInfo.name)) {
 				if (srcInfo.owner.isEmpty()) {
-					Logger.remapFail("@Inject, @Redirect or @Modify*", targets, data.className, srcInfo.name);
+					LoggerOld.remapFail("@Inject, @Redirect or @Modify*", targets, data.className, srcInfo.name);
 				} else {
-					Logger.remapFail("@Inject, @Redirect or @Modify*", Collections.singletonList(CommonUtility.classDescToName(srcInfo.owner)),
+					LoggerOld.remapFail("@Inject, @Redirect or @Modify*", Collections.singletonList(CommonUtility.classDescToName(srcInfo.owner)),
 							data.className, srcInfo.name);
 				}
 			}
