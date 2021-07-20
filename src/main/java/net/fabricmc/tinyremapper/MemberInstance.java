@@ -139,6 +139,26 @@ public final class MemberInstance implements TrMember {
 		return this.type;
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+
+		MemberInstance that = (MemberInstance) o;
+
+		if (type != that.type) return false;
+		if (!name.equals(that.name)) return false;
+		return desc.equals(that.desc);
+	}
+
+	@Override
+	public int hashCode() {
+		int result = type.hashCode();
+		result = 31 * result + name.hashCode();
+		result = 31 * result + desc.hashCode();
+		return result;
+	}
+
 	final TrMember.MemberType type;
 	final ClassInstance cls;
 	final String name;

@@ -6,6 +6,9 @@ import java.util.function.Predicate;
 
 import org.objectweb.asm.Opcodes;
 
+/**
+ * A representation of class, two class are equal if they share same MRJ version and internal name.
+ */
 public interface TrClass {
 	/**
 	 * Get the {@code TrEnvironment} that this class belongs to.
