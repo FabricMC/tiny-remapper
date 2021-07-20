@@ -182,6 +182,10 @@ public final class ClassInstance implements TrClass {
 		return Collections.unmodifiableList(Arrays.asList(interfaces));
 	}
 
+	private static boolean containsTrClass(Collection<? extends TrClass> collections, TrClass cls) {
+		return collections.stream().anyMatch(x -> x.getName().equals(cls.getName()));
+	}
+
 	/**
 	 * The result is cached in the {@link ClassInstance#resolvedInterfaces}.
 	 */
@@ -192,7 +196,7 @@ public final class ClassInstance implements TrClass {
 				// resolved.
 
 				for (ClassInstance parent : this.parents) {
-					if (resolvedInterfaces.contains(parent)) {
+					if (containsTrClass(resolvedInterfaces, parent)) {
 						// No need to proceed, {@code parent} must already resolved
 					} else {
 						if (parent.isInterface()) {
@@ -200,7 +204,7 @@ public final class ClassInstance implements TrClass {
 						}
 
 						parent.resolveInterfaces0().forEach(cls -> {
-							if (cls.isInterface() && !resolvedInterfaces.contains(cls)) {
+							if (cls.isInterface() && !containsTrClass(resolvedInterfaces, cls)) {
 								// only add if there is no duplicate
 								resolvedInterfaces.add(cls);
 							}
@@ -214,7 +218,7 @@ public final class ClassInstance implements TrClass {
 						boolean smallest = true;
 
 						for (int j = s; j < resolvedInterfaces.size(); j += 1) {    // iterate to see if i is super-interface of others
-							if (resolvedInterfaces.get(j).resolveInterfaces0().contains(resolvedInterfaces.get(i))) {
+							if (containsTrClass(resolvedInterfaces.get(j).resolveInterfaces0(), resolvedInterfaces.get(i))) {
 								smallest = false;
 								break;
 							}
@@ -240,7 +244,7 @@ public final class ClassInstance implements TrClass {
 	/**
 	 * Do nothing if a member with same name & desc already exists.
 	 */
-	private void putIfAbsent(Collection<TrMember> collection, TrMember member) {
+	private static void putIfAbsentTrMember(Collection<TrMember> collection, TrMember member) {
 		boolean noneMatch = collection.stream().noneMatch(
 				m -> m.getName().equals(member.getName()) && m.getDesc().equals(member.getDesc())
 		);
@@ -259,7 +263,7 @@ public final class ClassInstance implements TrClass {
 			if (collection == null) {
 				return Collections.singletonList(member);
 			} else {
-				putIfAbsent(collection, member);
+				putIfAbsentTrMember(collection, member);
 				return collection;
 			}
 		} else {
@@ -274,7 +278,7 @@ public final class ClassInstance implements TrClass {
 			if (collection == null) {
 				return result.collect(Collectors.toList());
 			} else {
-				result.forEach(m -> putIfAbsent(collection, m));
+				result.forEach(m -> putIfAbsentTrMember(collection, m));
 				return collection;
 			}
 		}
@@ -289,7 +293,7 @@ public final class ClassInstance implements TrClass {
 			if (collection == null) {
 				return Collections.singletonList(member);
 			} else {
-				putIfAbsent(collection, member);
+				putIfAbsentTrMember(collection, member);
 				return collection;
 			}
 		} else {
@@ -304,7 +308,7 @@ public final class ClassInstance implements TrClass {
 			if (collection == null) {
 				return result.collect(Collectors.toList());
 			} else {
-				result.forEach(m -> putIfAbsent(collection, m));
+				result.forEach(m -> putIfAbsentTrMember(collection, m));
 				return collection;
 			}
 		}
@@ -750,24 +754,6 @@ public final class ClassInstance implements TrClass {
 		} else {
 			return clsName;
 		}
-	}
-
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) return true;
-		if (o == null || getClass() != o.getClass()) return false;
-
-		ClassInstance that = (ClassInstance) o;
-
-		if (mrjVersion != that.mrjVersion) return false;
-		return name.equals(that.name);
-	}
-
-	@Override
-	public int hashCode() {
-		int result = name.hashCode();
-		result = 31 * result + mrjVersion;
-		return result;
 	}
 
 	public static final int MRJ_DEFAULT = -1;
