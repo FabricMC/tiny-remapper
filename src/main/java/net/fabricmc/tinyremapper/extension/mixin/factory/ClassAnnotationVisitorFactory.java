@@ -11,12 +11,12 @@ import net.fabricmc.tinyremapper.extension.mixin.annotation.MixinAnnotationVisit
 import net.fabricmc.tinyremapper.extension.mixin.annotation.injection.DescAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.annotation.injection.DescriptorsAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationType;
-import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
+import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolderOld;
 
 public final class ClassAnnotationVisitorFactory {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 
-	public ClassAnnotationVisitorFactory(CommonDataHolder data, AnnotationVisitor delegate) {
+	public ClassAnnotationVisitorFactory(CommonDataHolderOld data, AnnotationVisitor delegate) {
 		this.data = data.addAnnotation(delegate, AnnotationType.CLASS);
 	}
 

@@ -17,12 +17,12 @@ import net.fabricmc.tinyremapper.extension.mixin.annotation.injection.ModifyCons
 import net.fabricmc.tinyremapper.extension.mixin.annotation.injection.ModifyVariableAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.annotation.injection.RedirectAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationType;
-import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
+import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolderOld;
 
 public final class MethodAnnotationVisitorFactory {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 
-	public MethodAnnotationVisitorFactory(CommonDataHolder data, AnnotationVisitor delegate) {
+	public MethodAnnotationVisitorFactory(CommonDataHolderOld data, AnnotationVisitor delegate) {
 		this.data = data.addAnnotation(delegate, AnnotationType.METHOD);
 	}
 

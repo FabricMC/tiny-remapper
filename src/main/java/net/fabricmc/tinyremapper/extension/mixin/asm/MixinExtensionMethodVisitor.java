@@ -7,7 +7,7 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.MethodVisitor;
 
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
-import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
+import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolderOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.factory.MethodAnnotationVisitorFactory;
 
@@ -16,11 +16,11 @@ import net.fabricmc.tinyremapper.extension.mixin.factory.MethodAnnotationVisitor
  * <p>Pass 1: visit annotations.</p>
  */
 class MixinExtensionMethodVisitor extends MethodVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 	private final boolean remap;
 	private final List<String> targets;
 
-	MixinExtensionMethodVisitor(MethodVisitor delegate, CommonDataHolder data,
+	MixinExtensionMethodVisitor(MethodVisitor delegate, CommonDataHolderOld data,
 								boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 		this.data = Objects.requireNonNull(data);

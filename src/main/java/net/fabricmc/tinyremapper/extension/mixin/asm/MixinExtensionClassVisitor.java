@@ -16,7 +16,7 @@ import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.extension.mixin.annotation.ImplementsAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.annotation.ImplementsAnnotationVisitor.Interface;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
-import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
+import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolderOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.data.IMappingHolder;
 import net.fabricmc.tinyremapper.extension.mixin.factory.ClassAnnotationVisitorFactory;
@@ -33,7 +33,7 @@ public class MixinExtensionClassVisitor extends FirstPassClassVisitor {
 }
 
 class FirstPassClassVisitor extends ClassNode {
-	CommonDataHolder data;
+	CommonDataHolderOld data;
 	ClassVisitor delegate;
 
 	// @Mixin
@@ -47,7 +47,7 @@ class FirstPassClassVisitor extends ClassNode {
 									IMappingHolder mapping, TrEnvironment environment) {
 		super(Constant.ASM_VERSION);
 		this.delegate = Objects.requireNonNull(delegate);
-		this.data = new CommonDataHolder(remapper, environment, mapping);
+		this.data = new CommonDataHolderOld(remapper, environment, mapping);
 	}
 
 	/**
@@ -80,7 +80,7 @@ class FirstPassClassVisitor extends ClassNode {
 	@Override
 	public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
 		FieldVisitor fieldVisitor = super.visitField(access, name, descriptor, signature, value);
-		CommonDataHolder fieldData = data.addMember(name, descriptor);
+		CommonDataHolderOld fieldData = data.addMember(name, descriptor);
 
 		if (targets.isEmpty()) {
 			return fieldVisitor;
@@ -92,7 +92,7 @@ class FirstPassClassVisitor extends ClassNode {
 	@Override
 	public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
 		MethodVisitor methodVisitor = super.visitMethod(access, name, descriptor, signature, exceptions);
-		CommonDataHolder methodData = data.addMember(name, descriptor);
+		CommonDataHolderOld methodData = data.addMember(name, descriptor);
 		ImplementsAnnotationVisitor.visitMethod(methodData, interfaces);
 
 		if (targets.isEmpty()) {
@@ -111,11 +111,11 @@ class FirstPassClassVisitor extends ClassNode {
 }
 
 class SecondPassClassVisitor extends ClassVisitor {
-	CommonDataHolder data;
+	CommonDataHolderOld data;
 	private final boolean remap;
 	private final List<String> targets;
 
-	SecondPassClassVisitor(ClassVisitor delegate, CommonDataHolder data,
+	SecondPassClassVisitor(ClassVisitor delegate, CommonDataHolderOld data,
 								boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 		this.data = Objects.requireNonNull(data);

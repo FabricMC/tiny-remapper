@@ -11,7 +11,7 @@ import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationType;
-import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
+import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolderOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
 
 /**
@@ -20,16 +20,16 @@ import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
  * <p>Pass 2: read value; remap value or emit mapping.</p>
  */
 public class InvokerAnnotationVisitor extends InvokerFirstPassAnnotationVisitor {
-	public InvokerAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
+	public InvokerAnnotationVisitor(CommonDataHolderOld data, boolean remap, List<String> targets) {
 		super(data, remap, targets);
 	}
 }
 
 class InvokerFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 	private final List<String> targets;
 
-	InvokerFirstPassAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
+	InvokerFirstPassAnnotationVisitor(CommonDataHolderOld data, boolean remap, List<String> targets) {
 		super(Annotation.INVOKER, remap);
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);
@@ -48,12 +48,12 @@ class InvokerFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
 }
 
 class InvokerSecondPassAnnotationVisitor extends AnnotationVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 	private final List<String> targets;
 
 	private String value;
 
-	InvokerSecondPassAnnotationVisitor(CommonDataHolder data, List<String> targets) {
+	InvokerSecondPassAnnotationVisitor(CommonDataHolderOld data, List<String> targets) {
 		super(Constant.ASM_VERSION, data.delegate);
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);

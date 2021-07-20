@@ -17,7 +17,7 @@ import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationType;
-import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
+import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolderOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.data.IMappingHolder;
 
@@ -67,7 +67,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 
 	private final List<Interface> interfaces;
 
-	public ImplementsAnnotationVisitor(CommonDataHolder data, List<Interface> interfacesOut) {
+	public ImplementsAnnotationVisitor(CommonDataHolderOld data, List<Interface> interfacesOut) {
 		super(Constant.ASM_VERSION, data.delegate);
 		this.interfaces = Objects.requireNonNull(interfacesOut);
 	}
@@ -97,7 +97,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 		}
 	}
 
-	public static void visitMethod(CommonDataHolder data, List<Interface> interfaces) {
+	public static void visitMethod(CommonDataHolderOld data, List<Interface> interfaces) {
 		Remapper remapper = Objects.requireNonNull(data.remapper);
 		TrEnvironment environment = Objects.requireNonNull(data.environment);
 		IMappingHolder mapping = Objects.requireNonNull(data.mapping);

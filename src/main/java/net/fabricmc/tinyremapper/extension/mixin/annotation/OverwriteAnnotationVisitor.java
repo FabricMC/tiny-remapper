@@ -9,7 +9,7 @@ import net.fabricmc.tinyremapper.extension.mixin.annotation.common.CommonUtility
 import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationType;
-import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
+import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolderOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
 
 /**
@@ -17,12 +17,12 @@ import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
  * <p>Pass 1: read remap and then emit</p>
  */
 public class OverwriteAnnotationVisitor extends AnnotationVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 	private final List<String> targets;
 
 	private boolean remap;
 
-	public OverwriteAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
+	public OverwriteAnnotationVisitor(CommonDataHolderOld data, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, data.delegate);
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);

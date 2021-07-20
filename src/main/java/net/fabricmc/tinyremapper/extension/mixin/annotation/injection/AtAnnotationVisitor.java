@@ -11,12 +11,12 @@ import net.fabricmc.tinyremapper.extension.mixin.annotation.common.FirstPassAnno
 import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
-import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
+import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolderOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.data.MemberInfo;
 
 public class AtAnnotationVisitor extends AtFirstPassAnnotationVisitor {
-	AtAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
+	AtAnnotationVisitor(CommonDataHolderOld data, boolean remap, List<String> targets) {
 		super(data, remap, targets);
 	}
 }
@@ -27,12 +27,12 @@ public class AtAnnotationVisitor extends AtFirstPassAnnotationVisitor {
  * <p>Pass 2: remap target & desc; if value=NEW, then also remap args.</p>
  */
 class AtFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 	private final List<String> targets;
 
 	private String value;
 
-	AtFirstPassAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
+	AtFirstPassAnnotationVisitor(CommonDataHolderOld data, boolean remap, List<String> targets) {
 		super(Annotation.ACCESSOR, remap);
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);
@@ -60,11 +60,11 @@ class AtFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
 }
 
 class AtSecondPassAnnotationVisitor extends AnnotationVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 	private final List<String> targets;
 	private final String value;
 
-	AtSecondPassAnnotationVisitor(CommonDataHolder data, List<String> targets, String value) {
+	AtSecondPassAnnotationVisitor(CommonDataHolderOld data, List<String> targets, String value) {
 		super(Constant.ASM_VERSION, data.delegate);
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);
@@ -111,7 +111,7 @@ class AtSecondPassAnnotationVisitor extends AnnotationVisitor {
 				throw new RuntimeException("Unexpected annotation " + descriptor);
 			}
 
-			CommonDataHolder data = this.data.alterAnnotationVisitor(annotationVisitor);
+			CommonDataHolderOld data = this.data.alterAnnotationVisitor(annotationVisitor);
 			annotationVisitor = new DescAnnotationVisitor(data, true, targets);
 		}
 

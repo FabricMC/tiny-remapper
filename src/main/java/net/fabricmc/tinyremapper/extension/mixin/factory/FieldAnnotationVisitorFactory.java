@@ -6,12 +6,12 @@ import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.extension.mixin.annotation.ShadowAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationType;
-import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
+import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolderOld;
 
 public final class FieldAnnotationVisitorFactory {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 
-	public FieldAnnotationVisitorFactory(CommonDataHolder data, AnnotationVisitor delegate) {
+	public FieldAnnotationVisitorFactory(CommonDataHolderOld data, AnnotationVisitor delegate) {
 		this.data = data.addAnnotation(delegate, AnnotationType.FIELD);
 	}
 

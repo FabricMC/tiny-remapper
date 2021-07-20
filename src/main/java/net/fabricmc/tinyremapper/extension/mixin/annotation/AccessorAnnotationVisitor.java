@@ -13,7 +13,7 @@ import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationType;
-import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
+import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolderOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
 
 /**
@@ -22,16 +22,16 @@ import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
  * <p>Pass 2: read value; remap value or emit mapping.</p>
  */
 public class AccessorAnnotationVisitor extends AccessorFirstPassAnnotationVisitor {
-	public AccessorAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
+	public AccessorAnnotationVisitor(CommonDataHolderOld data, boolean remap, List<String> targets) {
 		super(data, remap, targets);
 	}
 }
 
 class AccessorFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 	private final List<String> targets;
 
-	AccessorFirstPassAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
+	AccessorFirstPassAnnotationVisitor(CommonDataHolderOld data, boolean remap, List<String> targets) {
 		super(Annotation.ACCESSOR, remap);
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);
@@ -50,7 +50,7 @@ class AccessorFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
 }
 
 class AccessorSecondPassAnnotationVisitor extends AnnotationVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 	private final List<String> targets;
 	private final String fieldDesc;
 
@@ -59,7 +59,7 @@ class AccessorSecondPassAnnotationVisitor extends AnnotationVisitor {
 	private static final Pattern GETTER_PATTERN = Pattern.compile("(?<=\\(\\)).*");
 	private static final Pattern SETTER_PATTERN = Pattern.compile("(?<=\\().*(?=\\)V)");
 
-	AccessorSecondPassAnnotationVisitor(CommonDataHolder data, List<String> targets) {
+	AccessorSecondPassAnnotationVisitor(CommonDataHolderOld data, List<String> targets) {
 		super(Constant.ASM_VERSION, data.delegate);
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);

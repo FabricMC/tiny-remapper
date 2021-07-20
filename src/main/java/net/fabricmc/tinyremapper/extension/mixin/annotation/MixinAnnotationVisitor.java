@@ -11,7 +11,7 @@ import net.fabricmc.tinyremapper.extension.mixin.annotation.common.FirstPassAnno
 import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
-import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
+import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolderOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
 
 /**
@@ -20,17 +20,17 @@ import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
  * <p>Pass 2: read targets & value; remap targets.</p>
  */
 public class MixinAnnotationVisitor extends MixinFirstPassAnnotationVisitor {
-	public MixinAnnotationVisitor(CommonDataHolder data, AtomicBoolean remapOut, List<String> targetsOut) {
+	public MixinAnnotationVisitor(CommonDataHolderOld data, AtomicBoolean remapOut, List<String> targetsOut) {
 		super(data, remapOut, targetsOut);
 	}
 }
 
 class MixinFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 	private final AtomicBoolean remap0;
 	private final List<String> targets;
 
-	MixinFirstPassAnnotationVisitor(CommonDataHolder data, AtomicBoolean remapOut, List<String> targetsOut) {
+	MixinFirstPassAnnotationVisitor(CommonDataHolderOld data, AtomicBoolean remapOut, List<String> targetsOut) {
 		super(Annotation.MIXIN, true);
 		this.data = Objects.requireNonNull(data);
 		this.remap0 = Objects.requireNonNull(remapOut);
@@ -50,11 +50,11 @@ class MixinFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
 }
 
 class MixinSecondPassAnnotationVisitor extends AnnotationVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 	private final boolean remap;
 	private final List<String> targets;
 
-	MixinSecondPassAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targetsOut) {
+	MixinSecondPassAnnotationVisitor(CommonDataHolderOld data, boolean remap, List<String> targetsOut) {
 		super(Constant.ASM_VERSION, data.delegate);
 		this.data = Objects.requireNonNull(data);
 		this.remap = remap;

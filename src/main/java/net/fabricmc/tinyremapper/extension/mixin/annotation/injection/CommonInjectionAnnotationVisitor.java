@@ -11,22 +11,22 @@ import net.fabricmc.tinyremapper.extension.mixin.annotation.common.FirstPassAnno
 import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
-import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
+import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolderOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.data.MemberInfo;
 
 class CommonInjectionAnnotationVisitor extends CommonInjectionFirstPassAnnotationVisitor {
-	CommonInjectionAnnotationVisitor(String descriptor, CommonDataHolder data, boolean remap, List<String> targets) {
+	CommonInjectionAnnotationVisitor(String descriptor, CommonDataHolderOld data, boolean remap, List<String> targets) {
 		super(descriptor, data, remap, targets);
 	}
 }
 
 class CommonInjectionFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 	private final List<String> targets;
 
 	CommonInjectionFirstPassAnnotationVisitor(
-			String descriptor, CommonDataHolder data, boolean remap, List<String> targets) {
+			String descriptor, CommonDataHolderOld data, boolean remap, List<String> targets) {
 		super(descriptor, remap);
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);
@@ -43,11 +43,11 @@ class CommonInjectionFirstPassAnnotationVisitor extends FirstPassAnnotationVisit
 }
 
 class CommonInjectionSecondPassAnnotationVisitor extends AnnotationVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 	private final List<String> targets;
 	private final boolean remap;
 
-	CommonInjectionSecondPassAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
+	CommonInjectionSecondPassAnnotationVisitor(CommonDataHolderOld data, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, data.delegate);
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);
@@ -84,14 +84,14 @@ class CommonInjectionSecondPassAnnotationVisitor extends AnnotationVisitor {
 				throw new RuntimeException("Unexpected annotation " + descriptor);
 			}
 
-			CommonDataHolder data = CommonInjectionSecondPassAnnotationVisitor.this.data.alterAnnotationVisitor(annotationVisitor);
+			CommonDataHolderOld data = CommonInjectionSecondPassAnnotationVisitor.this.data.alterAnnotationVisitor(annotationVisitor);
 			annotationVisitor = new AtAnnotationVisitor(data, remap, targets);
 		} else if (name.equals(AnnotationElement.SLICE.get())) {	// @ModifyArg, @ModifyArgs, @Redirect, @ModifyVariable
 			if (!descriptor.equals(Annotation.SLICE)) {
 				throw new RuntimeException("Unexpected annotation " + descriptor);
 			}
 
-			CommonDataHolder data = CommonInjectionSecondPassAnnotationVisitor.this.data.alterAnnotationVisitor(annotationVisitor);
+			CommonDataHolderOld data = CommonInjectionSecondPassAnnotationVisitor.this.data.alterAnnotationVisitor(annotationVisitor);
 			annotationVisitor = new SliceAnnotationVisitor(data, remap, targets);
 		}
 
@@ -111,7 +111,7 @@ class CommonInjectionSecondPassAnnotationVisitor extends AnnotationVisitor {
 					}
 
 					AnnotationVisitor annotationVisitor1 = super.visitAnnotation(name, descriptor);
-					CommonDataHolder data = CommonInjectionSecondPassAnnotationVisitor.this.data.alterAnnotationVisitor(annotationVisitor1);
+					CommonDataHolderOld data = CommonInjectionSecondPassAnnotationVisitor.this.data.alterAnnotationVisitor(annotationVisitor1);
 
 					return new DescAnnotationVisitor(data, remap, targets);
 				}
@@ -138,7 +138,7 @@ class CommonInjectionSecondPassAnnotationVisitor extends AnnotationVisitor {
 					}
 
 					AnnotationVisitor annotationVisitor1 = super.visitAnnotation(name, descriptor);
-					CommonDataHolder data = CommonInjectionSecondPassAnnotationVisitor.this.data.alterAnnotationVisitor(annotationVisitor1);
+					CommonDataHolderOld data = CommonInjectionSecondPassAnnotationVisitor.this.data.alterAnnotationVisitor(annotationVisitor1);
 
 					return new AtAnnotationVisitor(data, remap, targets);
 				}
@@ -152,7 +152,7 @@ class CommonInjectionSecondPassAnnotationVisitor extends AnnotationVisitor {
 					}
 
 					AnnotationVisitor annotationVisitor1 = super.visitAnnotation(name, descriptor);
-					CommonDataHolder data = CommonInjectionSecondPassAnnotationVisitor.this.data.alterAnnotationVisitor(annotationVisitor1);
+					CommonDataHolderOld data = CommonInjectionSecondPassAnnotationVisitor.this.data.alterAnnotationVisitor(annotationVisitor1);
 
 					return new SliceAnnotationVisitor(data, remap, targets);
 				}

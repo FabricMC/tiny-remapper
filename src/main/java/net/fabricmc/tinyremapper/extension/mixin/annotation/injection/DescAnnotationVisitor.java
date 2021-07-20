@@ -14,7 +14,7 @@ import net.fabricmc.tinyremapper.extension.mixin.common.LoggerOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.data.AnnotationType;
-import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolder;
+import net.fabricmc.tinyremapper.extension.mixin.data.CommonDataHolderOld;
 import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
 
 /**
@@ -23,19 +23,19 @@ import net.fabricmc.tinyremapper.extension.mixin.data.Constant;
  * <p>Pass 2: read and remap value.</p>
  */
 public class DescAnnotationVisitor extends DescFirstPassAnnotationVisitor {
-	public DescAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
+	public DescAnnotationVisitor(CommonDataHolderOld data, boolean remap, List<String> targets) {
 		super(data, remap, targets);
 	}
 }
 
 class DescFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 
 	private List<String> targets;
 	private final List<String> args;
 	private String ret;
 
-	DescFirstPassAnnotationVisitor(CommonDataHolder data, boolean remap, List<String> targets) {
+	DescFirstPassAnnotationVisitor(CommonDataHolderOld data, boolean remap, List<String> targets) {
 		super(Annotation.DESC, remap);
 
 		this.data = Objects.requireNonNull(data);
@@ -88,12 +88,12 @@ class DescFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
 }
 
 class DescSecondPassAnnotationVisitor extends AnnotationVisitor {
-	private final CommonDataHolder data;
+	private final CommonDataHolderOld data;
 	private final List<String> owners;
 	private final List<String> args;
 	private final String ret;
 
-	DescSecondPassAnnotationVisitor(CommonDataHolder data, List<String> owners, List<String> args, String ret) {
+	DescSecondPassAnnotationVisitor(CommonDataHolderOld data, List<String> owners, List<String> args, String ret) {
 		super(Constant.ASM_VERSION, data.delegate);
 		this.data = Objects.requireNonNull(data);
 		this.owners = Objects.requireNonNull(owners);
