@@ -260,6 +260,10 @@ public final class ClassInstance implements TrClass {
 			// we can take advantage of map.
 			TrMember member = members.get(MemberInstance.getMethodId(name, descPrefix));
 
+			if (member == null) {
+				return Collections.emptyList();
+			}
+
 			if (collection == null) {
 				return Collections.singletonList(member);
 			} else {
@@ -289,6 +293,10 @@ public final class ClassInstance implements TrClass {
 		if (name != null && descPrefix != null && !isDescPrefix) {
 			// we can take advantage of map.
 			TrMember member = members.get(MemberInstance.getFieldId(name, descPrefix, tr.ignoreFieldDesc));
+
+			if (member == null) {
+				return Collections.emptyList();
+			}
 
 			if (collection == null) {
 				return Collections.singletonList(member);
