@@ -56,18 +56,30 @@ public interface TrClass {
 	 */
 	Collection<TrMember> getMethods(String name, String descPrefix, boolean isDescPrefix, Predicate<TrMember> filter, Collection<TrMember> collection);
 
+	/**
+	 * @see TrClass#getMethods(String, String, boolean, Predicate, Collection)
+	 */
 	default Collection<TrMember> getMethods(String name, String descPrefix, boolean isDescPrefix, Collection<TrMember> collection) {
 		return getMethods(name, descPrefix, isDescPrefix, m -> true, collection);
 	}
 
+	/**
+	 * @see TrClass#getMethods(String, String, boolean, Predicate, Collection)
+	 */
 	default Collection<TrMember> getMethods(String name, String desc, Collection<TrMember> collection) {
 		return getMethods(name, desc, false, m -> true, collection);
 	}
 
+	/**
+	 * @see TrClass#getMethods(String, String, boolean, Predicate, Collection)
+	 */
 	default Collection<TrMember> getMethods(String name, Collection<TrMember> collection) {
 		return getMethods(name, null, false, m -> true, collection);
 	}
 
+	/**
+	 * @see TrClass#getMethods(String, String, boolean, Predicate, Collection)
+	 */
 	default TrMember getMethod(String name, String desc) {
 		Collection<TrMember> member = getMethods(name, desc, null);
 
@@ -90,18 +102,30 @@ public interface TrClass {
 	 */
 	Collection<TrMember> getFields(String name, String descPrefix, boolean isDescPrefix, Predicate<TrMember> filter, Collection<TrMember> collection);
 
+	/**
+	 * @see TrClass#getFields(String, String, boolean, Predicate, Collection)
+	 */
 	default Collection<TrMember> getFields(String name, String descPrefix, boolean isDescPrefix, Collection<TrMember> collection) {
 		return getFields(name, descPrefix, isDescPrefix, m -> true, collection);
 	}
 
+	/**
+	 * @see TrClass#getFields(String, String, boolean, Predicate, Collection)
+	 */
 	default Collection<TrMember> getFields(String name, String desc, Collection<TrMember> collection) {
 		return getFields(name, desc, false, m -> true, collection);
 	}
 
+	/**
+	 * @see TrClass#getFields(String, String, boolean, Predicate, Collection)
+	 */
 	default Collection<TrMember> getFields(String name, Collection<TrMember> collection) {
 		return getFields(name, null, false, m -> true, collection);
 	}
 
+	/**
+	 * @see TrClass#getFields(String, String, boolean, Predicate, Collection)
+	 */
 	default TrMember getField(String name, String desc) {
 		Collection<TrMember> member = getFields(name, desc, null);
 
@@ -124,18 +148,30 @@ public interface TrClass {
 	 */
 	Collection<TrMember> resolveMethods(String name, String descPrefix, boolean isDescPrefix, Predicate<TrMember> filter, Collection<TrMember> collection);
 
+	/**
+	 * @see TrClass#resolveMethods(String, String, boolean, Predicate, Collection)
+	 */
 	default Collection<TrMember> resolveMethods(String name, String descPrefix, boolean isDescPrefix, Collection<TrMember> collection) {
 		return resolveMethods(name, descPrefix, isDescPrefix, m -> true, collection);
 	}
 
+	/**
+	 * @see TrClass#resolveMethods(String, String, boolean, Predicate, Collection)
+	 */
 	default Collection<TrMember> resolveMethods(String name, String desc, Collection<TrMember> collection) {
 		return resolveMethods(name, desc, false, m -> true, collection);
 	}
 
+	/**
+	 * @see TrClass#resolveMethods(String, String, boolean, Predicate, Collection)
+	 */
 	default Collection<TrMember> resolveMethods(String name, Collection<TrMember> collection) {
 		return resolveMethods(name, null, false, m -> true, collection);
 	}
 
+	/**
+	 * @see TrClass#resolveMethods(String, String, boolean, Predicate, Collection)
+	 */
 	default TrMember resolveMethod(String name, String desc) {
 		Collection<TrMember> member = resolveMethods(name, desc, null);
 
@@ -158,18 +194,30 @@ public interface TrClass {
 	 */
 	Collection<TrMember> resolveFields(String name, String descPrefix, boolean isDescPrefix, Predicate<TrMember> filter, Collection<TrMember> collection);
 
+	/**
+	 * @see TrClass#resolveFields(String, String, boolean, Predicate, Collection)
+	 */
 	default Collection<TrMember> resolveFields(String name, String descPrefix, boolean isDescPrefix, Collection<TrMember> collection) {
 		return resolveFields(name, descPrefix, isDescPrefix, m -> true, collection);
 	}
 
+	/**
+	 * @see TrClass#resolveFields(String, String, boolean, Predicate, Collection)
+	 */
 	default Collection<TrMember> resolveFields(String name, String desc, Collection<TrMember> collection) {
 		return resolveFields(name, desc, false, m -> true, collection);
 	}
 
+	/**
+	 * @see TrClass#resolveFields(String, String, boolean, Predicate, Collection)
+	 */
 	default Collection<TrMember> resolveFields(String name, Collection<TrMember> collection) {
 		return resolveFields(name, null, false, m -> true, collection);
 	}
 
+	/**
+	 * @see TrClass#resolveFields(String, String, boolean, Predicate, Collection)
+	 */
 	default TrMember resolveField(String name, String desc) {
 		Collection<TrMember> member = resolveFields(name, desc, null);
 

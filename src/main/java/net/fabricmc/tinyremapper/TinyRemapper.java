@@ -46,6 +46,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
@@ -513,6 +514,8 @@ public class TinyRemapper {
 		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, isInput ? data : null);
 
 		reader.accept(new ClassVisitor(Opcodes.ASM9, extraAnalyzeVisitor) {
+			private final AtomicInteger counter = new AtomicInteger(0);
+
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 				int mrjVersion = analyzeMrjVersion(file, name);
@@ -522,7 +525,7 @@ public class TinyRemapper {
 
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.METHOD, ret, name, desc, access));
+				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.METHOD, ret, name, desc, access, counter.incrementAndGet()));
 				if (prev != null) throw new RuntimeException(String.format("duplicate method %s/%s%s in inputs", ret.getName(), name, desc));
 
 				return super.visitMethod(access, name, desc, signature, exceptions);
@@ -530,7 +533,7 @@ public class TinyRemapper {
 
 			@Override
 			public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
-				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.FIELD, ret, name, desc, access));
+				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.FIELD, ret, name, desc, access, counter.incrementAndGet()));
 				if (prev != null) throw new RuntimeException(String.format("duplicate field %s/%s;;%s in inputs", ret.getName(), name, desc));
 
 				return super.visitField(access, name, desc, signature, value);
