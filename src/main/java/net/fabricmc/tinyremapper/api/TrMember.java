@@ -3,9 +3,6 @@ package net.fabricmc.tinyremapper.api;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
 
-/**
- * A representation of class member. Two member are equal if they share same type, name, and descriptor.
- */
 public interface TrMember {
 	TrClass getOwner();
 
