@@ -743,7 +743,7 @@ public final class ClassInstance implements TrClass {
 		copy.setContext(newContext);
 
 		for (MemberInstance member : members.values()) {
-			copy.addMember(new MemberInstance(member.type, copy, member.name, member.desc, member.access, member.index));
+			copy.addMember(new MemberInstance(member.type, copy, member.name, member.desc, member.access, member.ordinal));
 		}
 
 		// set the origin

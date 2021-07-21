@@ -26,7 +26,7 @@ public interface TrMember {
 	/**
 	 * Get the ASM visit index of the member.
 	 */
-	int getIndex();
+	int getOrdinal();
 
 	/**
 	 * Get the type of the member.
