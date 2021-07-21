@@ -26,12 +26,13 @@ import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
 
 public final class MemberInstance implements TrMember {
-	MemberInstance(TrMember.MemberType type, ClassInstance cls, String name, String desc, int access) {
+	MemberInstance(TrMember.MemberType type, ClassInstance cls, String name, String desc, int access, int ordinal) {
 		this.type = type;
 		this.cls = cls;
 		this.name = name;
 		this.desc = desc;
 		this.access = access;
+		this.ordinal = ordinal;
 	}
 
 	public MrjState getContext() {
@@ -42,24 +43,12 @@ public final class MemberInstance implements TrMember {
 		return getId(type, name, desc, cls.tr.ignoreFieldDesc);
 	}
 
-	public boolean isStatic() {
-		return (access & Opcodes.ACC_STATIC) != 0;
-	}
-
 	public boolean isVirtual() {
 		return type == TrMember.MemberType.METHOD && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
 	}
 
-	public boolean isBridge() {
-		return type == TrMember.MemberType.METHOD && (access & Opcodes.ACC_BRIDGE) != 0;
-	}
-
 	public boolean isPublicOrPrivate() {
 		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
-	}
-
-	public boolean isProtected() {
-		return (access & Opcodes.ACC_PROTECTED) != 0;
 	}
 
 	public String getNewName() {
@@ -151,11 +140,17 @@ public final class MemberInstance implements TrMember {
 		return this.type;
 	}
 
+	@Override
+	public int getOrdinal() {
+		return this.ordinal;
+	}
+
 	final TrMember.MemberType type;
 	final ClassInstance cls;
 	final String name;
 	final String desc;
 	final int access;
+	final int ordinal;
 	private volatile String newName;
 	private volatile String newBridgedName;
 	String newNameOriginatingCls;
