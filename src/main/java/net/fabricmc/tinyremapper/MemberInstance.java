@@ -26,13 +26,13 @@ import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
 
 public final class MemberInstance implements TrMember {
-	MemberInstance(TrMember.MemberType type, ClassInstance cls, String name, String desc, int access, int index) {
+	MemberInstance(TrMember.MemberType type, ClassInstance cls, String name, String desc, int access, int ordinal) {
 		this.type = type;
 		this.cls = cls;
 		this.name = name;
 		this.desc = desc;
 		this.access = access;
-		this.index = index;
+		this.ordinal = ordinal;
 	}
 
 	public MrjState getContext() {
@@ -141,8 +141,8 @@ public final class MemberInstance implements TrMember {
 	}
 
 	@Override
-	public int getIndex() {
-		return this.index;
+	public int getOrdinal() {
+		return this.ordinal;
 	}
 
 	final TrMember.MemberType type;
@@ -150,7 +150,7 @@ public final class MemberInstance implements TrMember {
 	final String name;
 	final String desc;
 	final int access;
-	final int index;
+	final int ordinal;
 	private volatile String newName;
 	private volatile String newBridgedName;
 	String newNameOriginatingCls;
