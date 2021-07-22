@@ -17,14 +17,17 @@
 
 package net.fabricmc.tinyremapper;
 
+import java.util.Collection;
+
 import org.objectweb.asm.ClassVisitor;
 
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
-import net.fabricmc.tinyremapper.api.ExtendedRemapper;
 import net.fabricmc.tinyremapper.api.TrMember;
+import net.fabricmc.tinyremapper.api.TrMethod;
+import net.fabricmc.tinyremapper.api.TrRemapper;
 
-class AsmRemapper extends ExtendedRemapper {
+class AsmRemapper extends TrRemapper {
 	AsmRemapper(MrjState context) {
 		this.context = context;
 		this.tr = context.tr;
@@ -90,7 +93,8 @@ class AsmRemapper extends ExtendedRemapper {
 		ClassInstance cls = getClass(owner);
 		if (cls == null) return name;
 
-		MemberInstance member = cls.resolvePartial(TrMember.MemberType.METHOD, name, descPrefix);
+		Collection<TrMethod> members = cls.resolveMethods(name, descPrefix, true, null, null);
+		MemberInstance member = members.size() == 1 ? (MemberInstance) members.iterator().next() : null;
 		String newName;
 
 		if (member != null && (newName = member.getNewName()) != null) {
@@ -142,7 +146,7 @@ class AsmRemapper extends ExtendedRemapper {
 	}
 
 	ClassInstance getClass(String owner) {
-		return context.getClass0(owner);
+		return context.getClass(owner);
 	}
 
 	final MrjState context;

@@ -2,7 +2,7 @@ package net.fabricmc.tinyremapper.api;
 
 import org.objectweb.asm.commons.Remapper;
 
-public abstract class ExtendedRemapper extends Remapper {
+public abstract class TrRemapper extends Remapper {
 	/**
 	 * remaps a method when the full descriptor is unknown.
 	 * @param owner the owner of the method
