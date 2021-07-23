@@ -17,8 +17,8 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.MxClass;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.hard.annotation.ImplementsAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.hard.annotation.MixinAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.hard.data.SoftInterface;
-import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.MixinAnnotationVisitor;
 
 public class HardTargetMixinClassVisitor extends ClassVisitor {
 	private final CommonData data;
@@ -53,7 +53,7 @@ public class HardTargetMixinClassVisitor extends ClassVisitor {
 		AnnotationVisitor av = super.visitAnnotation(descriptor, visible);
 
 		if (Annotation.MIXIN.equals(descriptor)) {
-			av = new MixinAnnotationVisitor(data, av, remap, targets);
+			av = new MixinAnnotationVisitor(av, remap, targets);
 		} else if (Annotation.IMPLEMENTS.equals(descriptor)) {
 			av = new ImplementsAnnotationVisitor(av, interfaces);
 		}
