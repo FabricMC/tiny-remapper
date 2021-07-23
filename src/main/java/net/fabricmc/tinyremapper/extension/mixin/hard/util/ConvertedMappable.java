@@ -10,7 +10,7 @@ import java.util.stream.Stream;
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
-import net.fabricmc.tinyremapper.extension.mixin.common.Resolver;
+import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 
 public abstract class ConvertedMappable extends HardTargetMappable {
@@ -27,11 +27,11 @@ public abstract class ConvertedMappable extends HardTargetMappable {
 	protected abstract String revertName(String name);
 
 	protected Stream<String> mapMultiTarget(String name, String desc) {
-		final Resolver resolver = new Resolver(data.logger);
+		final ResolveUtility resolver = new ResolveUtility(data.logger);
 		final MapUtility mapper = new MapUtility(data.remapper, data.logger);
 
 		return targets.stream()
-				.map(target -> resolver.resolve(target, name, desc, Resolver.FLAG_UNIQUE | Resolver.FLAG_RECURSIVE))
+				.map(target -> resolver.resolve(target, name, desc, ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE))
 				.filter(Optional::isPresent)
 				.map(Optional::get)
 				.map(mapper::map);

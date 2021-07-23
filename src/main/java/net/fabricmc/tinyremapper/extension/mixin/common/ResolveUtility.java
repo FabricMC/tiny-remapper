@@ -14,7 +14,7 @@ import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.api.TrMethod;
 
-public final class Resolver {
+public final class ResolveUtility {
 	/**
 	 * Raise error if the result is not unique.
 	 */
@@ -28,13 +28,13 @@ public final class Resolver {
 	 */
 	public static int FLAG_RECURSIVE = 0x4;
 	/**
-	 * Prefer non-synthetic member. This has higher priority than {@link Resolver#FLAG_FIRST};
+	 * Prefer non-synthetic member. This has higher priority than {@link ResolveUtility#FLAG_FIRST};
 	 */
 	public static int FLAG_NON_SYN = 0x8;
 
 	private final Logger logger;
 
-	public Resolver(Logger logger) {
+	public ResolveUtility(Logger logger) {
 		this.logger = Objects.requireNonNull(logger);
 	}
 

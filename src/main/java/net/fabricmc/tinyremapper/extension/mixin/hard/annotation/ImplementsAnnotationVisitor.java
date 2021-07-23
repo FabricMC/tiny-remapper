@@ -12,7 +12,7 @@ import org.objectweb.asm.Type;
 
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
-import net.fabricmc.tinyremapper.extension.mixin.common.Resolver;
+import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
@@ -78,7 +78,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 
 		@Override
 		protected Optional<String> getNewName() {
-			final Resolver resolver = new Resolver(data.logger);
+			final ResolveUtility resolver = new ResolveUtility(data.logger);
 			final MapUtility mapper = new MapUtility(data.remapper, data.logger);
 
 			Stream<String> stream = Stream.empty();
@@ -92,7 +92,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 									iface.getTarget(),
 									self.getName().substring(iface.getPrefix().length()),
 									self.getDesc(),
-									Resolver.FLAG_UNIQUE | Resolver.FLAG_RECURSIVE
+									ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE
 							)
 					))																		// resolve the method to target method
 					.filter(pair -> pair.second().isPresent())
@@ -102,7 +102,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 
 			stream = Stream.concat(stream, interfaces.stream()
 					.filter(iface -> iface.getRemap().compareTo(Remap.ALL) >= 0)			// select the interface with ALL, or FORCE
-					.map(iface -> resolver.resolve(iface.getTarget(), self.getName(), self.getDesc(), Resolver.FLAG_UNIQUE | Resolver.FLAG_RECURSIVE))
+					.map(iface -> resolver.resolve(iface.getTarget(), self.getName(), self.getDesc(), ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE))
 					.filter(Optional::isPresent)
 					.map(Optional::get)
 					.map(mapper::map));

@@ -13,7 +13,7 @@ import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
-import net.fabricmc.tinyremapper.extension.mixin.common.Resolver;
+import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
@@ -61,11 +61,11 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 		private Optional<TrMember> resolvePartial(TrClass owner, String name, String desc) {
 			Objects.requireNonNull(owner);
 
-			Resolver resolver = new Resolver(data.logger);
+			ResolveUtility resolver = new ResolveUtility(data.logger);
 
-			if (name.isEmpty()) return resolver.resolveByDesc(owner, desc, Resolver.FLAG_FIRST | Resolver.FLAG_NON_SYN);
-			if (desc.isEmpty()) return resolver.resolveByName(owner, name, MemberType.METHOD, Resolver.FLAG_FIRST | Resolver.FLAG_NON_SYN);
-			return resolver.resolve(owner, name, desc, Resolver.FLAG_UNIQUE);
+			if (name.isEmpty()) return resolver.resolveByDesc(owner, desc, ResolveUtility.FLAG_FIRST | ResolveUtility.FLAG_NON_SYN);
+			if (desc.isEmpty()) return resolver.resolveByName(owner, name, MemberType.METHOD, ResolveUtility.FLAG_FIRST | ResolveUtility.FLAG_NON_SYN);
+			return resolver.resolve(owner, name, desc, ResolveUtility.FLAG_UNIQUE);
 		}
 
 		@Override

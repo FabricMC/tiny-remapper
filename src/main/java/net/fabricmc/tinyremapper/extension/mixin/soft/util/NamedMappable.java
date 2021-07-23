@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
-import net.fabricmc.tinyremapper.extension.mixin.common.Resolver;
+import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 
 public class NamedMappable implements IMappable<String> {
@@ -26,11 +26,11 @@ public class NamedMappable implements IMappable<String> {
 
 	@Override
 	public String result() {
-		final Resolver resolver = new Resolver(data.logger);
+		final ResolveUtility resolver = new ResolveUtility(data.logger);
 		final MapUtility mapper = new MapUtility(data.remapper, data.logger);
 
 		Collection<String> collection = targets.stream()
-				.map(target -> resolver.resolve(target, name, desc, Resolver.FLAG_UNIQUE | Resolver.FLAG_RECURSIVE))
+				.map(target -> resolver.resolve(target, name, desc, ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE))
 				.filter(Optional::isPresent)
 				.map(Optional::get)
 				.map(mapper::map)

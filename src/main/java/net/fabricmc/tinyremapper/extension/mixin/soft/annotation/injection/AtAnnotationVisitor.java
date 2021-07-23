@@ -9,7 +9,7 @@ import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
-import net.fabricmc.tinyremapper.extension.mixin.common.Resolver;
+import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
@@ -77,10 +77,10 @@ class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
 				return info;
 			}
 
-			Resolver resolver = new Resolver(data.logger);
+			ResolveUtility resolver = new ResolveUtility(data.logger);
 			MapUtility mapper = new MapUtility(data.remapper, data.logger);
 
-			Optional<TrMember> resolved = resolver.resolve(target, info.getName(), info.getDesc(), Resolver.FLAG_UNIQUE | Resolver.FLAG_RECURSIVE);
+			Optional<TrMember> resolved = resolver.resolve(target, info.getName(), info.getDesc(), ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE);
 
 			if (resolved.isPresent()) {
 				String newOwner = data.remapper.map(info.getOwner());
