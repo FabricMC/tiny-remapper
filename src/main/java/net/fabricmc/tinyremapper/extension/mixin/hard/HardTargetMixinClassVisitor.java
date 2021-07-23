@@ -79,7 +79,9 @@ public class HardTargetMixinClassVisitor extends ClassVisitor {
 		MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
 		MxMember method = _class.getMethod(name, descriptor);
 
-		ImplementsAnnotationVisitor.visitMethod(tasks, method, interfaces);
+		if (!interfaces.isEmpty() && !name.equals("<init>") && !name.equals("<clinit>")) {
+			ImplementsAnnotationVisitor.visitMethod(tasks, method, interfaces);
+		}
 
 		if (targets.isEmpty()) {
 			return mv;
