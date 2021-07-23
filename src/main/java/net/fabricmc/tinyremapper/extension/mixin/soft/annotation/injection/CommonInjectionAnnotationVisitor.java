@@ -25,15 +25,13 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
 class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 	private final CommonData data;
 	private final AnnotationVisitor delegate;
-	private final TrMember method;
-	private final List<TrClass> targets;
+	private final List<String> targets;
 
-	CommonInjectionAnnotationVisitor(String descriptor, CommonData data, AnnotationVisitor delegate, TrMember method, boolean remap, List<TrClass> targets) {
+	CommonInjectionAnnotationVisitor(String descriptor, CommonData data, AnnotationVisitor delegate, boolean remap, List<String> targets) {
 		super(descriptor, remap);
 
 		this.data = Objects.requireNonNull(data);
 		this.delegate = Objects.requireNonNull(delegate);
-		this.method = Objects.requireNonNull(method);
 		this.targets = Objects.requireNonNull(targets);
 	}
 
@@ -41,7 +39,7 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 	public void visitEnd() {
 		// The second pass is needed regardless of remap, because it may have
 		// children annotation need to remap.
-		this.accept(new CommonInjectionSecondPassAnnotationVisitor(data, delegate, method, remap, targets));
+		this.accept(new CommonInjectionSecondPassAnnotationVisitor(data, delegate, remap, targets));
 
 		super.visitEnd();
 	}
@@ -51,11 +49,12 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 		private final MemberInfo info;
 		private final List<TrClass> targets;
 
-		InjectMethodMappable(CommonData data, MemberInfo info, List<TrClass> targets) {
+		InjectMethodMappable(CommonData data, MemberInfo info, List<String> targets) {
 			this.data = Objects.requireNonNull(data);
 			this.info = Objects.requireNonNull(info);
 			this.targets = info.getOwner().isEmpty()
-					? Objects.requireNonNull(targets) : Collections.singletonList(data.environment.getClass(info.getOwner()));
+					? Objects.requireNonNull(targets).stream().map(data.environment::getClass).filter(Objects::nonNull).collect(Collectors.toList())
+					: Collections.singletonList(data.environment.getClass(info.getOwner()));
 		}
 
 		private Optional<TrMember> resolvePartial(TrClass owner, String name, String desc) {
@@ -96,16 +95,14 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 
 	private static class CommonInjectionSecondPassAnnotationVisitor extends AnnotationVisitor {
 		private final CommonData data;
-		private final TrMember method;
 
 		private final boolean remap;
-		private final List<TrClass> targets;
+		private final List<String> targets;
 
-		CommonInjectionSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, TrMember method, boolean remap, List<TrClass> targets) {
+		CommonInjectionSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, boolean remap, List<String> targets) {
 			super(Constant.ASM_VERSION, delegate);
 
 			this.data = Objects.requireNonNull(data);
-			this.method = Objects.requireNonNull(method);
 
 			this.targets = Objects.requireNonNull(targets);
 			this.remap = remap;

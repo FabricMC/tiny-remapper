@@ -26,7 +26,7 @@ public class HardTargetMixinClassVisitor extends ClassVisitor {
 
 	// @Mixin
 	private final AtomicBoolean remap = new AtomicBoolean();
-	private final List<TrClass> targets = new ArrayList<>();
+	private final List<String> targets = new ArrayList<>();
 
 	// @Implements
 	private final List<SoftInterface> interfaces = new ArrayList<>();

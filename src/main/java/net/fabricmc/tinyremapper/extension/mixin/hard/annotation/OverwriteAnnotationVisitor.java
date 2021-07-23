@@ -6,7 +6,6 @@ import java.util.Objects;
 
 import org.objectweb.asm.AnnotationVisitor;
 
-import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
@@ -20,11 +19,11 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertedMappable;
 public class OverwriteAnnotationVisitor extends AnnotationVisitor {
 	private final CommonData data;
 	private final TrMember method;
-	private final List<TrClass> targets;
+	private final List<String> targets;
 
 	private boolean remap;
 
-	public OverwriteAnnotationVisitor(CommonData data, AnnotationVisitor delegate, TrMember method, boolean remap, List<TrClass> targets) {
+	public OverwriteAnnotationVisitor(CommonData data, AnnotationVisitor delegate, TrMember method, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 
 		this.data = Objects.requireNonNull(data);
@@ -53,7 +52,7 @@ public class OverwriteAnnotationVisitor extends AnnotationVisitor {
 	}
 
 	private static class OverwriteMappable extends ConvertedMappable {
-		OverwriteMappable(CommonData data, TrMember self, Collection<TrClass> targets) {
+		OverwriteMappable(CommonData data, TrMember self, Collection<String> targets) {
 			super(data, self, targets);
 		}
 

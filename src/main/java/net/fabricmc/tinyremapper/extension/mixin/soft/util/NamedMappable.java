@@ -17,11 +17,11 @@ public class NamedMappable implements IMappable<String> {
 	private final String desc;
 	private final Collection<TrClass> targets;
 
-	public NamedMappable(CommonData data, String name, String desc, Collection<TrClass> targets) {
+	public NamedMappable(CommonData data, String name, String desc, Collection<String> targets) {
 		this.data = Objects.requireNonNull(data);
 		this.name = Objects.requireNonNull(name);
 		this.desc = Objects.requireNonNull(desc);
-		this.targets = Objects.requireNonNull(targets);
+		this.targets = targets.stream().map(data.environment::getClass).filter(Objects::nonNull).collect(Collectors.toList());
 	}
 
 	@Override

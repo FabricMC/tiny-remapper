@@ -6,7 +6,6 @@ import java.util.Objects;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.MethodVisitor;
 
-import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
@@ -21,9 +20,9 @@ class HardTargetMixinMethodVisitor extends MethodVisitor {
 	private final TrMember method;
 
 	private final boolean remap;
-	private final List<TrClass> targets;
+	private final List<String> targets;
 
-	HardTargetMixinMethodVisitor(CommonData data, MethodVisitor delegate, TrMember method, boolean remap, List<TrClass> targets) {
+	HardTargetMixinMethodVisitor(CommonData data, MethodVisitor delegate, TrMember method, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 		this.data = Objects.requireNonNull(data);
 		this.method = Objects.requireNonNull(method);

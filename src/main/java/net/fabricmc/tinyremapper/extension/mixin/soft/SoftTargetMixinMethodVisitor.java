@@ -6,7 +6,6 @@ import java.util.Objects;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.MethodVisitor;
 
-import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
@@ -25,9 +24,9 @@ class SoftTargetMixinMethodVisitor extends MethodVisitor {
 	private final TrMember method;
 
 	private final boolean remap;
-	private final List<TrClass> targets;
+	private final List<String> targets;
 
-	SoftTargetMixinMethodVisitor(CommonData data, MethodVisitor delegate, TrMember method, boolean remap, List<TrClass> targets) {
+	SoftTargetMixinMethodVisitor(CommonData data, MethodVisitor delegate, TrMember method, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 		this.data = Objects.requireNonNull(data);
 		this.method = Objects.requireNonNull(method);
@@ -45,17 +44,17 @@ class SoftTargetMixinMethodVisitor extends MethodVisitor {
 		} else if (Annotation.INVOKER.equals(descriptor)) {
 			av = new InvokerAnnotationVisitor(data, av, method, remap, targets);
 		} else if (Annotation.INJECT.equals(descriptor)) {
-			av = new InjectAnnotationVisitor(data, av, method, remap, targets);
+			av = new InjectAnnotationVisitor(data, av, remap, targets);
 		} else if (Annotation.MODIFY_ARG.equals(descriptor)) {
-			av = new ModifyArgAnnotationVisitor(data, av, method, remap, targets);
+			av = new ModifyArgAnnotationVisitor(data, av, remap, targets);
 		} else if (Annotation.MODIFY_ARGS.equals(descriptor)) {
-			av = new ModifyArgsAnnotationVisitor(data, av, method, remap, targets);
+			av = new ModifyArgsAnnotationVisitor(data, av, remap, targets);
 		} else if (Annotation.MODIFY_CONSTANT.equals(descriptor)) {
-			av = new ModifyConstantAnnotationVisitor(data, av, method, remap, targets);
+			av = new ModifyConstantAnnotationVisitor(data, av, remap, targets);
 		} else if (Annotation.MODIFY_VARIABLE.equals(descriptor)) {
-			av = new ModifyVariableAnnotationVisitor(data, av, method, remap, targets);
+			av = new ModifyVariableAnnotationVisitor(data, av, remap, targets);
 		} else if (Annotation.REDIRECT.equals(descriptor)) {
-			av = new RedirectAnnotationVisitor(data, av, method, remap, targets);
+			av = new RedirectAnnotationVisitor(data, av, remap, targets);
 		}
 
 		return av;

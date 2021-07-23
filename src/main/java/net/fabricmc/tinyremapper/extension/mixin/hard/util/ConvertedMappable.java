@@ -16,10 +16,10 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 public abstract class ConvertedMappable extends HardTargetMappable {
 	private final Collection<TrClass> targets;
 
-	public ConvertedMappable(CommonData data, TrMember self, Collection<TrClass> targets) {
+	public ConvertedMappable(CommonData data, TrMember self, Collection<String> targets) {
 		super(data, self);
 
-		this.targets = Objects.requireNonNull(targets);
+		this.targets = Objects.requireNonNull(targets).stream().map(data.environment::getClass).filter(Objects::nonNull).collect(Collectors.toList());
 	}
 
 	protected abstract String getConvertedName();

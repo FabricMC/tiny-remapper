@@ -7,7 +7,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
 
-import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
@@ -23,9 +22,9 @@ public class MixinAnnotationVisitor extends FirstPassAnnotationVisitor {
 	private final AnnotationVisitor delegate;
 
 	private final AtomicBoolean remap0;
-	private final List<TrClass> targets;
+	private final List<String> targets;
 
-	public MixinAnnotationVisitor(CommonData data, AnnotationVisitor delegate, AtomicBoolean remapOut, List<TrClass> targetsOut) {
+	public MixinAnnotationVisitor(CommonData data, AnnotationVisitor delegate, AtomicBoolean remapOut, List<String> targetsOut) {
 		super(Annotation.MIXIN, true);
 		this.data = Objects.requireNonNull(data);
 		this.delegate = Objects.requireNonNull(delegate);
@@ -49,9 +48,9 @@ public class MixinAnnotationVisitor extends FirstPassAnnotationVisitor {
 		private final CommonData data;
 
 		private final boolean remap;
-		private final List<TrClass> targets;
+		private final List<String> targets;
 
-		MixinSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, boolean remap, List<TrClass> targetsOut) {
+		MixinSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, boolean remap, List<String> targetsOut) {
 			super(Constant.ASM_VERSION, delegate);
 
 			this.data = Objects.requireNonNull(data);
@@ -71,7 +70,7 @@ public class MixinAnnotationVisitor extends FirstPassAnnotationVisitor {
 						String srcName = ((String) value).replaceAll("\\s", "").replace('.', '/');
 						String dstName = srcName;
 
-						MixinSecondPassAnnotationVisitor.this.targets.add(data.environment.getClass(srcName));
+						MixinSecondPassAnnotationVisitor.this.targets.add(srcName);
 
 						if (remap) {
 							dstName = data.remapper.map(srcName);
@@ -87,7 +86,7 @@ public class MixinAnnotationVisitor extends FirstPassAnnotationVisitor {
 					public void visit(String name, Object value) {
 						Type srcType = Objects.requireNonNull((Type) value);
 
-						MixinSecondPassAnnotationVisitor.this.targets.add(data.environment.getClass(srcType.getInternalName()));
+						MixinSecondPassAnnotationVisitor.this.targets.add(srcType.getInternalName());
 
 						super.visit(name, value);
 					}

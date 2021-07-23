@@ -5,7 +5,6 @@ import java.util.Objects;
 
 import org.objectweb.asm.AnnotationVisitor;
 
-import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
@@ -22,9 +21,9 @@ public class InvokerAnnotationVisitor extends FirstPassAnnotationVisitor {
 	private final AnnotationVisitor delegate;
 	private final TrMember method;
 
-	private final List<TrClass> targets;
+	private final List<String> targets;
 
-	public InvokerAnnotationVisitor(CommonData data, AnnotationVisitor delegate, TrMember method, boolean remap, List<TrClass> targets) {
+	public InvokerAnnotationVisitor(CommonData data, AnnotationVisitor delegate, TrMember method, boolean remap, List<String> targets) {
 		super(Annotation.INVOKER, remap);
 
 		this.data = Objects.requireNonNull(data);
@@ -48,9 +47,9 @@ public class InvokerAnnotationVisitor extends FirstPassAnnotationVisitor {
 	private static class InvokerSecondPassAnnotationVisitor extends AnnotationVisitor {
 		private final CommonData data;
 		private final TrMember method;
-		private final List<TrClass> targets;
+		private final List<String> targets;
 
-		InvokerSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, TrMember method, List<TrClass> targets) {
+		InvokerSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, TrMember method, List<String> targets) {
 			super(Constant.ASM_VERSION, delegate);
 
 			this.data = Objects.requireNonNull(data);

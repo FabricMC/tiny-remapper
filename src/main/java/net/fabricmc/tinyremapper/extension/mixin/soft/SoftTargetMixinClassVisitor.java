@@ -23,7 +23,7 @@ public class SoftTargetMixinClassVisitor extends ClassVisitor {
 
 	// @Mixin
 	private final AtomicBoolean remap = new AtomicBoolean();
-	private final List<TrClass> targets = new ArrayList<>();
+	private final List<String> targets = new ArrayList<>();
 
 	public SoftTargetMixinClassVisitor(CommonData data, ClassVisitor delegate) {
 		super(Constant.ASM_VERSION, delegate);
