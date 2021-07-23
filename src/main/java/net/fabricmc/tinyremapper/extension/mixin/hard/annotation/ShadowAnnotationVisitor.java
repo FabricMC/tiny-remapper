@@ -3,6 +3,7 @@ package net.fabricmc.tinyremapper.extension.mixin.hard.annotation;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 import org.objectweb.asm.AnnotationVisitor;
 
@@ -17,16 +18,16 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertedMappable;
  * an error message will show up and the behaviour is undefined.
  */
 public class ShadowAnnotationVisitor extends AnnotationVisitor {
-	private final CommonData data;
+	private final List<Consumer<CommonData>> tasks;
 	private final MxMember member;
 	private final List<String> targets;
 
 	private boolean remap;
 	private String prefix;
 
-	public ShadowAnnotationVisitor(CommonData data, AnnotationVisitor delegate, MxMember member, boolean remap, List<String> targets) {
+	public ShadowAnnotationVisitor(List<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember member, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
-		this.data = Objects.requireNonNull(data);
+		this.tasks = Objects.requireNonNull(tasks);
 		this.member = Objects.requireNonNull(member);
 
 		this.targets = Objects.requireNonNull(targets);
@@ -48,7 +49,7 @@ public class ShadowAnnotationVisitor extends AnnotationVisitor {
 	@Override
 	public void visitEnd() {
 		if (remap) {
-			new ShadowPrefixMappable(data, member, targets, prefix).result();
+			tasks.add(data -> new ShadowPrefixMappable(data, member, targets, prefix).result());
 		}
 
 		super.visitEnd();

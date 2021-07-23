@@ -1,9 +1,12 @@
 package net.fabricmc.tinyremapper.extension.mixin;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
 import org.objectweb.asm.ClassVisitor;
 
 import net.fabricmc.tinyremapper.api.TrEnvironment;
-import net.fabricmc.tinyremapper.api.TrRemapper;
 import net.fabricmc.tinyremapper.extension.mixin.common.Logger;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.hard.HardTargetMixinClassVisitor;
@@ -16,20 +19,28 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.SoftTargetMixinClassVisito
  */
 public class MixinAnnotationProcessor {
 	private final Logger logger;
+	private final List<Consumer<CommonData>> tasks;
 
 	public MixinAnnotationProcessor() {
 		this.logger = new Logger();
+		this.tasks = new ArrayList<>();
 	}
 
 	public MixinAnnotationProcessor(Logger.Level logLevel) {
 		this.logger = new Logger(logLevel);
+		this.tasks = new ArrayList<>();
 	}
 
-	public ClassVisitor getPostPropagationVisitor(ClassVisitor cv, TrRemapper remapper, TrEnvironment environment) {
-		return new HardTargetMixinClassVisitor(new CommonData(environment, logger), cv);
+	public ClassVisitor getAnalyzeVisitor(ClassVisitor cv) {
+		return new HardTargetMixinClassVisitor(tasks, cv);
 	}
 
-	public ClassVisitor getPreVisitor(ClassVisitor cv, TrRemapper remapper, TrEnvironment environment) {
+	public void process(TrEnvironment environment) {
+		CommonData data = new CommonData(environment, logger);
+		tasks.forEach(task -> task.accept(data));
+	}
+
+	public ClassVisitor getPreVisitor(ClassVisitor cv, TrEnvironment environment) {
 		return new SoftTargetMixinClassVisitor(new CommonData(environment, logger), cv);
 	}
 }

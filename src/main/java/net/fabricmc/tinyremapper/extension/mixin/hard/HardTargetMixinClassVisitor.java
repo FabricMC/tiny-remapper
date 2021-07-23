@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
@@ -21,7 +22,7 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.annotation.MixinAnnotation
 import net.fabricmc.tinyremapper.extension.mixin.hard.data.SoftInterface;
 
 public class HardTargetMixinClassVisitor extends ClassVisitor {
-	private final CommonData data;
+	private final List<Consumer<CommonData>> tasks;
 	private MxClass _class;
 
 	// @Mixin
@@ -31,9 +32,9 @@ public class HardTargetMixinClassVisitor extends ClassVisitor {
 	// @Implements
 	private final List<SoftInterface> interfaces = new ArrayList<>();
 
-	public HardTargetMixinClassVisitor(CommonData data, ClassVisitor delegate) {
+	public HardTargetMixinClassVisitor(List<Consumer<CommonData>> tasks, ClassVisitor delegate) {
 		super(Constant.ASM_VERSION, delegate);
-		this.data = Objects.requireNonNull(data);
+		this.tasks = Objects.requireNonNull(tasks);
 	}
 
 	/**
@@ -69,7 +70,7 @@ public class HardTargetMixinClassVisitor extends ClassVisitor {
 		if (targets.isEmpty()) {
 			return fv;
 		} else {
-			return new HardTargetMixinFieldVisitor(data, fv, field, remap.get(), Collections.unmodifiableList(targets));
+			return new HardTargetMixinFieldVisitor(tasks, fv, field, remap.get(), Collections.unmodifiableList(targets));
 		}
 	}
 
@@ -78,12 +79,12 @@ public class HardTargetMixinClassVisitor extends ClassVisitor {
 		MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
 		MxMember method = _class.getMethod(name, descriptor);
 
-		ImplementsAnnotationVisitor.visitMethod(data, method, interfaces);
+		ImplementsAnnotationVisitor.visitMethod(tasks, method, interfaces);
 
 		if (targets.isEmpty()) {
 			return mv;
 		} else {
-			return new HardTargetMixinMethodVisitor(data, mv, method, remap.get(), Collections.unmodifiableList(targets));
+			return new HardTargetMixinMethodVisitor(tasks, mv, method, remap.get(), Collections.unmodifiableList(targets));
 		}
 	}
 }

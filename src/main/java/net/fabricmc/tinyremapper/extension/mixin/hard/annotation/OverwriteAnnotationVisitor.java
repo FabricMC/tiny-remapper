@@ -3,6 +3,7 @@ package net.fabricmc.tinyremapper.extension.mixin.hard.annotation;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 import org.objectweb.asm.AnnotationVisitor;
 
@@ -17,16 +18,16 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertedMappable;
  * an error message will show up and the behaviour is undefined.
  */
 public class OverwriteAnnotationVisitor extends AnnotationVisitor {
-	private final CommonData data;
+	private final List<Consumer<CommonData>> tasks;
 	private final MxMember method;
 	private final List<String> targets;
 
 	private boolean remap;
 
-	public OverwriteAnnotationVisitor(CommonData data, AnnotationVisitor delegate, MxMember method, boolean remap, List<String> targets) {
+	public OverwriteAnnotationVisitor(List<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember method, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 
-		this.data = Objects.requireNonNull(data);
+		this.tasks = Objects.requireNonNull(tasks);
 		this.method = Objects.requireNonNull(method);
 		this.targets = Objects.requireNonNull(targets);
 
@@ -45,7 +46,7 @@ public class OverwriteAnnotationVisitor extends AnnotationVisitor {
 	@Override
 	public void visitEnd() {
 		if (remap) {
-			new OverwriteMappable(data, method, targets).result();
+			tasks.add(data -> new OverwriteMappable(data, method, targets).result());
 		}
 
 		super.visitEnd();

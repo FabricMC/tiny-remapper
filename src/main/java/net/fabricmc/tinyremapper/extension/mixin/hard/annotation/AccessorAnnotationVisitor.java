@@ -3,6 +3,7 @@ package net.fabricmc.tinyremapper.extension.mixin.hard.annotation;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,17 +21,17 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertedMappable;
  * an error message will show up and the behaviour is undefined.
  */
 public class AccessorAnnotationVisitor extends AnnotationVisitor {
-	private final CommonData data;
+	private final List<Consumer<CommonData>> tasks;
 	private final MxMember method;
 	private final List<String> targets;
 
 	private boolean remap;
 	private boolean isSoftTarget;
 
-	public AccessorAnnotationVisitor(CommonData data, AnnotationVisitor delegate, MxMember method, boolean remap, List<String> targets) {
+	public AccessorAnnotationVisitor(List<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember method, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 
-		this.data = Objects.requireNonNull(data);
+		this.tasks = Objects.requireNonNull(tasks);
 		this.method = Objects.requireNonNull(method);
 		this.targets = Objects.requireNonNull(targets);
 
@@ -52,7 +53,7 @@ public class AccessorAnnotationVisitor extends AnnotationVisitor {
 	@Override
 	public void visitEnd() {
 		if (remap && !isSoftTarget) {
-			new AccessorMappable(data, method, targets).result();
+			tasks.add(data -> new AccessorMappable(data, method, targets).result());
 		}
 
 		super.visitEnd();

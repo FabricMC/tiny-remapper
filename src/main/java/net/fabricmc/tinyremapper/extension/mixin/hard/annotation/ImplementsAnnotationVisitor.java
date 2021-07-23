@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -61,8 +62,8 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 		}
 	}
 
-	public static void visitMethod(CommonData data, MxMember method, List<SoftInterface> interfaces) {
-		new SoftImplementsMappable(data, method, interfaces).result();
+	public static void visitMethod(List<Consumer<CommonData>> tasks, MxMember method, List<SoftInterface> interfaces) {
+		tasks.add(data -> new SoftImplementsMappable(data, method, interfaces).result());
 	}
 
 	private static class SoftImplementsMappable extends HardTargetMappable {
