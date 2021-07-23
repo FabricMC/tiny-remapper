@@ -6,20 +6,20 @@ import java.util.Objects;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.FieldVisitor;
 
-import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.hard.annotation.ShadowAnnotationVisitor;
 
 class HardTargetMixinFieldVisitor extends FieldVisitor {
 	private final CommonData data;
-	private final TrMember field;
+	private final MxMember field;
 
 	private final boolean remap;
 	private final List<String> targets;
 
-	HardTargetMixinFieldVisitor(CommonData data, FieldVisitor delegate, TrMember field,
+	HardTargetMixinFieldVisitor(CommonData data, FieldVisitor delegate, MxMember field,
 								boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 		this.data = Objects.requireNonNull(data);

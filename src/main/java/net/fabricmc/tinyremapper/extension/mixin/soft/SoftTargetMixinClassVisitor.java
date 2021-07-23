@@ -10,16 +10,16 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 
-import net.fabricmc.tinyremapper.api.TrClass;
-import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.MxClass;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.MixinAnnotationVisitor;
 
 public class SoftTargetMixinClassVisitor extends ClassVisitor {
 	private final CommonData data;
-	private TrClass _class;
+	private MxClass _class;
 
 	// @Mixin
 	private final AtomicBoolean remap = new AtomicBoolean();
@@ -35,7 +35,7 @@ public class SoftTargetMixinClassVisitor extends ClassVisitor {
 	 */
 	@Override
 	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-		this._class = Objects.requireNonNull(this.data.environment.getClass(name));
+		this._class = new MxClass(name);
 		super.visit(version, access, name, signature, superName, interfaces);
 	}
 
@@ -56,7 +56,7 @@ public class SoftTargetMixinClassVisitor extends ClassVisitor {
 	@Override
 	public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
 		MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
-		TrMember method = _class.getMethod(name, descriptor);
+		MxMember method = _class.getMethod(name, descriptor);
 
 		if (targets.isEmpty()) {
 			return mv;

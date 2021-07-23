@@ -10,13 +10,13 @@ import java.util.stream.Stream;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
 
-import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Pair;
 import net.fabricmc.tinyremapper.extension.mixin.hard.data.SoftInterface;
 import net.fabricmc.tinyremapper.extension.mixin.hard.data.SoftInterface.Remap;
@@ -28,13 +28,11 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.util.HardTargetMappable;
  * behaviour is disallowed in Mixin AP).
  */
 public class ImplementsAnnotationVisitor extends AnnotationVisitor {
-	private final CommonData data;
 	private final List<SoftInterface> interfaces;
 
-	public ImplementsAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<SoftInterface> interfacesOut) {
+	public ImplementsAnnotationVisitor(AnnotationVisitor delegate, List<SoftInterface> interfacesOut) {
 		super(Constant.ASM_VERSION, delegate);
 
-		this.data = Objects.requireNonNull(data);
 		this.interfaces = Objects.requireNonNull(interfacesOut);
 	}
 
@@ -55,7 +53,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 					SoftInterface _interface = new SoftInterface();
 					interfaces.add(_interface);
 
-					return new InterfaceAnnotationVisitor(data, av1, _interface);
+					return new InterfaceAnnotationVisitor(av1, _interface);
 				}
 			};
 		} else {
@@ -63,14 +61,14 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 		}
 	}
 
-	public static void visitMethod(CommonData data, TrMember method, List<SoftInterface> interfaces) {
+	public static void visitMethod(CommonData data, MxMember method, List<SoftInterface> interfaces) {
 		new SoftImplementsMappable(data, method, interfaces).result();
 	}
 
 	private static class SoftImplementsMappable extends HardTargetMappable {
 		private final Collection<SoftInterface> interfaces;
 
-		SoftImplementsMappable(CommonData data, TrMember self, Collection<SoftInterface> interfaces) {
+		SoftImplementsMappable(CommonData data, MxMember self, Collection<SoftInterface> interfaces) {
 			super(data, self);
 
 			this.interfaces = Objects.requireNonNull(interfaces);
@@ -124,13 +122,11 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 	}
 
 	private static class InterfaceAnnotationVisitor extends AnnotationVisitor {
-		private final CommonData data;
 		private final SoftInterface _interface;
 
-		InterfaceAnnotationVisitor(CommonData data, AnnotationVisitor delegate, SoftInterface _interfaceOut) {
+		InterfaceAnnotationVisitor(AnnotationVisitor delegate, SoftInterface _interfaceOut) {
 			super(Constant.ASM_VERSION, delegate);
 
-			this.data = Objects.requireNonNull(data);
 			this._interface = Objects.requireNonNull(_interfaceOut);
 
 			this._interface.setRemap(Remap.ALL);	// default value

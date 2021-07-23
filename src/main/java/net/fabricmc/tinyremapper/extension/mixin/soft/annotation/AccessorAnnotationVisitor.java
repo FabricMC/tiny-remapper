@@ -7,11 +7,11 @@ import java.util.regex.Pattern;
 
 import org.objectweb.asm.AnnotationVisitor;
 
-import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.soft.util.NamedMappable;
 
 /**
@@ -21,11 +21,11 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.util.NamedMappable;
 public class AccessorAnnotationVisitor extends FirstPassAnnotationVisitor {
 	private final CommonData data;
 	private final AnnotationVisitor delegate;
-	private final TrMember method;
+	private final MxMember method;
 
 	private final List<String> targets;
 
-	public AccessorAnnotationVisitor(CommonData data, AnnotationVisitor delegate, TrMember method, boolean remap, List<String> targets) {
+	public AccessorAnnotationVisitor(CommonData data, AnnotationVisitor delegate, MxMember method, boolean remap, List<String> targets) {
 		super(Annotation.ACCESSOR, remap);
 
 		this.data = Objects.requireNonNull(data);
@@ -54,7 +54,7 @@ public class AccessorAnnotationVisitor extends FirstPassAnnotationVisitor {
 		private static final Pattern GETTER_PATTERN = Pattern.compile("(?<=\\(\\)).*");
 		private static final Pattern SETTER_PATTERN = Pattern.compile("(?<=\\().*(?=\\)V)");
 
-		AccessorSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, TrMember method, List<String> targets) {
+		AccessorSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, MxMember method, List<String> targets) {
 			super(Constant.ASM_VERSION, delegate);
 
 			this.data = Objects.requireNonNull(data);

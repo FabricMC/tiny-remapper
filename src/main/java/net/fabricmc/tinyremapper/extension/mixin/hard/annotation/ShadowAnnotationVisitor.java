@@ -6,10 +6,10 @@ import java.util.Objects;
 
 import org.objectweb.asm.AnnotationVisitor;
 
-import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertedMappable;
 
 /**
@@ -18,13 +18,13 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertedMappable;
  */
 public class ShadowAnnotationVisitor extends AnnotationVisitor {
 	private final CommonData data;
-	private final TrMember member;
+	private final MxMember member;
 	private final List<String> targets;
 
 	private boolean remap;
 	private String prefix;
 
-	public ShadowAnnotationVisitor(CommonData data, AnnotationVisitor delegate, TrMember member, boolean remap, List<String> targets) {
+	public ShadowAnnotationVisitor(CommonData data, AnnotationVisitor delegate, MxMember member, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 		this.data = Objects.requireNonNull(data);
 		this.member = Objects.requireNonNull(member);
@@ -57,7 +57,7 @@ public class ShadowAnnotationVisitor extends AnnotationVisitor {
 	private static class ShadowPrefixMappable extends ConvertedMappable {
 		private final String prefix;
 
-		ShadowPrefixMappable(CommonData data, TrMember self, Collection<String> targets, String prefix) {
+		ShadowPrefixMappable(CommonData data, MxMember self, Collection<String> targets, String prefix) {
 			super(data, self, targets);
 			Objects.requireNonNull(prefix);
 

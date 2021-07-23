@@ -6,11 +6,11 @@ import java.util.Objects;
 
 import org.objectweb.asm.AnnotationVisitor;
 
-import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.StringUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertedMappable;
 
 /**
@@ -19,13 +19,13 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertedMappable;
  */
 public class InvokerAnnotationVisitor extends AnnotationVisitor {
 	private final CommonData data;
-	private final TrMember method;
+	private final MxMember method;
 	private final List<String> targets;
 
 	private boolean remap;
 	private boolean isSoftTarget;
 
-	public InvokerAnnotationVisitor(CommonData data, AnnotationVisitor delegate, TrMember method, boolean remap, List<String> targets) {
+	public InvokerAnnotationVisitor(CommonData data, AnnotationVisitor delegate, MxMember method, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 
 		this.data = Objects.requireNonNull(data);
@@ -59,7 +59,7 @@ public class InvokerAnnotationVisitor extends AnnotationVisitor {
 	private static class InvokerMappable extends ConvertedMappable {
 		private final String prefix;
 
-		InvokerMappable(CommonData data, TrMember self, Collection<String> targets) {
+		InvokerMappable(CommonData data, MxMember self, Collection<String> targets) {
 			super(data, self, targets);
 
 			if (self.getName().startsWith("call")) {

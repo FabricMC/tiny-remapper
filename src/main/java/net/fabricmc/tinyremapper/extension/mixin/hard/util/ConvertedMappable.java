@@ -8,15 +8,15 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import net.fabricmc.tinyremapper.api.TrClass;
-import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 
 public abstract class ConvertedMappable extends HardTargetMappable {
 	private final Collection<TrClass> targets;
 
-	public ConvertedMappable(CommonData data, TrMember self, Collection<String> targets) {
+	public ConvertedMappable(CommonData data, MxMember self, Collection<String> targets) {
 		super(data, self);
 
 		this.targets = Objects.requireNonNull(targets).stream().map(data.environment::getClass).filter(Objects::nonNull).collect(Collectors.toList());
