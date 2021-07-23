@@ -31,7 +31,7 @@ public final class StringUtility {
 	}
 
 	public static boolean isFieldDesc(String text) {
-		return isClassDesc(text);
+		return !isMethodDesc(text);
 	}
 
 	public static boolean isMethodDesc(String text) {
