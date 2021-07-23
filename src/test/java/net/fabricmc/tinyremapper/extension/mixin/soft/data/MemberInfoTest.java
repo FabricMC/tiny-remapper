@@ -3,6 +3,7 @@ package net.fabricmc.tinyremapper.extension.mixin.soft.data;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -61,5 +62,23 @@ class MemberInfoTest {
 		assertEquals(info.getQuantifier(), "");
 		assertEquals(info.getDesc(), "(DDD)V");
 		assertEquals(info.toString(), "Lfoo/bar/Baz;func_1234_a(DDD)V");
+
+		info = MemberInfo.parse("java/lang/String");
+		assertNotNull(info);
+		assertNull(info.getType());
+		assertEquals(info.getOwner(), "java/lang/String");
+		assertEquals(info.getName(), "");
+		assertEquals(info.getQuantifier(), "");
+		assertEquals(info.getDesc(), "");
+		assertEquals(info.toString(), "Ljava/lang/String;");
+
+		info = MemberInfo.parse("([C)Ljava/lang/String;");
+		assertNotNull(info);
+		assertEquals(info.getType(), MemberType.METHOD);
+		assertEquals(info.getOwner(), "");
+		assertEquals(info.getName(), "");
+		assertEquals(info.getQuantifier(), "");
+		assertEquals(info.getDesc(), "([C)Ljava/lang/String;");
+		assertEquals(info.toString(), "([C)Ljava/lang/String;");
 	}
 }
