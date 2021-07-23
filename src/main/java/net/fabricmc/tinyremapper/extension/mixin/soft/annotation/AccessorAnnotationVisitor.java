@@ -2,6 +2,8 @@ package net.fabricmc.tinyremapper.extension.mixin.soft.annotation;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.objectweb.asm.AnnotationVisitor;
 
@@ -53,6 +55,10 @@ public class AccessorAnnotationVisitor extends FirstPassAnnotationVisitor {
 		private final CommonData data;
 		private final TrMember method;
 		private final List<TrClass> targets;
+		private final String fieldDesc;
+
+		private static final Pattern GETTER_PATTERN = Pattern.compile("(?<=\\(\\)).*");
+		private static final Pattern SETTER_PATTERN = Pattern.compile("(?<=\\().*(?=\\)V)");
 
 		AccessorSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, TrMember method, List<TrClass> targets) {
 			super(Constant.ASM_VERSION, delegate);
@@ -60,15 +66,25 @@ public class AccessorAnnotationVisitor extends FirstPassAnnotationVisitor {
 			this.data = Objects.requireNonNull(data);
 			this.method = Objects.requireNonNull(method);
 			this.targets = Objects.requireNonNull(targets);
+
+			Matcher getterMatcher = GETTER_PATTERN.matcher(method.getDesc());
+			Matcher setterMatcher = SETTER_PATTERN.matcher(method.getDesc());
+
+			if (getterMatcher.find()) {
+				this.fieldDesc = getterMatcher.group();
+			} else if (setterMatcher.find()) {
+				this.fieldDesc = setterMatcher.group();
+			} else {
+				throw new RuntimeException(method.getDesc() + " is not getter or setter");
+			}
 		}
 
 		@Override
 		public void visit(String name, Object value) {
 			if (name.equals(AnnotationElement.VALUE)) {
-				String methodName = Objects.requireNonNull((String) value);
-				String methodDesc = method.getDesc();
+				String fieldName = Objects.requireNonNull((String) value);
 
-				value = new NamedMappable(data, methodName, methodDesc, targets).result();
+				value = new NamedMappable(data, fieldName, fieldDesc, targets).result();
 			}
 
 			super.visit(name, value);
