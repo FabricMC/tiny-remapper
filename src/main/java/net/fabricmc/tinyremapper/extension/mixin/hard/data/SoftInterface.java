@@ -1,17 +1,15 @@
 package net.fabricmc.tinyremapper.extension.mixin.hard.data;
 
-import net.fabricmc.tinyremapper.api.TrClass;
-
 public final class SoftInterface {
 	public enum Remap {
 		NONE, ONLY_PREFIX, ALL, FORCE
 	}
 
-	private TrClass target;
+	private String target;
 	private String prefix;
 	private Remap remap;
 
-	public TrClass getTarget() {
+	public String getTarget() {
 		return target;
 	}
 
@@ -23,7 +21,7 @@ public final class SoftInterface {
 		return remap;
 	}
 
-	public void setTarget(TrClass target) {
+	public void setTarget(String target) {
 		this.target = target;
 	}
 

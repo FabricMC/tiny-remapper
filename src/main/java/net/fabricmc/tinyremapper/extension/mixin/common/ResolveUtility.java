@@ -39,9 +39,9 @@ public final class ResolveUtility {
 	}
 
 	public Optional<TrMember> resolve(TrClass owner, String name, String desc, int flag) {
-		Objects.requireNonNull(owner);
-		Objects.requireNonNull(name);
-		Objects.requireNonNull(desc);
+		if (owner == null || name == null || desc == null) {
+			return Optional.empty();
+		}
 
 		if (StringUtility.isFieldDesc(desc)) {
 			return (flag & FLAG_RECURSIVE) != 0
@@ -84,6 +84,10 @@ public final class ResolveUtility {
 	}
 
 	public Optional<TrMember> resolveByName(TrClass owner, String name, MemberType type, int flag) {
+		if (owner == null || name == null) {
+			return Optional.empty();
+		}
+
 		if (type.equals(MemberType.FIELD)) {
 			if ((flag & FLAG_RECURSIVE) != 0) {
 				return this.resolve0(owner, name, (Collection<TrField> out0) -> owner.resolveFields(name, null, false, null, out0), flag);
@@ -102,6 +106,10 @@ public final class ResolveUtility {
 	}
 
 	public Optional<TrMember> resolveByDesc(TrClass owner, String desc, int flag) {
+		if (owner == null || desc == null) {
+			return Optional.empty();
+		}
+
 		if (StringUtility.isFieldDesc(desc)) {
 			if ((flag & FLAG_RECURSIVE) != 0) {
 				return this.resolve0(owner, desc, (Collection<TrField> out0) -> owner.resolveFields(null, desc, false, null, out0), flag);

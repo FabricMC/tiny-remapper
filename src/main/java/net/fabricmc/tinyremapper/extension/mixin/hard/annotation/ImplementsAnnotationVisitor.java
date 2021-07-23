@@ -89,7 +89,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 					.map(iface -> Pair.of(
 							iface.getPrefix(),
 							resolver.resolve(
-									iface.getTarget(),
+									data.environment.getClass(iface.getTarget()),
 									self.getName().substring(iface.getPrefix().length()),
 									self.getDesc(),
 									ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE
@@ -102,7 +102,11 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 
 			stream = Stream.concat(stream, interfaces.stream()
 					.filter(iface -> iface.getRemap().compareTo(Remap.ALL) >= 0)			// select the interface with ALL, or FORCE
-					.map(iface -> resolver.resolve(iface.getTarget(), self.getName(), self.getDesc(), ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE))
+					.map(iface -> resolver.resolve(
+							data.environment.getClass(iface.getTarget()),
+							self.getName(),
+							self.getDesc(),
+							ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE))
 					.filter(Optional::isPresent)
 					.map(Optional::get)
 					.map(mapper::map));
@@ -136,7 +140,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 		public void visit(String name, Object value) {
 			if (name.equals(AnnotationElement.IFACE)) {
 				Type target = Objects.requireNonNull((Type) value);
-				this._interface.setTarget(data.environment.getClass(target.getInternalName()));
+				this._interface.setTarget(target.getInternalName());
 			} else if (name.equals(AnnotationElement.PREFIX)) {
 				String prefix = Objects.requireNonNull((String) value);
 				this._interface.setPrefix(prefix);
