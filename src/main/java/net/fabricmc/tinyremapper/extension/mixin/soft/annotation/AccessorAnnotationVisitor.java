@@ -29,7 +29,7 @@ public class AccessorAnnotationVisitor extends FirstPassAnnotationVisitor {
 	private final List<TrClass> targets;
 
 	public AccessorAnnotationVisitor(CommonData data, AnnotationVisitor delegate, TrMember method, boolean remap, List<TrClass> targets) {
-		super(Annotation.INVOKER, remap);
+		super(Annotation.ACCESSOR, remap);
 
 		this.data = Objects.requireNonNull(data);
 		this.delegate = Objects.requireNonNull(delegate);
