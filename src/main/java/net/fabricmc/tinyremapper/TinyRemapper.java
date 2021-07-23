@@ -1006,13 +1006,13 @@ public class TinyRemapper {
 		AsmRemapper remapper = cls.getContext().remapper;
 
 		if (postApplyVisitors != null) {
-			visitor = postApplyVisitors.wrap(visitor, remapper, state);
+			visitor = postApplyVisitors.wrap(visitor, state);
 		}
 
 		visitor = new AsmClassRemapper(visitor, remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
 
 		if (preApplyVisitors != null) {
-			visitor = preApplyVisitors.wrap(visitor, remapper, state);
+			visitor = preApplyVisitors.wrap(visitor, state);
 		}
 
 		reader.accept(visitor, flags);

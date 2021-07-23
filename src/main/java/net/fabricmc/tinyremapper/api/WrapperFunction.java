@@ -7,11 +7,9 @@ import org.objectweb.asm.ClassVisitor;
  */
 @FunctionalInterface
 public interface WrapperFunction {
-	// TODO: since TrEnvironment can get remapper, do we still need this remapper parameter?
-	//  also need to rename the parameter name for TrEnvironment
-	ClassVisitor wrap(ClassVisitor visitor, TrRemapper remapper, TrEnvironment classpath);
+	ClassVisitor wrap(ClassVisitor visitor, TrEnvironment classpath);
 
 	default WrapperFunction andThen(WrapperFunction target) {
-		return (visitor, remapper, classpath) -> target.wrap(this.wrap(visitor, remapper, classpath), remapper, classpath);
+		return (visitor, classpath) -> target.wrap(this.wrap(visitor, classpath), classpath);
 	}
 }
