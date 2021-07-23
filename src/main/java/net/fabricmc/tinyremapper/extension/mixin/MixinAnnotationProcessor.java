@@ -26,11 +26,11 @@ public class MixinAnnotationProcessor {
 	}
 
 	public ClassVisitor getPostPropagationVisitor(ClassVisitor cv, TrRemapper remapper, TrEnvironment environment) {
-		return new HardTargetMixinClassVisitor(new CommonData(remapper, environment, logger), cv);
+		return new HardTargetMixinClassVisitor(new CommonData(environment, logger), cv);
 	}
 
 	public ClassVisitor getPreVisitor(ClassVisitor cv, TrRemapper remapper, TrEnvironment environment) {
-		return new SoftTargetMixinClassVisitor(new CommonData(remapper, environment, logger), cv);
+		return new SoftTargetMixinClassVisitor(new CommonData(environment, logger), cv);
 	}
 }
 

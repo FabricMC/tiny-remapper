@@ -11,8 +11,8 @@ public final class CommonData {
 	public final TrEnvironment environment;
 	public final Logger logger;
 
-	public CommonData(TrRemapper remapper, TrEnvironment environment, Logger logger) {
-		this.remapper = remapper;
+	public CommonData(TrEnvironment environment, Logger logger) {
+		this.remapper = environment.getRemapper();
 		this.environment = Objects.requireNonNull(environment);
 		this.logger = Objects.requireNonNull(logger);
 	}
