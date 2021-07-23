@@ -7,6 +7,7 @@ import net.fabricmc.tinyremapper.api.TrRemapper;
 import net.fabricmc.tinyremapper.extension.mixin.common.Logger;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.hard.HardTargetMixinClassVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.SoftTargetMixinClassVisitor;
 
 /**
  * Remap mixin annotation.
@@ -29,7 +30,7 @@ public class MixinAnnotationProcessor {
 	}
 
 	public ClassVisitor getPreVisitor(ClassVisitor cv, TrRemapper remapper, TrEnvironment environment) {
-		return null;
+		return new SoftTargetMixinClassVisitor(new CommonData(remapper, environment, logger), cv);
 	}
 }
 
