@@ -35,12 +35,16 @@ public class MixinAnnotationProcessor {
 		return new HardTargetMixinClassVisitor(tasks, cv);
 	}
 
+	public ClassVisitor getAnalyzeVisitor() {
+		return getAnalyzeVisitor(null);
+	}
+
 	public void process(TrEnvironment environment) {
 		CommonData data = new CommonData(environment, logger);
 		tasks.forEach(task -> task.accept(data));
 	}
 
-	public ClassVisitor getPreVisitor(ClassVisitor cv, TrEnvironment environment) {
+	public ClassVisitor getPreApplyVisitor(ClassVisitor cv, TrEnvironment environment) {
 		return new SoftTargetMixinClassVisitor(new CommonData(environment, logger), cv);
 	}
 }
