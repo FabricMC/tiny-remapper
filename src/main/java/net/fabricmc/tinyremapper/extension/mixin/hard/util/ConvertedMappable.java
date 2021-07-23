@@ -31,7 +31,7 @@ public abstract class ConvertedMappable extends HardTargetMappable {
 		final MapUtility mapper = new MapUtility(data.remapper, data.logger);
 
 		return targets.stream()
-				.map(target -> resolver.resolve(target, name, desc, Resolver.FLAG_UNIQUE))
+				.map(target -> resolver.resolve(target, name, desc, Resolver.FLAG_UNIQUE | Resolver.FLAG_RECURSIVE))
 				.filter(Optional::isPresent)
 				.map(Optional::get)
 				.map(mapper::map);

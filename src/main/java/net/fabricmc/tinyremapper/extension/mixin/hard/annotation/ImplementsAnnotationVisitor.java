@@ -94,7 +94,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 									iface.getTarget(),
 									self.getName().substring(iface.getPrefix().length()),
 									self.getDesc(),
-									Resolver.FLAG_UNIQUE
+									Resolver.FLAG_UNIQUE | Resolver.FLAG_RECURSIVE
 							)
 					))																		// resolve the method to target method
 					.filter(pair -> pair.second().isPresent())
@@ -104,7 +104,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 
 			stream = Stream.concat(stream, interfaces.stream()
 					.filter(iface -> iface.getRemap().compareTo(Remap.ALL) >= 0)			// select the interface with ALL, or FORCE
-					.map(iface -> resolver.resolve(iface.getTarget(), self.getName(), self.getDesc(), Resolver.FLAG_UNIQUE))
+					.map(iface -> resolver.resolve(iface.getTarget(), self.getName(), self.getDesc(), Resolver.FLAG_UNIQUE | Resolver.FLAG_RECURSIVE))
 					.filter(Optional::isPresent)
 					.map(Optional::get)
 					.map(mapper::map));
