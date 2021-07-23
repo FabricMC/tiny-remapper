@@ -78,7 +78,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 
 		@Override
 		protected Optional<String> getNewName() {
-			final Resolver resolver = new Resolver(data.environment, data.logger);
+			final Resolver resolver = new Resolver(data.logger);
 			final MapUtility mapper = new MapUtility(data.remapper, data.logger);
 
 			Stream<String> stream = Stream.empty();

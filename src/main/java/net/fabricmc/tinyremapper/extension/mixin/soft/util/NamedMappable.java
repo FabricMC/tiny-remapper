@@ -26,7 +26,7 @@ public class NamedMappable implements IMappable<String> {
 
 	@Override
 	public String result() {
-		final Resolver resolver = new Resolver(data.environment, data.logger);
+		final Resolver resolver = new Resolver(data.logger);
 		final MapUtility mapper = new MapUtility(data.remapper, data.logger);
 
 		Collection<String> collection = targets.stream()

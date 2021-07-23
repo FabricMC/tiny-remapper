@@ -9,7 +9,6 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import net.fabricmc.tinyremapper.api.TrClass;
-import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.api.TrField;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
@@ -33,11 +32,9 @@ public final class Resolver {
 	 */
 	public static int FLAG_NON_SYN = 0x8;
 
-	private final TrEnvironment environment;
 	private final Logger logger;
 
-	public Resolver(TrEnvironment environment, Logger logger) {
-		this.environment = Objects.requireNonNull(environment);
+	public Resolver(Logger logger) {
 		this.logger = Objects.requireNonNull(logger);
 	}
 
@@ -55,10 +52,6 @@ public final class Resolver {
 		} else {
 			throw new RuntimeException("Invalid descriptor detected " + desc);
 		}
-	}
-
-	public Optional<TrMember> resolve(String owner, String name, String desc, int flag) {
-		return resolve(environment.getClass(owner), name, desc, flag);
 	}
 
 	private <T extends TrMember> Optional<TrMember> resolve0(TrClass owner, String name, Consumer<Collection<T>> getter, int flag) {
@@ -90,7 +83,7 @@ public final class Resolver {
 		return collection.stream().min(comparator).map(x -> x);
 	}
 
-	public Optional<TrMember> resolve(TrClass owner, String name, MemberType type, int flag) {
+	public Optional<TrMember> resolveByName(TrClass owner, String name, MemberType type, int flag) {
 		if (type.equals(MemberType.FIELD)) {
 			if ((flag & FLAG_RECURSIVE) != 0) {
 				return this.resolve0(owner, name, (Collection<TrField> out0) -> owner.resolveFields(name, null, false, null, out0), flag);
@@ -108,7 +101,21 @@ public final class Resolver {
 		}
 	}
 
-	public Optional<TrMember> resolve(String owner, String name, MemberType type, int flag) {
-		return resolve(environment.getClass(owner), name, type, flag);
+	public Optional<TrMember> resolveByDesc(TrClass owner, String desc, int flag) {
+		if (StringUtility.isFieldDesc(desc)) {
+			if ((flag & FLAG_RECURSIVE) != 0) {
+				return this.resolve0(owner, desc, (Collection<TrField> out0) -> owner.resolveFields(null, desc, false, null, out0), flag);
+			} else {
+				return this.resolve0(owner, desc, (Collection<TrField> out0) -> owner.getFields(null, desc, false, null, out0), flag);
+			}
+		} else if (StringUtility.isMethodDesc(desc)) {
+			if ((flag & FLAG_RECURSIVE) != 0) {
+				return this.resolve0(owner, desc, (Collection<TrMethod> out0) -> owner.resolveMethods(null, null, false, null, out0), flag);
+			} else {
+				return this.resolve0(owner, desc, (Collection<TrMethod> out0) -> owner.getMethods(null, desc, false, null, out0), flag);
+			}
+		} else {
+			throw new RuntimeException("Unknown descriptor " + desc);
+		}
 	}
 }

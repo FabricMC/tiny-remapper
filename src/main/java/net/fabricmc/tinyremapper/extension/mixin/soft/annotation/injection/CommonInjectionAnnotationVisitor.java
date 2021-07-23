@@ -1,13 +1,16 @@
 package net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.Resolver;
@@ -15,6 +18,7 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.Pair;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.FirstPassAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
 
@@ -50,29 +54,43 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 		InjectMethodMappable(CommonData data, MemberInfo info, List<TrClass> targets) {
 			this.data = Objects.requireNonNull(data);
 			this.info = Objects.requireNonNull(info);
-			this.targets = Objects.requireNonNull(targets);
+			this.targets = info.getOwner().isEmpty()
+					? Objects.requireNonNull(targets) : Collections.singletonList(data.environment.getClass(info.getOwner()));
+		}
+
+		private Optional<TrMember> resolvePartial(TrClass owner, String name, String desc) {
+			Objects.requireNonNull(owner);
+
+			Resolver resolver = new Resolver(data.logger);
+
+			if (name.isEmpty()) return resolver.resolveByDesc(owner, desc, Resolver.FLAG_FIRST | Resolver.FLAG_NON_SYN);
+			if (desc.isEmpty()) return resolver.resolveByName(owner, name, MemberType.METHOD, Resolver.FLAG_FIRST | Resolver.FLAG_NON_SYN);
+			return resolver.resolve(owner, name, desc, Resolver.FLAG_UNIQUE);
 		}
 
 		@Override
 		public MemberInfo result() {
-			if (!info.isFullyQualified()) {
-				return info;
+			if (info.getName().isEmpty() && info.getDesc().isEmpty()) {
+				return new MemberInfo(data.remapper.map(info.getOwner()), info.getName(), info.getQuantifier(), info.getDesc());
 			}
 
-			Resolver resolver = new Resolver(data.environment, data.logger);
 			MapUtility mapper = new MapUtility(data.remapper, data.logger);
+			List<Pair<String, String>> collection = targets.stream()
+					.map(target -> resolvePartial(target, info.getName(), info.getDesc()))
+					.filter(Optional::isPresent)
+					.map(Optional::get)
+					.map(m -> Pair.of(mapper.map(m), mapper.mapDesc(m)))
+					.distinct().collect(Collectors.toList());
 
-			Optional<TrMember> resolved = resolver.resolve(info.getOwner(), info.getName(), info.getDesc(), Resolver.FLAG_UNIQUE | Resolver.FLAG_RECURSIVE);
-			if (resolved.isPresent()) {
-				String newOwner = data.remapper.map(info.getOwner());
-				String newName = mapper.map(resolved.get());
-				String newDesc = mapper.mapDesc(resolved.get());
-
-				return new MemberInfo(newOwner, newName, info.getQuantifier(), newDesc);
-			} else {
-				data.logger.error("Cannot resolve for target selector " + info);
-				return info;
+			if (collection.size() > 1) {
+				data.logger.error("Conflict mapping detected, " + info.getName() + " -> " + collection);
+			} else if (collection.isEmpty()) {
+				data.logger.error("Cannot remap " + info.getName() + " because it does not exists in any of the targets " + targets);
 			}
+
+			return collection.stream().findFirst()
+					.map(pair -> new MemberInfo(data.remapper.map(info.getOwner()), pair.first(), info.getQuantifier(), pair.second()))
+					.orElse(info);
 		}
 	}
 
@@ -116,24 +134,23 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 
 		@Override
 		public AnnotationVisitor visitArray(String name) {
-			AnnotationVisitor annotationVisitor = super.visitArray(name);
+			AnnotationVisitor av = super.visitArray(name);
 
 			if (name.equals(AnnotationElement.METHOD)) {	// All
-				return new AnnotationVisitor(Constant.ASM_VERSION, annotationVisitor) {
+				return new AnnotationVisitor(Constant.ASM_VERSION, av) {
 					@Override
 					public void visit(String name, Object value) {
 						if (remap) {
-							// TODO: fix
-//							String srcName = Objects.requireNonNull((String) value).replaceAll("\\s", "");
-//							String dstName = remapTargetSelector(srcName);
-//							value = dstName;
+							Optional<MemberInfo> info = Optional.ofNullable(MemberInfo.parse(Objects.requireNonNull((String) value).replaceAll("\\s", "")));
+
+							value = info.map(i -> new InjectMethodMappable(data, i, targets).result().toString()).orElse((String) value);
 						}
 
 						super.visit(name, value);
 					}
 				};
 			} else if (name.equals(AnnotationElement.AT)) {	// @Inject
-				return new AnnotationVisitor(Constant.ASM_VERSION, annotationVisitor) {
+				return new AnnotationVisitor(Constant.ASM_VERSION, av) {
 					@Override
 					public AnnotationVisitor visitAnnotation(String name, String descriptor) {
 						if (!descriptor.equals(Annotation.AT)) {
@@ -145,7 +162,7 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 					}
 				};
 			} else if (name.equals(AnnotationElement.SLICE)) {	// @Inject @ModifyConstant
-				return new AnnotationVisitor(Constant.ASM_VERSION, annotationVisitor) {
+				return new AnnotationVisitor(Constant.ASM_VERSION, av) {
 					@Override
 					public AnnotationVisitor visitAnnotation(String name, String descriptor) {
 						if (!descriptor.equals(Annotation.SLICE)) {
@@ -158,7 +175,7 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 				};
 			}
 
-			return annotationVisitor;
+			return av;
 		}
 	}
 }

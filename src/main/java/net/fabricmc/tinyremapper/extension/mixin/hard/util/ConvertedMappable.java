@@ -27,7 +27,7 @@ public abstract class ConvertedMappable extends HardTargetMappable {
 	protected abstract String revertName(String name);
 
 	protected Stream<String> mapMultiTarget(String name, String desc) {
-		final Resolver resolver = new Resolver(data.environment, data.logger);
+		final Resolver resolver = new Resolver(data.logger);
 		final MapUtility mapper = new MapUtility(data.remapper, data.logger);
 
 		return targets.stream()
