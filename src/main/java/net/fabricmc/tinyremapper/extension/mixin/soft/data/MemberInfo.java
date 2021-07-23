@@ -39,7 +39,11 @@ public final class MemberInfo {
 			return null;
 		}
 
-		return desc.startsWith("(") ? MemberType.METHOD : MemberType.FIELD;
+		return StringUtility.isMethodDesc(desc) ? MemberType.METHOD : MemberType.FIELD;
+	}
+
+	public boolean isFullyQualified() {
+		return !(owner.isEmpty() || name.isEmpty() || desc.isEmpty());
 	}
 
 	public static boolean isRegex(String str) {
@@ -76,6 +80,9 @@ public final class MemberInfo {
 		if ((sep = str.indexOf('*')) >= 0) {
 			quantifier = str.substring(sep);
 			str = str.substring(0, sep);
+		} else if ((sep = str.indexOf('+')) >= 0) {
+			quantifier = str.substring(sep);
+			str = str.substring(0, sep);
 		} else if ((sep = str.indexOf('{')) >= 0) {
 			quantifier = str.substring(sep);
 			str = str.substring(0, sep);
@@ -84,16 +91,16 @@ public final class MemberInfo {
 		// str = owner | name
 
 		if ((sep = str.indexOf(';')) >= 0) {
-			owner = str.substring(0, sep + 1);
+			owner = StringUtility.classDescToName(str.substring(0, sep + 1));
 			str = str.substring(sep + 1);
 		} else if ((sep = str.lastIndexOf('.')) >= 0) {
-			owner = StringUtility.classNameToDesc(str.substring(0, sep).replace('.', '/'));
+			owner = str.substring(0, sep).replace('.', '/');
 			str = str.substring(sep + 1);
 		}
 
 		// str = owner or name
 		if (str.contains("/") || str.contains(".")) {
-			owner = str;
+			owner = str.replace('.', '/');
 		} else {
 			name = str;
 		}
@@ -103,13 +110,9 @@ public final class MemberInfo {
 
 	@Override
 	public String toString() {
-		String str = owner + name + quantifier;
+		String owner = getOwner().isEmpty() ? "" : StringUtility.classNameToDesc(getOwner());
+		String desc = getDesc().isEmpty() ? "" : (Objects.equals(getType(), MemberType.FIELD) ? ":" : "") + getDesc();
 
-		if (!desc.isEmpty()) {
-			str += Objects.equals(getType(), MemberType.FIELD) ? ":" : "";
-			str += desc;
-		}
-
-		return str;
+		return owner + name + quantifier + desc;
 	}
 }

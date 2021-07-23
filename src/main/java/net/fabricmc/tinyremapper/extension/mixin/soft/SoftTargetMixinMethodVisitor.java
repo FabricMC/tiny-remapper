@@ -13,6 +13,11 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.AccessorAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.InvokerAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.InjectAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyArgAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyArgsAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyConstantAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyVariableAnnotationVisitor;
 
 class SoftTargetMixinMethodVisitor extends MethodVisitor {
 	private final CommonData data;
@@ -38,6 +43,16 @@ class SoftTargetMixinMethodVisitor extends MethodVisitor {
 			av = new AccessorAnnotationVisitor(data, av, method, remap, targets);
 		} else if (Annotation.INVOKER.equals(descriptor)) {
 			av = new InvokerAnnotationVisitor(data, av, method, remap, targets);
+		} else if (Annotation.INJECT.equals(descriptor)) {
+			av = new InjectAnnotationVisitor(data, av, method, remap, targets);
+		} else if (Annotation.MODIFY_ARG.equals(descriptor)) {
+			av = new ModifyArgAnnotationVisitor(data, av, method, remap, targets);
+		} else if (Annotation.MODIFY_ARGS.equals(descriptor)) {
+			av = new ModifyArgsAnnotationVisitor(data, av, method, remap, targets);
+		} else if (Annotation.MODIFY_CONSTANT.equals(descriptor)) {
+			av = new ModifyConstantAnnotationVisitor(data, av, method, remap, targets);
+		} else if (Annotation.MODIFY_VARIABLE.equals(descriptor)) {
+			av = new ModifyVariableAnnotationVisitor(data, av, method, remap, targets);
 		}
 
 		return av;

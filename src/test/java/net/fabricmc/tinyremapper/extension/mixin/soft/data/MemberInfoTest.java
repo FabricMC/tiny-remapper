@@ -47,7 +47,7 @@ class MemberInfoTest {
 		info = MemberInfo.parse("Lfoo/bar/Baz;func_1234_a(DDD)V");
 		assertNotNull(info);
 		assertEquals(info.getType(), MemberType.METHOD);
-		assertEquals(info.getOwner(), "Lfoo/bar/Baz;");
+		assertEquals(info.getOwner(), "foo/bar/Baz");
 		assertEquals(info.getName(), "func_1234_a");
 		assertEquals(info.getQuantifier(), "");
 		assertEquals(info.getDesc(), "(DDD)V");
@@ -56,7 +56,7 @@ class MemberInfoTest {
 		info = MemberInfo.parse("foo.bar.Baz.func_1234_a(DDD)V");
 		assertNotNull(info);
 		assertEquals(info.getType(), MemberType.METHOD);
-		assertEquals(info.getOwner(), "Lfoo/bar/Baz;");
+		assertEquals(info.getOwner(), "foo/bar/Baz");
 		assertEquals(info.getName(), "func_1234_a");
 		assertEquals(info.getQuantifier(), "");
 		assertEquals(info.getDesc(), "(DDD)V");
