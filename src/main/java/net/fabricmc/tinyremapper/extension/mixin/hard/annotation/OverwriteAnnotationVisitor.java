@@ -8,7 +8,6 @@ import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
-import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
@@ -47,8 +46,7 @@ public class OverwriteAnnotationVisitor extends AnnotationVisitor {
 	@Override
 	public void visitEnd() {
 		if (remap) {
-			IMappable<Void> mappable = new OverwriteMappable(data, method, targets);
-			mappable.result();
+			new OverwriteMappable(data, method, targets).result();
 		}
 
 		super.visitEnd();

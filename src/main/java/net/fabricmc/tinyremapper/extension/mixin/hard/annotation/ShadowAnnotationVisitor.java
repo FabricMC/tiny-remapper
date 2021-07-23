@@ -8,7 +8,6 @@ import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
-import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
@@ -50,8 +49,7 @@ public class ShadowAnnotationVisitor extends AnnotationVisitor {
 	@Override
 	public void visitEnd() {
 		if (remap) {
-			IMappable<Void> mappable = new ShadowPrefixMappable(data, member, targets, prefix);
-			mappable.result();
+			new ShadowPrefixMappable(data, member, targets, prefix).result();
 		}
 
 		super.visitEnd();

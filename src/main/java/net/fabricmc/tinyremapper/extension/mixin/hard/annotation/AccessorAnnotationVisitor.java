@@ -10,7 +10,6 @@ import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
-import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.StringUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
@@ -54,8 +53,7 @@ public class AccessorAnnotationVisitor extends AnnotationVisitor {
 	@Override
 	public void visitEnd() {
 		if (remap && !isSoftTarget) {
-			IMappable<Void> mappable = new AccessorMappable(data, method, targets);
-			mappable.result();
+			new AccessorMappable(data, method, targets).result();
 		}
 
 		super.visitEnd();

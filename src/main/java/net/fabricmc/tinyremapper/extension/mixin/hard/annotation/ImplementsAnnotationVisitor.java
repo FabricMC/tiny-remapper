@@ -11,7 +11,6 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
 
 import net.fabricmc.tinyremapper.api.TrMember;
-import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.Resolver;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
@@ -65,8 +64,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 	}
 
 	public static void visitMethod(CommonData data, TrMember method, List<SoftInterface> interfaces) {
-		IMappable<Void> mappable = new SoftImplementsMappable(data, method, interfaces);
-		mappable.result();
+		new SoftImplementsMappable(data, method, interfaces).result();
 	}
 
 	private static class SoftImplementsMappable extends HardTargetMappable {
