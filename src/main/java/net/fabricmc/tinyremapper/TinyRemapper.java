@@ -157,6 +157,10 @@ public class TinyRemapper {
 		}
 
 		public Builder extraAnalyzeVisitor(ClassVisitor visitor) {
+			return this.extraAnalyzeVisitor(() -> visitor);
+		}
+
+		public Builder extraAnalyzeVisitor(Supplier<ClassVisitor> visitor) {
 			extraAnalyzeVisitor = visitor;
 			return this;
 		}
@@ -209,7 +213,7 @@ public class TinyRemapper {
 		private boolean rebuildSourceFilenames = false;
 		private boolean skipLocalMapping = false;
 		private boolean renameInvalidLocals = false;
-		private ClassVisitor extraAnalyzeVisitor;
+		private Supplier<ClassVisitor> extraAnalyzeVisitor = () -> null;
 		private final List<StateProcessor> stateProcessors = new ArrayList<>();
 		private Remapper extraRemapper;
 		private WrapperFunction preApplyVisitors, postApplyVisitors;
@@ -228,7 +232,7 @@ public class TinyRemapper {
 			boolean rebuildSourceFilenames,
 			boolean skipLocalMapping,
 			boolean renameInvalidLocals,
-			ClassVisitor extraAnalyzeVisitor, List<StateProcessor> stateProcessors, Remapper extraRemapper,
+			Supplier<ClassVisitor> extraAnalyzeVisitor, List<StateProcessor> stateProcessors, Remapper extraRemapper,
 			WrapperFunction preApplyVisitors, WrapperFunction postApplyVisitors) {
 		this.mappingProviders = mappingProviders;
 		this.ignoreFieldDesc = ignoreFieldDesc;
@@ -520,7 +524,7 @@ public class TinyRemapper {
 
 		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, isInput ? data : null);
 
-		reader.accept(new ClassVisitor(Opcodes.ASM9, extraAnalyzeVisitor) {
+		reader.accept(new ClassVisitor(Opcodes.ASM9, extraAnalyzeVisitor.get()) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 				int mrjVersion = analyzeMrjVersion(file, name);
@@ -1251,7 +1255,7 @@ public class TinyRemapper {
 	private final boolean rebuildSourceFilenames;
 	private final boolean skipLocalMapping;
 	private final boolean renameInvalidLocals;
-	private final ClassVisitor extraAnalyzeVisitor;
+	private final Supplier<ClassVisitor> extraAnalyzeVisitor;
 	private final List<StateProcessor> stateProcessors;
 	final Remapper extraRemapper;
 
