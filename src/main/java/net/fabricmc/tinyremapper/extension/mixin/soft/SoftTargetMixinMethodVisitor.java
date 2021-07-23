@@ -18,6 +18,7 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.Modif
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyArgsAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyConstantAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyVariableAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.RedirectAnnotationVisitor;
 
 class SoftTargetMixinMethodVisitor extends MethodVisitor {
 	private final CommonData data;
@@ -53,6 +54,8 @@ class SoftTargetMixinMethodVisitor extends MethodVisitor {
 			av = new ModifyConstantAnnotationVisitor(data, av, method, remap, targets);
 		} else if (Annotation.MODIFY_VARIABLE.equals(descriptor)) {
 			av = new ModifyVariableAnnotationVisitor(data, av, method, remap, targets);
+		} else if (Annotation.REDIRECT.equals(descriptor)) {
+			av = new RedirectAnnotationVisitor(data, av, method, remap, targets);
 		}
 
 		return av;
