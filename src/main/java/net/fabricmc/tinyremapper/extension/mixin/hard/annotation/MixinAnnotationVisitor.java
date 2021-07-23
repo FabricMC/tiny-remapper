@@ -22,6 +22,8 @@ public class MixinAnnotationVisitor extends AnnotationVisitor {
 
 		this.remap0 = Objects.requireNonNull(remapOut);
 		this.targets = Objects.requireNonNull(targetsOut);
+
+		this.remap0.set(true);	// default value is true.
 	}
 
 	@Override
