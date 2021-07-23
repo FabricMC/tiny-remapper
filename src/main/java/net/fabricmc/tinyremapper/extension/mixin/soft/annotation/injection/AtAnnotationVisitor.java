@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.objectweb.asm.AnnotationVisitor;
 
+import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
@@ -69,10 +70,17 @@ class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
 				return info;
 			}
 
+			TrClass target = data.environment.getClass(info.getOwner());
+
+			if (target == null) {
+				data.logger.error("Cannot resolve target class " + info.getOwner());
+				return info;
+			}
+
 			Resolver resolver = new Resolver(data.logger);
 			MapUtility mapper = new MapUtility(data.remapper, data.logger);
 
-			Optional<TrMember> resolved = resolver.resolve(data.environment.getClass(info.getOwner()), info.getName(), info.getDesc(), Resolver.FLAG_UNIQUE | Resolver.FLAG_RECURSIVE);
+			Optional<TrMember> resolved = resolver.resolve(target, info.getName(), info.getDesc(), Resolver.FLAG_UNIQUE | Resolver.FLAG_RECURSIVE);
 
 			if (resolved.isPresent()) {
 				String newOwner = data.remapper.map(info.getOwner());
