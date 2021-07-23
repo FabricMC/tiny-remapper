@@ -18,20 +18,14 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
  * <p>Pass 1: read remap.</p>
  * <p>Pass 2: read targets & value; remap targets.</p>
  */
-public class MixinAnnotationVisitor extends MixinFirstPassAnnotationVisitor {
-	public MixinAnnotationVisitor(CommonData data, AnnotationVisitor delegate, AtomicBoolean remapOut, List<TrClass> targetsOut) {
-		super(data, delegate, remapOut, targetsOut);
-	}
-}
-
-class MixinFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
+public class MixinAnnotationVisitor extends FirstPassAnnotationVisitor {
 	private final CommonData data;
 	private final AnnotationVisitor delegate;
 
 	private final AtomicBoolean remap0;
 	private final List<TrClass> targets;
 
-	MixinFirstPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, AtomicBoolean remapOut, List<TrClass> targetsOut) {
+	public MixinAnnotationVisitor(CommonData data, AnnotationVisitor delegate, AtomicBoolean remapOut, List<TrClass> targetsOut) {
 		super(Annotation.MIXIN, true);
 		this.data = Objects.requireNonNull(data);
 		this.delegate = Objects.requireNonNull(delegate);
@@ -50,57 +44,57 @@ class MixinFirstPassAnnotationVisitor extends FirstPassAnnotationVisitor {
 
 		super.visitEnd();
 	}
-}
 
-class MixinSecondPassAnnotationVisitor extends AnnotationVisitor {
-	private final CommonData data;
+	private static class MixinSecondPassAnnotationVisitor extends AnnotationVisitor {
+		private final CommonData data;
 
-	private final boolean remap;
-	private final List<TrClass> targets;
+		private final boolean remap;
+		private final List<TrClass> targets;
 
-	MixinSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, boolean remap, List<TrClass> targetsOut) {
-		super(Constant.ASM_VERSION, delegate);
+		MixinSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, boolean remap, List<TrClass> targetsOut) {
+			super(Constant.ASM_VERSION, delegate);
 
-		this.data = Objects.requireNonNull(data);
+			this.data = Objects.requireNonNull(data);
 
-		this.remap = remap;
-		this.targets = Objects.requireNonNull(targetsOut);
-	}
+			this.remap = remap;
+			this.targets = Objects.requireNonNull(targetsOut);
+		}
 
-	@Override
-	public AnnotationVisitor visitArray(String name) {
-		AnnotationVisitor visitor = super.visitArray(name);
+		@Override
+		public AnnotationVisitor visitArray(String name) {
+			AnnotationVisitor visitor = super.visitArray(name);
 
-		if (name.equals(AnnotationElement.TARGETS)) {
-			return new AnnotationVisitor(Constant.ASM_VERSION, visitor) {
-				@Override
-				public void visit(String name, Object value) {
-					String srcName = ((String) value).replaceAll("\\s", "").replace('.', '/');
-					String dstName = srcName;
+			if (name.equals(AnnotationElement.TARGETS)) {
+				return new AnnotationVisitor(Constant.ASM_VERSION, visitor) {
+					@Override
+					public void visit(String name, Object value) {
+						String srcName = ((String) value).replaceAll("\\s", "").replace('.', '/');
+						String dstName = srcName;
 
-					MixinSecondPassAnnotationVisitor.this.targets.add(data.environment.getClass(srcName));
+						MixinSecondPassAnnotationVisitor.this.targets.add(data.environment.getClass(srcName));
 
-					if (remap) {
-						dstName = data.remapper.map(srcName);
+						if (remap) {
+							dstName = data.remapper.map(srcName);
+						}
+
+						value = dstName;
+						super.visit(name, value);
 					}
+				};
+			} else if (name.equals(AnnotationElement.VALUE)) {
+				return new AnnotationVisitor(Constant.ASM_VERSION, visitor) {
+					@Override
+					public void visit(String name, Object value) {
+						Type srcType = Objects.requireNonNull((Type) value);
 
-					value = dstName;
-					super.visit(name, value);
-				}
-			};
-		} else if (name.equals(AnnotationElement.VALUE)) {
-			return new AnnotationVisitor(Constant.ASM_VERSION, visitor) {
-				@Override
-				public void visit(String name, Object value) {
-					Type srcType = Objects.requireNonNull((Type) value);
+						MixinSecondPassAnnotationVisitor.this.targets.add(data.environment.getClass(srcType.getInternalName()));
 
-					MixinSecondPassAnnotationVisitor.this.targets.add(data.environment.getClass(srcType.getInternalName()));
-
-					super.visit(name, value);
-				}
-			};
-		} else {
-			return visitor;
+						super.visit(name, value);
+					}
+				};
+			} else {
+				return visitor;
+			}
 		}
 	}
 }
