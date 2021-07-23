@@ -107,7 +107,6 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 					.map(Optional::get)
 					.map(mapper::map));
 
-
 			List<String> collection = stream.distinct().collect(Collectors.toList());
 
 			if (collection.size() > 1) {
