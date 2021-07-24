@@ -26,6 +26,10 @@ public class NamedMappable implements IMappable<String> {
 
 	@Override
 	public String result() {
+		if (MapUtility.IGNORE_REMAP.contains(name)) {
+			return name;
+		}
+
 		final ResolveUtility resolver = new ResolveUtility(data.logger);
 		final MapUtility mapper = new MapUtility(data.remapper, data.logger);
 

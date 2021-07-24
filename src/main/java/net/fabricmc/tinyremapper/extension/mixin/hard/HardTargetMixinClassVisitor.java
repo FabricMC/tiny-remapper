@@ -12,6 +12,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 
+import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
@@ -79,7 +80,7 @@ public class HardTargetMixinClassVisitor extends ClassVisitor {
 		MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
 		MxMember method = _class.getMethod(name, descriptor);
 
-		if (!interfaces.isEmpty() && !name.equals("<init>") && !name.equals("<clinit>")) {
+		if (!interfaces.isEmpty() && !MapUtility.IGNORE_REMAP.contains(name)) {
 			ImplementsAnnotationVisitor.visitMethod(tasks, method, interfaces);
 		}
 

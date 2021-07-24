@@ -1,5 +1,7 @@
 package net.fabricmc.tinyremapper.extension.mixin.common;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
 import net.fabricmc.tinyremapper.api.TrMember;
@@ -8,6 +10,8 @@ import net.fabricmc.tinyremapper.api.TrRemapper;
 public final class MapUtility {
 	private final TrRemapper remapper;
 	private final Logger logger;
+
+	public static final List<String> IGNORE_REMAP = Arrays.asList("<init>", "<clinit>");
 
 	public MapUtility(TrRemapper remapper, Logger logger) {
 		this.remapper = Objects.requireNonNull(remapper);

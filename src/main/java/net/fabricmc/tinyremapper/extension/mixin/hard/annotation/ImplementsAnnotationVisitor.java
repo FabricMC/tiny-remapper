@@ -114,8 +114,6 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 
 			if (collection.size() > 1) {
 				data.logger.error("Conflict mapping detected, " + self.getName() + " -> " + collection);
-			} else if (collection.isEmpty()) {
-				data.logger.error("Cannot remap " + self.getName() + " because it does not exists in any of the interfaces " + interfaces);
 			}
 
 			return collection.stream().findFirst();
