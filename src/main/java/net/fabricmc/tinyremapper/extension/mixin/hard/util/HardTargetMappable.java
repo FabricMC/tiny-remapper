@@ -17,11 +17,11 @@ public abstract class HardTargetMappable implements IMappable<Void> {
 		this.self = Objects.requireNonNull(self).asTrMember(data.environment);
 	}
 
-	protected abstract Optional<String> getNewName();
+	protected abstract Optional<String> getMappedName();
 
 	@Override
 	public Void result() {
-		getNewName().ifPresent(x -> data.environment.propagate(self, x));
+		getMappedName().ifPresent(x -> data.environment.propagate(self, x));
 		return null;
 	}
 }

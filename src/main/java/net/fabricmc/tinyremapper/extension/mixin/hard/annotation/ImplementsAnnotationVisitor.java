@@ -76,7 +76,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 		}
 
 		@Override
-		protected Optional<String> getNewName() {
+		protected Optional<String> getMappedName() {
 			final ResolveUtility resolver = new ResolveUtility(data.logger);
 			final MapUtility mapper = new MapUtility(data.remapper, data.logger);
 

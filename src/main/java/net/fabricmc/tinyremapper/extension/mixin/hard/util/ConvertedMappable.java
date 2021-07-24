@@ -38,7 +38,7 @@ public abstract class ConvertedMappable extends HardTargetMappable {
 	}
 
 	@Override
-	protected Optional<String> getNewName() {
+	protected Optional<String> getMappedName() {
 		List<String> collection = mapMultiTarget(getConvertedName(), getConvertedDesc())
 				.map(this::revertName)
 				.distinct().collect(Collectors.toList());
