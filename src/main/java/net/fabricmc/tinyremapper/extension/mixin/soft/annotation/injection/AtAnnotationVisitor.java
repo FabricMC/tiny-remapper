@@ -135,7 +135,7 @@ class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
 			if (name.equals(AnnotationElement.TARGET)) {
 				Optional<MemberInfo> info = Optional.ofNullable(MemberInfo.parse(Objects.requireNonNull((String) value).replaceAll("\\s", "")));
 
-				if (value.equals("NEW")) {
+				if (this.value.equals("NEW")) {
 					value = info.map(i -> new AtConstructorMappable(data, i).result().toString()).orElse((String) value);
 				} else {
 					value = info.map(i -> new AtMethodMappable(data, i).result().toString()).orElse((String) value);
@@ -149,7 +149,7 @@ class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
 		public AnnotationVisitor visitArray(String name) {
 			AnnotationVisitor av = super.visitArray(name);
 
-			if (name.equals(AnnotationElement.ARGS) && value.equals("NEW")) {
+			if (name.equals(AnnotationElement.ARGS) && this.value.equals("NEW")) {
 				final String prefix = "class=";
 
 				av = new AnnotationVisitor(Constant.ASM_VERSION, av) {
