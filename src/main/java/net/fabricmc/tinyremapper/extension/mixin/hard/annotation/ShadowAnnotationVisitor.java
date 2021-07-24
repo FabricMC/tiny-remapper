@@ -24,7 +24,6 @@ public class ShadowAnnotationVisitor extends AnnotationVisitor {
 
 	private boolean remap;
 	private String prefix;
-	private boolean hasAlias;
 
 	public ShadowAnnotationVisitor(List<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember member, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
@@ -48,17 +47,8 @@ public class ShadowAnnotationVisitor extends AnnotationVisitor {
 	}
 
 	@Override
-	public AnnotationVisitor visitArray(String name) {
-		if (name.equals(AnnotationElement.ALIASES)) {
-			hasAlias = true;
-		}
-
-		return super.visitArray(name);
-	}
-
-	@Override
 	public void visitEnd() {
-		if (remap && !hasAlias) {
+		if (remap) {
 			tasks.add(data -> new ShadowPrefixMappable(data, member, targets, prefix).result());
 		}
 
