@@ -16,4 +16,5 @@ public final class AnnotationElement {
 	public static final String TO = "to";
 	public static final String SLICE = "slice";
 	public static final String METHOD = "method";
+	public static final String ALIASES = "aliases";
 }

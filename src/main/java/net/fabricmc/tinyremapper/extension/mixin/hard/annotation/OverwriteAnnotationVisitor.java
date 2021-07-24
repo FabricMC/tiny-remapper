@@ -23,6 +23,7 @@ public class OverwriteAnnotationVisitor extends AnnotationVisitor {
 	private final List<String> targets;
 
 	private boolean remap;
+	private boolean hasAlias;
 
 	public OverwriteAnnotationVisitor(List<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember method, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
@@ -44,8 +45,17 @@ public class OverwriteAnnotationVisitor extends AnnotationVisitor {
 	}
 
 	@Override
+	public AnnotationVisitor visitArray(String name) {
+		if (name.equals(AnnotationElement.ALIASES)) {
+			hasAlias = true;
+		}
+
+		return super.visitArray(name);
+	}
+
+	@Override
 	public void visitEnd() {
-		if (remap) {
+		if (remap && !hasAlias) {
 			tasks.add(data -> new OverwriteMappable(data, method, targets).result());
 		}
 
