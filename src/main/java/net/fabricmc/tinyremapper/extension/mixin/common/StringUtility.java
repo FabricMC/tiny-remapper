@@ -3,21 +3,37 @@ package net.fabricmc.tinyremapper.extension.mixin.common;
 import java.util.Locale;
 
 public final class StringUtility {
-	public static String removeCamelPrefix(String prefix, String str) {
-		if (str.startsWith(prefix)) {
-			str = str.substring(prefix.length());
+	public static String addPrefix(String prefix, String text) {
+		return prefix + text;
+	}
 
-			return str.isEmpty() ? str
-					: str.substring(0, 1).toLowerCase(Locale.ROOT) + str.substring(1);
+	public static String removePrefix(String prefix, String text) {
+		if (text.startsWith(prefix)) {
+			return text.substring(prefix.length());
+		} else {
+			throw new RuntimeException(String.format("%s does not start with %s", text, prefix));
 		}
-
-		throw new RuntimeException(prefix + " is not the prefix of " + str);
 	}
 
-	public static String addCamelPrefix(String prefix, String str) {
-		return str.isEmpty() ? prefix
-				: prefix + str.substring(0, 1).toUpperCase(Locale.ROOT) + str.substring(1);
+	public static String addCamelPrefix(String prefix, String text) {
+		if (text.isEmpty()) {
+			return prefix;
+		} else {
+			return prefix + text.substring(0, 1).toUpperCase(Locale.ROOT) + text.substring(1);
+		}
 	}
+
+	public static String removeCamelPrefix(String prefix, String text) {
+		text = removePrefix(prefix, text);
+
+		if (text.isEmpty()) {
+			return text;
+		} else {
+			return text.substring(0, 1).toLowerCase(Locale.ROOT) + text.substring(1);
+		}
+	}
+
+
 
 	/**
 	 * Some naive checking.
