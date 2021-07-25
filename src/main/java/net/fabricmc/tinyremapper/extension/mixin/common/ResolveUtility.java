@@ -12,6 +12,7 @@ import net.fabricmc.tinyremapper.api.TrField;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.api.TrMethod;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
 
 public final class ResolveUtility {
 	/**
@@ -43,7 +44,7 @@ public final class ResolveUtility {
 		TrClass _class = environment.getClass(name);
 
 		if (_class == null && !StringUtility.isInternalClassName(name)) {
-			logger.error(String.format("Cannot resolve class %s", name));
+			logger.error(String.format(Message.CANNOT_RESOLVE_CLASS, name));
 		}
 
 		return Optional.ofNullable(_class);
@@ -66,8 +67,7 @@ public final class ResolveUtility {
 
 		if ((flag & FLAG_UNIQUE) != 0) {
 			if (collection.size() > 1) {
-				logger.error(String.format("The member %s %s is ambiguous in class %s for FLAG_UNIQUE (%s).", name, desc, owner.getName(), collection));
-				return Optional.empty();
+				throw new RuntimeException(String.format("The member %s:%s is ambiguous in class %s for FLAG_UNIQUE. Please use FLAG_FIRST.", name, desc, owner.getName()));
 			} else {
 				return collection.stream().findFirst();
 			}
