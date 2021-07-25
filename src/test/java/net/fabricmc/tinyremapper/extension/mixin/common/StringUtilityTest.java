@@ -35,11 +35,28 @@ class StringUtilityTest {
     }
 
     @Test
-    void isClassDesc() {
+    void isClassName() {
+        assertTrue(StringUtility.isClassName("com/github/logicf/class"));        assertTrue(StringUtility.isClassName("com/github/logicf/class"));
+        assertTrue(StringUtility.isClassName("com/github/logicf/$$__cl_a_ss"));
+        assertTrue(StringUtility.isClassName("com/gith$$ub/log$$icf/cla$$ss"));
+        assertTrue(StringUtility.isClassName("$$/__"));
+        assertFalse(StringUtility.isClassName("abc"));
+        assertFalse(StringUtility.isClassName("com/github/logicf/"));
+        assertFalse(StringUtility.isClassName("com//github/logicf"));
+        assertFalse(StringUtility.isClassName("com.github.logicf.class"));
     }
 
     @Test
-    void isClassName() {
+    void isClassDesc() {
+        assertTrue(StringUtility.isClassDesc("Lcom/github/logicf/class;"));        assertTrue(StringUtility.isClassName("com/github/logicf/class"));
+        assertTrue(StringUtility.isClassDesc("Lcom/github/logicf/$$__cl_a_ss;"));
+        assertTrue(StringUtility.isClassDesc("Lcom/gith$$ub/log$$icf/cla$$ss;"));
+        assertTrue(StringUtility.isClassDesc("L$$/__;"));
+        assertFalse(StringUtility.isClassDesc("Labc;"));
+        assertFalse(StringUtility.isClassDesc("Lcom/github/logicf/;"));
+        assertFalse(StringUtility.isClassDesc("Lcom//github/logicf;"));
+        assertFalse(StringUtility.isClassDesc("Lcom.github.logicf.class;"));
+        assertFalse(StringUtility.isClassDesc("com/github/logicf/class"));
     }
 
     @Test

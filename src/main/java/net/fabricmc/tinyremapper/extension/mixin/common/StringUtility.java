@@ -1,6 +1,7 @@
 package net.fabricmc.tinyremapper.extension.mixin.common;
 
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 public final class StringUtility {
 	public static String addPrefix(String prefix, String text) {
@@ -33,17 +34,15 @@ public final class StringUtility {
 		}
 	}
 
-
-
-	/**
-	 * Some naive checking.
-	 */
-	public static boolean isClassDesc(String text) {
-		return text.startsWith("L") && text.endsWith(";");
-	}
+	private static final Pattern CLASS_NAME_PATTERN = Pattern.compile("([A-Za-z0-9_$]+\\/)+[A-Za-z0-9_$]+");
+	private static final Pattern CLASS_DESC_PATTERN = Pattern.compile("L([A-Za-z0-9_$]+\\/)+[A-Za-z0-9_$]+;");
 
 	public static boolean isClassName(String text) {
-		return !isClassDesc(text);
+		return CLASS_NAME_PATTERN.matcher(text).matches();
+	}
+
+	public static boolean isClassDesc(String text) {
+		return CLASS_DESC_PATTERN.matcher(text).matches();
 	}
 
 	public static boolean isFieldDesc(String text) {
