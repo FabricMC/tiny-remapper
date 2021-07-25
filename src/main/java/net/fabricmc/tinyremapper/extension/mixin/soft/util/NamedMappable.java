@@ -26,7 +26,7 @@ public class NamedMappable implements IMappable<String> {
 
 	@Override
 	public String result() {
-		if (MapUtility.IGNORE_REMAP.contains(name)) {
+		if (MapUtility.IGNORED_NAME.contains(name)) {
 			return name;
 		}
 

@@ -80,7 +80,7 @@ public class HardTargetMixinClassVisitor extends ClassVisitor {
 		MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
 		MxMember method = _class.getMethod(name, descriptor);
 
-		if (!interfaces.isEmpty() && !MapUtility.IGNORE_REMAP.contains(name)) {
+		if (!interfaces.isEmpty() && !MapUtility.IGNORED_NAME.contains(name)) {
 			ImplementsAnnotationVisitor.visitMethod(tasks, method, interfaces);
 		}
 
