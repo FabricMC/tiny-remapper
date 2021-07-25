@@ -61,10 +61,30 @@ class StringUtilityTest {
 
     @Test
     void isFieldDesc() {
+        assertTrue(StringUtility.isFieldDesc("I"));
+        assertTrue(StringUtility.isFieldDesc("Ljava/lang/Object;"));
+        assertTrue(StringUtility.isFieldDesc("[[[D"));
+        assertTrue(StringUtility.isFieldDesc("[B"));
+        assertTrue(StringUtility.isFieldDesc("[Ljava/lang/Object;"));
+        assertTrue(StringUtility.isFieldDesc("[[Ljava/lang/Object;"));
+        assertFalse(StringUtility.isFieldDesc("[[Ljava/lang/Object;["));
+        assertFalse(StringUtility.isFieldDesc("[[Ljava/lang/Object;B"));
+        assertFalse(StringUtility.isFieldDesc("com/github/logicf/class"));
+        assertFalse(StringUtility.isFieldDesc("()V"));
+        assertFalse(StringUtility.isFieldDesc("([Ljava/lang/Object;)D"));
     }
 
     @Test
     void isMethodDesc() {
+        assertTrue(StringUtility.isMethodDesc("()V"));
+        assertTrue(StringUtility.isMethodDesc("()Ljava/lang/Object;"));
+        assertTrue(StringUtility.isMethodDesc("()[[[D"));
+        assertTrue(StringUtility.isMethodDesc("([BBBDDBB[BBDLjava/lang/Object;)V"));
+        assertTrue(StringUtility.isMethodDesc("([Ljava/lang/Object;)D"));
+        assertTrue(StringUtility.isMethodDesc("([[Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"));
+        assertFalse(StringUtility.isMethodDesc("com/github/logicf/class"));
+        assertFalse(StringUtility.isMethodDesc("Ljava/lang/Object;"));
+        assertFalse(StringUtility.isMethodDesc("[[[D"));
     }
 
     @Test
