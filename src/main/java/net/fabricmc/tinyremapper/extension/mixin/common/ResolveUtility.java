@@ -1,14 +1,13 @@
 package net.fabricmc.tinyremapper.extension.mixin.common;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import net.fabricmc.tinyremapper.api.TrClass;
+import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.api.TrField;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
@@ -32,42 +31,45 @@ public final class ResolveUtility {
 	 */
 	public static int FLAG_NON_SYN = 0x8;
 
+	private final TrEnvironment environment;
 	private final Logger logger;
 
-	public ResolveUtility(Logger logger) {
+	public ResolveUtility(TrEnvironment environment, Logger logger) {
+		this.environment = Objects.requireNonNull(environment);
 		this.logger = Objects.requireNonNull(logger);
 	}
 
-	public Optional<TrMember> resolve(TrClass owner, String name, String desc, int flag) {
-		if (owner == null || name == null || desc == null) {
+	public Optional<TrClass> resolveClass(String name) {
+		TrClass _class = environment.getClass(name);
+
+		if (_class == null && !StringUtility.isInternalClassName(name)) {
+			logger.error(String.format("Cannot resolve class %s", name));
+		}
+
+		return Optional.ofNullable(_class);
+	}
+
+	private <T extends TrMember> Optional<T> resolveMember0(TrClass owner, String name, String desc, int flag, Supplier<Collection<T>> get, Supplier<Collection<T>> resolve) {
+		if ((flag & (FLAG_UNIQUE | FLAG_FIRST)) == 0) {
+			throw new RuntimeException("Unspecified resolution strategy, please use FLAG_UNIQUE or FLAG_FIRST.");
+		} else if (owner == null) {
 			return Optional.empty();
 		}
 
-		if (StringUtility.isFieldDesc(desc)) {
-			return (flag & FLAG_RECURSIVE) != 0
-					? Optional.ofNullable(owner.resolveField(name, desc)) : Optional.ofNullable(owner.getField(name, desc));
-		} else if (StringUtility.isMethodDesc(desc)) {
-			return (flag & FLAG_RECURSIVE) != 0
-					? Optional.ofNullable(owner.resolveMethod(name, desc)) : Optional.ofNullable(owner.getMethod(name, desc));
+		Collection<T> collection;
+
+		if ((flag & FLAG_RECURSIVE) != 0) {
+			collection = resolve.get();
 		} else {
-			throw new RuntimeException("Invalid descriptor detected " + desc);
-		}
-	}
-
-	private <T extends TrMember> Optional<TrMember> resolve0(TrClass owner, String name, Consumer<Collection<T>> getter, int flag) {
-		List<T> collection = new ArrayList<>();
-		getter.accept(collection);
-
-		if ((flag & (FLAG_UNIQUE | FLAG_FIRST)) == 0) {
-			throw new RuntimeException("Unspecified resolution strategy");
+			collection = get.get();
 		}
 
 		if ((flag & FLAG_UNIQUE) != 0) {
 			if (collection.size() > 1) {
-				logger.error("Ambiguous member resolution for name " + name + " in class " + owner.getName() + ". " + collection);
+				logger.error(String.format("The member %s %s is ambiguous in class %s for FLAG_UNIQUE (%s).", name, desc, owner.getName(), collection));
 				return Optional.empty();
 			} else {
-				return collection.stream().findFirst().map(x -> x);
+				return collection.stream().findFirst();
 			}
 		}
 
@@ -80,50 +82,44 @@ public final class ResolveUtility {
 			comparator = Comparator.comparingInt(TrMember::getIndex);
 		}
 
-		return collection.stream().min(comparator).map(x -> x);
+		return collection.stream().min(comparator);
 	}
 
-	public Optional<TrMember> resolveByName(TrClass owner, String name, MemberType type, int flag) {
-		if (owner == null || name == null) {
-			return Optional.empty();
-		}
+	public Optional<TrField> resolveField(TrClass owner, String name, String desc, int flag) {
+		return resolveMember0(owner, name, desc, flag,
+				() -> owner.getFields(name, desc, false, null, null),
+				() -> owner.resolveFields(name, desc, false, null, null));
+	}
+
+	public Optional<TrField> resolveField(String owner, String name, String desc, int flag) {
+		return resolveClass(owner).flatMap(cls -> resolveField(cls, name, desc, flag));
+	}
+
+	public Optional<TrMethod> resolveMethod(TrClass owner, String name, String desc, int flag) {
+		return resolveMember0(owner, name, desc, flag,
+				() -> owner.getMethods(name, desc, false, null, null),
+				() -> owner.resolveMethods(name, desc, false, null, null));
+	}
+
+	public Optional<TrMethod> resolveMethod(String owner, String name, String desc, int flag) {
+		return resolveClass(owner).flatMap(cls -> resolveMethod(cls, name, desc, flag));
+	}
+
+	public Optional<TrMember> resolveMember(TrClass owner, String name, String desc, int flag) {
+		if (desc == null) throw new RuntimeException("desc cannot be null for resolveMember. Please use resolveMethod or resolveField.");
+
+		MemberType type = StringUtility.getTypeByDesc(desc);
 
 		if (type.equals(MemberType.FIELD)) {
-			if ((flag & FLAG_RECURSIVE) != 0) {
-				return this.resolve0(owner, name, (Collection<TrField> out0) -> owner.resolveFields(name, null, false, null, out0), flag);
-			} else {
-				return this.resolve0(owner, name, (Collection<TrField> out0) -> owner.getFields(name, null, false, null, out0), flag);
-			}
+			return resolveField(owner, name, desc, flag).map(m -> m);
 		} else if (type.equals(MemberType.METHOD)) {
-			if ((flag & FLAG_RECURSIVE) != 0) {
-				return this.resolve0(owner, name, (Collection<TrMethod> out0) -> owner.resolveMethods(name, null, false, null, out0), flag);
-			} else {
-				return this.resolve0(owner, name, (Collection<TrMethod> out0) -> owner.getMethods(name, null, false, null, out0), flag);
-			}
+			return resolveMethod(owner, name, desc, flag).map(m -> m);
 		} else {
-			throw new RuntimeException("Unknown member type " + type.name());
+			throw new RuntimeException(String.format("Unknown member type %s", type.name()));
 		}
 	}
 
-	public Optional<TrMember> resolveByDesc(TrClass owner, String desc, int flag) {
-		if (owner == null || desc == null) {
-			return Optional.empty();
-		}
-
-		if (StringUtility.isFieldDesc(desc)) {
-			if ((flag & FLAG_RECURSIVE) != 0) {
-				return this.resolve0(owner, desc, (Collection<TrField> out0) -> owner.resolveFields(null, desc, false, null, out0), flag);
-			} else {
-				return this.resolve0(owner, desc, (Collection<TrField> out0) -> owner.getFields(null, desc, false, null, out0), flag);
-			}
-		} else if (StringUtility.isMethodDesc(desc)) {
-			if ((flag & FLAG_RECURSIVE) != 0) {
-				return this.resolve0(owner, desc, (Collection<TrMethod> out0) -> owner.resolveMethods(null, null, false, null, out0), flag);
-			} else {
-				return this.resolve0(owner, desc, (Collection<TrMethod> out0) -> owner.getMethods(null, desc, false, null, out0), flag);
-			}
-		} else {
-			throw new RuntimeException("Unknown descriptor " + desc);
-		}
+	public Optional<TrMember> resolveMember(String owner, String name, String desc, int flag) {
+		return resolveClass(owner).flatMap(cls -> resolveMember(cls, name, desc, flag));
 	}
 }

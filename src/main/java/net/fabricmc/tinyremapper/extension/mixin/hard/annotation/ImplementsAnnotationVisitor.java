@@ -77,7 +77,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 
 		@Override
 		protected Optional<String> getMappedName() {
-			final ResolveUtility resolver = new ResolveUtility(data.logger);
+			final ResolveUtility resolver = new ResolveUtility(data.environment, data.logger);
 			final MapUtility mapper = new MapUtility(data.remapper, data.logger);
 
 			Stream<String> stream = Stream.empty();
@@ -87,8 +87,8 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 					.filter(iface -> self.getName().startsWith(iface.getPrefix()))    		// select the interfaces matches the prefix
 					.map(iface -> Pair.of(
 							iface.getPrefix(),
-							resolver.resolve(
-									data.environment.getClass(iface.getTarget()),
+							resolver.resolveMethod(
+									iface.getTarget(),
 									self.getName().substring(iface.getPrefix().length()),
 									self.getDesc(),
 									ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE
@@ -101,8 +101,8 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 
 			stream = Stream.concat(stream, interfaces.stream()
 					.filter(iface -> iface.getRemap().compareTo(Remap.ALL) >= 0)			// select the interface with ALL, or FORCE
-					.map(iface -> resolver.resolve(
-							data.environment.getClass(iface.getTarget()),
+					.map(iface -> resolver.resolveMethod(
+							iface.getTarget(),
 							self.getName(),
 							self.getDesc(),
 							ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE))

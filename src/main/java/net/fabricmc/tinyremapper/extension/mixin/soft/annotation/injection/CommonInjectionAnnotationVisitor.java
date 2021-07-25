@@ -10,7 +10,6 @@ import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
-import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
@@ -60,11 +59,12 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 		private Optional<TrMember> resolvePartial(TrClass owner, String name, String desc) {
 			Objects.requireNonNull(owner);
 
-			ResolveUtility resolver = new ResolveUtility(data.logger);
+			ResolveUtility resolver = new ResolveUtility(data.environment, data.logger);
 
-			if (name.isEmpty()) return resolver.resolveByDesc(owner, desc, ResolveUtility.FLAG_FIRST | ResolveUtility.FLAG_NON_SYN);
-			if (desc.isEmpty()) return resolver.resolveByName(owner, name, MemberType.METHOD, ResolveUtility.FLAG_FIRST | ResolveUtility.FLAG_NON_SYN);
-			return resolver.resolve(owner, name, desc, ResolveUtility.FLAG_UNIQUE);
+			name = name.isEmpty() ? null : name;
+			desc = desc.isEmpty() ? null : desc;
+
+			return resolver.resolveMethod(owner, name, desc, ResolveUtility.FLAG_FIRST | ResolveUtility.FLAG_NON_SYN).map(m -> m);
 		}
 
 		@Override

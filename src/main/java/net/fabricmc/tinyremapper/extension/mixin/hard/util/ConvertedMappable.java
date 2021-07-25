@@ -27,11 +27,11 @@ public abstract class ConvertedMappable extends HardTargetMappable {
 	protected abstract String revertName(String name);
 
 	protected Stream<String> mapMultiTarget(String name, String desc) {
-		final ResolveUtility resolver = new ResolveUtility(data.logger);
+		final ResolveUtility resolver = new ResolveUtility(data.environment, data.logger);
 		final MapUtility mapper = new MapUtility(data.remapper, data.logger);
 
 		return targets.stream()
-				.map(target -> resolver.resolve(target, name, desc, ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE))
+				.map(target -> resolver.resolveMember(target, name, desc, ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE))
 				.filter(Optional::isPresent)
 				.map(Optional::get)
 				.map(mapper::map);

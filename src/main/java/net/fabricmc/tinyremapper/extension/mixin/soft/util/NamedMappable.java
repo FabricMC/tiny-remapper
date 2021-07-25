@@ -30,11 +30,11 @@ public class NamedMappable implements IMappable<String> {
 			return name;
 		}
 
-		final ResolveUtility resolver = new ResolveUtility(data.logger);
+		final ResolveUtility resolver = new ResolveUtility(data.environment, data.logger);
 		final MapUtility mapper = new MapUtility(data.remapper, data.logger);
 
 		Collection<String> collection = targets.stream()
-				.map(target -> resolver.resolve(target, name, desc, ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE))
+				.map(target -> resolver.resolveMember(target, name, desc, ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE))
 				.filter(Optional::isPresent)
 				.map(Optional::get)
 				.map(mapper::map)

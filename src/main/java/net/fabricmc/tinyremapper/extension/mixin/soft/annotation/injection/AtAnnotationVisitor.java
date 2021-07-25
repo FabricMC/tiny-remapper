@@ -77,10 +77,10 @@ class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
 				return info;
 			}
 
-			ResolveUtility resolver = new ResolveUtility(data.logger);
+			ResolveUtility resolver = new ResolveUtility(data.environment, data.logger);
 			MapUtility mapper = new MapUtility(data.remapper, data.logger);
 
-			Optional<TrMember> resolved = resolver.resolve(target, info.getName(), info.getDesc(), ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE);
+			Optional<TrMember> resolved = resolver.resolveMember(target, info.getName(), info.getDesc(), ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE);
 
 			if (resolved.isPresent()) {
 				String newOwner = data.remapper.map(info.getOwner());
