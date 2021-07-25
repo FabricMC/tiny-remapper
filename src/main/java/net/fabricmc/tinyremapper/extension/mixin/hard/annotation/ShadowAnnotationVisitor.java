@@ -12,7 +12,7 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
-import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertedMappable;
+import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertibleMappable;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.IConvertibleString;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.IdentityString;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.PrefixString;
@@ -59,7 +59,7 @@ public class ShadowAnnotationVisitor extends AnnotationVisitor {
 		super.visitEnd();
 	}
 
-	private static class ShadowPrefixMappable extends ConvertedMappable {
+	private static class ShadowPrefixMappable extends ConvertibleMappable {
 		private final String prefix;
 
 		ShadowPrefixMappable(CommonData data, MxMember self, Collection<String> targets, String prefix) {

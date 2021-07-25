@@ -14,10 +14,10 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Pair;
 
-public abstract class ConvertedMappable extends HardTargetMappable {
+public abstract class ConvertibleMappable extends HardTargetMappable {
 	private final Collection<TrClass> targets;
 
-	public ConvertedMappable(CommonData data, MxMember self, Collection<String> targets) {
+	public ConvertibleMappable(CommonData data, MxMember self, Collection<String> targets) {
 		super(data, self);
 
 		this.targets = Objects.requireNonNull(targets).stream().map(data.environment::getClass).filter(Objects::nonNull).collect(Collectors.toList());

@@ -15,7 +15,7 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.CamelPrefixString;
-import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertedMappable;
+import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertibleMappable;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.IConvertibleString;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.PrefixString;
 
@@ -62,7 +62,7 @@ public class AccessorAnnotationVisitor extends AnnotationVisitor {
 		super.visitEnd();
 	}
 
-	private static class AccessorMappable extends ConvertedMappable {
+	private static class AccessorMappable extends ConvertibleMappable {
 		private final String prefix;
 		private final String fieldDesc;
 
