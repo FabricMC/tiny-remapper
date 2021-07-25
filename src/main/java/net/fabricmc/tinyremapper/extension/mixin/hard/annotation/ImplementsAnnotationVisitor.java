@@ -66,6 +66,49 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 		tasks.add(data -> new SoftImplementsMappable(data, method, interfaces).result());
 	}
 
+	private static class InterfaceAnnotationVisitor extends AnnotationVisitor {
+		private final SoftInterface _interface;
+
+		InterfaceAnnotationVisitor(AnnotationVisitor delegate, SoftInterface _interfaceOut) {
+			super(Constant.ASM_VERSION, delegate);
+
+			this._interface = Objects.requireNonNull(_interfaceOut);
+
+			this._interface.setRemap(Remap.ALL);	// default value
+		}
+
+		@Override
+		public void visit(String name, Object value) {
+			if (name.equals(AnnotationElement.IFACE)) {
+				Type target = Objects.requireNonNull((Type) value);
+				this._interface.setTarget(target.getInternalName());
+			} else if (name.equals(AnnotationElement.PREFIX)) {
+				String prefix = Objects.requireNonNull((String) value);
+				this._interface.setPrefix(prefix);
+			}
+
+			super.visit(name, value);
+		}
+
+		@Override
+		public void visitEnum(String name, String descriptor, String value) {
+			if (name.equals(AnnotationElement.REMAP)) {
+				if (!descriptor.equals("Lorg/spongepowered/asm/mixin/Interface$Remap;")) {
+					throw new RuntimeException("Incorrect enum type of Interface.Remap " + descriptor);
+				}
+
+				for (Remap candidate : Remap.values()) {
+					if (candidate.name().equals(value)) {
+						this._interface.setRemap(candidate);
+						break;
+					}
+				}
+			}
+
+			super.visitEnum(name, descriptor, value);
+		}
+	}
+
 	private static class SoftImplementsMappable extends HardTargetMappable {
 		private final Collection<SoftInterface> interfaces;
 
@@ -117,49 +160,6 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 			}
 
 			return collection.stream().findFirst();
-		}
-	}
-
-	private static class InterfaceAnnotationVisitor extends AnnotationVisitor {
-		private final SoftInterface _interface;
-
-		InterfaceAnnotationVisitor(AnnotationVisitor delegate, SoftInterface _interfaceOut) {
-			super(Constant.ASM_VERSION, delegate);
-
-			this._interface = Objects.requireNonNull(_interfaceOut);
-
-			this._interface.setRemap(Remap.ALL);	// default value
-		}
-
-		@Override
-		public void visit(String name, Object value) {
-			if (name.equals(AnnotationElement.IFACE)) {
-				Type target = Objects.requireNonNull((Type) value);
-				this._interface.setTarget(target.getInternalName());
-			} else if (name.equals(AnnotationElement.PREFIX)) {
-				String prefix = Objects.requireNonNull((String) value);
-				this._interface.setPrefix(prefix);
-			}
-
-			super.visit(name, value);
-		}
-
-		@Override
-		public void visitEnum(String name, String descriptor, String value) {
-			if (name.equals(AnnotationElement.REMAP)) {
-				if (!descriptor.equals("Lorg/spongepowered/asm/mixin/Interface$Remap;")) {
-					throw new RuntimeException("Incorrect enum type of Interface.Remap " + descriptor);
-				}
-
-				for (Remap candidate : Remap.values()) {
-					if (candidate.name().equals(value)) {
-						this._interface.setRemap(candidate);
-						break;
-					}
-				}
-			}
-
-			super.visitEnum(name, descriptor, value);
 		}
 	}
 }
