@@ -1,5 +1,6 @@
 package net.fabricmc.tinyremapper.extension.mixin.hard.annotation;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -9,12 +10,14 @@ import java.util.regex.Pattern;
 
 import org.objectweb.asm.AnnotationVisitor;
 
-import net.fabricmc.tinyremapper.extension.mixin.common.StringUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
+import net.fabricmc.tinyremapper.extension.mixin.hard.util.CamelPrefixString;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertedMappable;
+import net.fabricmc.tinyremapper.extension.mixin.hard.util.IConvertibleString;
+import net.fabricmc.tinyremapper.extension.mixin.hard.util.PrefixString;
 
 /**
  * In case of multi-target, if a remap conflict is detected,
@@ -92,18 +95,15 @@ public class AccessorAnnotationVisitor extends AnnotationVisitor {
 		}
 
 		@Override
-		protected String getConvertedName() {
-			return StringUtility.removeCamelPrefix(prefix, self.getName());
+		protected Collection<IConvertibleString> getPotentialNames() {
+			return Arrays.asList(
+					new CamelPrefixString(prefix, self.getName()),
+					new PrefixString(prefix, self.getName()));
 		}
 
 		@Override
-		protected String getConvertedDesc() {
+		protected String getDesc() {
 			return fieldDesc;
-		}
-
-		@Override
-		protected String revertName(String name) {
-			return StringUtility.addCamelPrefix(prefix, name);
 		}
 	}
 }

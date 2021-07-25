@@ -1,6 +1,7 @@
 package net.fabricmc.tinyremapper.extension.mixin.hard.annotation;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -12,6 +13,8 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertedMappable;
+import net.fabricmc.tinyremapper.extension.mixin.hard.util.IConvertibleString;
+import net.fabricmc.tinyremapper.extension.mixin.hard.util.IdentityString;
 
 /**
  * In case of multi-target, if a remap conflict is detected,
@@ -58,18 +61,13 @@ public class OverwriteAnnotationVisitor extends AnnotationVisitor {
 		}
 
 		@Override
-		protected String getConvertedName() {
-			return self.getName();
+		protected Collection<IConvertibleString> getPotentialNames() {
+			return Collections.singleton(new IdentityString(self.getName()));
 		}
 
 		@Override
-		protected String getConvertedDesc() {
+		protected String getDesc() {
 			return self.getDesc();
-		}
-
-		@Override
-		protected String revertName(String name) {
-			return name;
 		}
 	}
 }
