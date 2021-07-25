@@ -89,9 +89,13 @@ class StringUtilityTest {
 
     @Test
     void classNameToDesc() {
+        assertEquals("Lcom/github/logicf/class;", StringUtility.classNameToDesc("com/github/logicf/class"));
+        assertThrows(RuntimeException.class, () -> StringUtility.classNameToDesc("Lcom/github/logicf/class;"));
     }
 
     @Test
     void classDescToName() {
+        assertEquals("com/github/logicf/class", StringUtility.classDescToName("Lcom/github/logicf/class;"));
+        assertThrows(RuntimeException.class, () -> StringUtility.classDescToName("com/github/logicf/class"));
     }
 }

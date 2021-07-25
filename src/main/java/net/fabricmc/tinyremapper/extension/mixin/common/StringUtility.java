@@ -34,7 +34,7 @@ public final class StringUtility {
 		}
 	}
 
-	private static final Pattern CLASS_NAME_PATTERN = Pattern.compile("(([A-Za-z0-9_$]+\\/)+[A-Za-z0-9_$]+)");
+	private static final Pattern CLASS_NAME_PATTERN = Pattern.compile("(([A-Za-z0-9_$]+/)+[A-Za-z0-9_$]+)");
 	private static final Pattern CLASS_DESC_PATTERN = Pattern.compile("(L" + CLASS_NAME_PATTERN + ";)");
 
 	public static boolean isClassName(String text) {
@@ -57,10 +57,12 @@ public final class StringUtility {
 	}
 
 	public static String classNameToDesc(String className) {
+		if (!isClassName(className)) throw new RuntimeException(String.format("%s is not a class name.", className));
 		return "L" + className + ";";
 	}
 
 	public static String classDescToName(String classDesc) {
+		if (!isClassDesc(classDesc)) throw new RuntimeException(String.format("%s is not a class descriptor.", classDesc));
 		return classDesc.substring(1, classDesc.length() - 1);
 	}
 }
