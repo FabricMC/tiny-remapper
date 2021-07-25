@@ -2,9 +2,9 @@ package net.fabricmc.tinyremapper.extension.mixin.common.data;
 
 import java.util.Objects;
 
-import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
+import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.StringUtility;
 
 public class MxMember {
@@ -27,18 +27,15 @@ public class MxMember {
 	}
 
 	public MemberType getType() {
-		return StringUtility.isFieldDesc(desc) ? MemberType.FIELD : MemberType.METHOD;
+		return StringUtility.getTypeByDesc(desc);
 	}
 
 	public MxClass getOwner() {
 		return new MxClass(owner);
 	}
 
-	public TrMember asTrMember(TrEnvironment environment) {
-		if (getType().equals(MemberType.FIELD)) {
-			return getOwner().asTrClass(environment).getField(name, desc);
-		} else {
-			return getOwner().asTrClass(environment).getMethod(name, desc);
-		}
+	public TrMember asTrMember(ResolveUtility resolver) {
+		return resolver.resolveMember(owner, name, desc, ResolveUtility.FLAG_UNIQUE)
+				.orElseThrow(() -> new RuntimeException(String.format("Cannot convert %s %s %s to TrMember", owner, name, desc)));
 	}
 }
