@@ -3,6 +3,8 @@ package net.fabricmc.tinyremapper.extension.mixin.common;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
+
 public final class StringUtility {
 	public static String addPrefix(String prefix, String text) {
 		return prefix + text;
@@ -54,6 +56,33 @@ public final class StringUtility {
 
 	public static boolean isMethodDesc(String text) {
 		return METHOD_DESC_PATTERN.matcher(text).matches();
+	}
+
+	public static MemberType getTypeByDesc(String text) {
+		if (StringUtility.isFieldDesc(text)) {
+			return MemberType.FIELD;
+		} else if (StringUtility.isMethodDesc(text)) {
+			return MemberType.METHOD;
+		} else {
+			throw new RuntimeException(String.format("%s is neither field descriptor nor method descriptor.", text));
+		}
+	}
+
+	private static final Pattern INTERNAL_CLASS_PATTERN = Pattern.compile("java/.*");
+
+	public static boolean isInternalClassName(String className) {
+		if (!isClassName(className)) throw new RuntimeException(String.format("%s is not a class name.", className));
+
+		if (INTERNAL_CLASS_PATTERN.matcher(className).matches()) {
+			return true;
+		}
+
+		try {
+			Class.forName(className.replace('/', '.'));
+			return true;
+		} catch (Exception e) {
+			return false;
+		}
 	}
 
 	public static String classNameToDesc(String className) {

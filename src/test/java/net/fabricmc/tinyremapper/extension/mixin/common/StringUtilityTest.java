@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
+
 class StringUtilityTest {
 
     @Test
@@ -97,5 +99,20 @@ class StringUtilityTest {
     void classDescToName() {
         assertEquals("com/github/logicf/class", StringUtility.classDescToName("Lcom/github/logicf/class;"));
         assertThrows(RuntimeException.class, () -> StringUtility.classDescToName("com/github/logicf/class"));
+    }
+
+    @Test
+    void getTypeByDesc() {
+        assertEquals(MemberType.FIELD, StringUtility.getTypeByDesc("[[[D"));
+        assertEquals(MemberType.METHOD, StringUtility.getTypeByDesc("([BBBDDBB[BBDLjava/lang/Object;)V"));
+        assertThrows(RuntimeException.class, () -> StringUtility.getTypeByDesc("bla"));
+    }
+
+    @Test
+    void isInternalClassName() {
+        assertTrue(StringUtility.isInternalClassName("java/lang/Boolean"));
+        assertTrue(StringUtility.isInternalClassName("javax/crypto/Cipher"));
+        assertFalse(StringUtility.isInternalClassName("net/minecraft/bla"));
+        assertThrows(RuntimeException.class, () -> StringUtility.isInternalClassName("bla"));
     }
 }
