@@ -1,6 +1,8 @@
 package net.fabricmc.tinyremapper.extension.mixin.hard.util;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
@@ -24,24 +26,20 @@ class IConvertibleStringTest {
 		assertEquals("de", str.getConverted());
 		assertEquals("abcbla", str.getReverted("bla"));
 
-		str = new PrefixString("abc", "blade");
-		assertEquals("blade", str.getOriginal());
-		assertEquals("blade", str.getConverted());
-		assertEquals("aaa", str.getReverted("aaa"));
+		assertThrows(RuntimeException.class, () -> new PrefixString("abc", "blade"));
 	}
 
 	@Test
 	void CamelPrefixString() {
 		IConvertibleString str;
 
-		str = new CamelPrefixString("abc", "abcde");
-		assertEquals("abcde", str.getOriginal());
-		assertEquals("de", str.getConverted());
-		assertEquals("abcAbc", str.getReverted("abc"));
-
 		str = new CamelPrefixString("abc", "abcDe");
 		assertEquals("abcDe", str.getOriginal());
 		assertEquals("de", str.getConverted());
 		assertEquals("abcAbc", str.getReverted("abc"));
+
+		assertThrows(RuntimeException.class, () -> new CamelPrefixString("abc", "abcde"));
+		assertThrows(RuntimeException.class, () -> new CamelPrefixString("abc", "def"));
+		assertDoesNotThrow(() -> new CamelPrefixString("abc", "abc123"));
 	}
 }

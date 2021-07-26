@@ -34,7 +34,6 @@ class StringUtilityTest {
 	void removeCamelPrefix() {
 		assertEquals("123", StringUtility.removeCamelPrefix("prefix", "prefix123"));
 		assertEquals("abc", StringUtility.removeCamelPrefix("prefix", "prefixAbc"));
-		assertEquals("abc", StringUtility.removeCamelPrefix("prefix", "prefixabc"));
 		assertEquals("", StringUtility.removeCamelPrefix("prefix", "prefix"));
 	}
 

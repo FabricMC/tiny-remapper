@@ -7,23 +7,15 @@ import net.fabricmc.tinyremapper.extension.mixin.common.StringUtility;
 public class CamelPrefixString implements IConvertibleString {
 	private final String prefix;
 	private final String text;
-	private final String original;
 
 	public CamelPrefixString(String prefix, String text) {
-		original = Objects.requireNonNull(text);
-
-		if (text.startsWith(prefix)) {
-			this.prefix = Objects.requireNonNull(prefix);
-			this.text = StringUtility.removeCamelPrefix(prefix, text);
-		} else {
-			this.prefix = "";
-			this.text = text;
-		}
+		this.prefix = Objects.requireNonNull(prefix);
+		this.text = StringUtility.removeCamelPrefix(prefix, text);
 	}
 
 	@Override
 	public String getOriginal() {
-		return original;
+		return StringUtility.addCamelPrefix(prefix, text);
 	}
 
 	@Override

@@ -9,13 +9,8 @@ public class PrefixString implements IConvertibleString {
 	private final String text;
 
 	public PrefixString(String prefix, String text) {
-		if (text.startsWith(prefix)) {
-			this.prefix = Objects.requireNonNull(prefix);
-			this.text = StringUtility.removePrefix(prefix, text);
-		} else {
-			this.prefix = "";
-			this.text = text;
-		}
+		this.prefix = Objects.requireNonNull(prefix);
+		this.text = StringUtility.removePrefix(prefix, text);
 	}
 
 	@Override

@@ -79,7 +79,7 @@ public class AccessorAnnotationVisitor extends AnnotationVisitor {
 			} else if (self.getName().startsWith("is")) {
 				this.prefix = "is";
 			} else {
-				throw new RuntimeException(self.getName() + " does not start with get, set or is.");
+				throw new RuntimeException(String.format("%s does not start with get, set or is.", self.getName()));
 			}
 
 			Matcher getterMatcher = GETTER_PATTERN.matcher(self.getDesc());
@@ -90,7 +90,7 @@ public class AccessorAnnotationVisitor extends AnnotationVisitor {
 			} else if (setterMatcher.find()) {
 				this.fieldDesc = setterMatcher.group();
 			} else {
-				throw new RuntimeException(self.getDesc() + " is not getter or setter");
+				throw new RuntimeException(String.format("%s is not getter or setter descriptor", self.getDesc()));
 			}
 		}
 

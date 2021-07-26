@@ -32,6 +32,7 @@ public final class StringUtility {
 		if (text.isEmpty()) {
 			return text;
 		} else {
+			if (Character.isLowerCase(text.charAt(0))) throw new RuntimeException(String.format("%s does not start with camel prefix %s", text, prefix));
 			return text.substring(0, 1).toLowerCase(Locale.ROOT) + text.substring(1);
 		}
 	}
