@@ -20,7 +20,11 @@ public abstract class ConvertibleMappable extends HardTargetMappable {
 	public ConvertibleMappable(CommonData data, MxMember self, Collection<String> targets) {
 		super(data, self);
 
-		this.targets = Objects.requireNonNull(targets).stream().map(data.environment::getClass).filter(Objects::nonNull).collect(Collectors.toList());
+		this.targets = Objects.requireNonNull(targets).stream()
+				.map(data.resolver::resolveClass)
+				.filter(Optional::isPresent)
+				.map(Optional::get)
+				.collect(Collectors.toList());
 	}
 
 	protected abstract Collection<IConvertibleString> getPotentialNames();

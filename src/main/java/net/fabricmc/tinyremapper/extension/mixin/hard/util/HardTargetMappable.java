@@ -20,7 +20,7 @@ public abstract class HardTargetMappable implements IMappable<Void> {
 
 	@Override
 	public Void result() {
-		getMappedName().ifPresent(x -> data.environment.propagate(self.asTrMember(data.resolver), x));
+		getMappedName().ifPresent(x -> data.propagate(self.asTrMember(data.resolver), x));
 		return null;
 	}
 }

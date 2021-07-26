@@ -11,7 +11,6 @@ import java.util.stream.Stream;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Type;
 
-import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
@@ -122,8 +121,6 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 
 		@Override
 		protected Optional<String> getMappedName() {
-			final ResolveUtility resolver = new ResolveUtility(data.environment, data.logger);
-			final MapUtility mapper = new MapUtility(data.environment.getRemapper(), data.logger);
 
 			Stream<String> stream = Stream.empty();
 
@@ -135,7 +132,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 					// resolve the method to target method
 					.map(iface -> Pair.of(
 							new PrefixString(iface.getPrefix(), self.getName()),
-							resolver.resolveMethod(
+							data.resolver.resolveMethod(
 									iface.getTarget(),
 									self.getName().substring(iface.getPrefix().length()),
 									self.getDesc(),
@@ -147,7 +144,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 					// unwrap the Optional
 					.map(pair -> Pair.of(pair.first(), pair.second().get()))
 					// remap the name
-					.map(pair -> Pair.of(pair.first(), mapper.mapName(pair.second())))
+					.map(pair -> Pair.of(pair.first(), data.mapper.mapName(pair.second())))
 					// apply conversion
 					.map(pair -> pair.first().getReverted(pair.second())));
 
@@ -155,7 +152,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 					// select the interface with ONLY_PREFIX, ALL, or FORCE
 					.filter(iface -> iface.getRemap().compareTo(Remap.ALL) >= 0)
 					// resolve the method to target method
-					.map(iface -> resolver.resolveMethod(
+					.map(iface -> data.resolver.resolveMethod(
 							iface.getTarget(),
 							self.getName(),
 							self.getDesc(),
@@ -165,7 +162,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 					// unwrap the Optional
 					.map(Optional::get)
 					// apply conversion
-					.map(mapper::mapName));
+					.map(data.mapper::mapName));
 
 			List<String> collection = stream.distinct().collect(Collectors.toList());
 
