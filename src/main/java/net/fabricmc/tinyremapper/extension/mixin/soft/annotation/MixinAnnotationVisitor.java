@@ -73,7 +73,7 @@ public class MixinAnnotationVisitor extends FirstPassAnnotationVisitor {
 						MixinSecondPassAnnotationVisitor.this.targets.add(srcName);
 
 						if (remap) {
-							dstName = data.remapper.map(srcName);
+							dstName = data.mapper.asTrRemapper().map(srcName);
 						}
 
 						value = dstName;

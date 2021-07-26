@@ -47,6 +47,10 @@ public final class MapUtility {
 		return mapName(member.getOwner());
 	}
 
+	public TrRemapper asTrRemapper() {
+		return this.remapper;
+	}
+
 	@Deprecated
 	public String map(TrMember member) {
 		if (member.isField()) {

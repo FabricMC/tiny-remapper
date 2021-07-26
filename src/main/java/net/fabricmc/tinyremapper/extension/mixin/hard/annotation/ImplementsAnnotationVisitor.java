@@ -121,7 +121,6 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 
 		@Override
 		protected Optional<String> getMappedName() {
-
 			Stream<String> stream = Stream.empty();
 
 			stream = Stream.concat(stream, interfaces.stream()

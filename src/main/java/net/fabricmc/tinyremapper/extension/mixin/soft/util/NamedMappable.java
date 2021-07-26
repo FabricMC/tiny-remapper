@@ -10,6 +10,7 @@ import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
 
 public class NamedMappable implements IMappable<String> {
 	private final CommonData data;
@@ -21,7 +22,11 @@ public class NamedMappable implements IMappable<String> {
 		this.data = Objects.requireNonNull(data);
 		this.name = Objects.requireNonNull(name);
 		this.desc = Objects.requireNonNull(desc);
-		this.targets = targets.stream().map(data.environment::getClass).filter(Objects::nonNull).collect(Collectors.toList());
+		this.targets = Objects.requireNonNull(targets).stream()
+				.map(data.resolver::resolveClass)
+				.filter(Optional::isPresent)
+				.map(Optional::get)
+				.collect(Collectors.toList());
 	}
 
 	@Override
@@ -30,20 +35,17 @@ public class NamedMappable implements IMappable<String> {
 			return name;
 		}
 
-		final ResolveUtility resolver = new ResolveUtility(data.environment, data.logger);
-		final MapUtility mapper = new MapUtility(data.remapper, data.logger);
-
 		Collection<String> collection = targets.stream()
-				.map(target -> resolver.resolveMember(target, name, desc, ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE))
+				.map(target -> data.resolver.resolveMember(target, name, desc, ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE))
 				.filter(Optional::isPresent)
 				.map(Optional::get)
-				.map(mapper::map)
+				.map(data.mapper::mapName)
 				.distinct().collect(Collectors.toList());
 
 		if (collection.size() > 1) {
-			data.logger.error("Conflict mapping detected, " + name + " -> " + collection);
+			data.logger.error(String.format(Message.CONFLICT_MAPPING, this.name, collection));
 		} else if (collection.isEmpty()) {
-			data.logger.error("Cannot remap " + name + " because it does not exists in any of the targets " + targets);
+			data.logger.error(String.format(Message.NO_MAPPING_RECURSIVE, this.name, targets));
 		}
 
 		return collection.stream().findFirst().orElse(name);

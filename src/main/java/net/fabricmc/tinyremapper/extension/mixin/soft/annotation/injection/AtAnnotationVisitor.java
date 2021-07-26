@@ -5,15 +5,14 @@ import java.util.Optional;
 
 import org.objectweb.asm.AnnotationVisitor;
 
-import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
-import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.FirstPassAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
 
@@ -52,71 +51,6 @@ class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
 		}
 
 		super.visitEnd();
-	}
-
-	private static class AtMethodMappable implements IMappable<MemberInfo> {
-		private final CommonData data;
-		private final MemberInfo info;
-
-		AtMethodMappable(CommonData data, MemberInfo info) {
-			this.data = Objects.requireNonNull(data);
-			this.info = Objects.requireNonNull(info);
-		}
-
-		@Override
-		public MemberInfo result() {
-			if (!info.isFullyQualified()) {
-				data.logger.warn(info + " is not fully qualified.");
-				return info;
-			}
-
-			TrClass target = data.environment.getClass(info.getOwner());
-
-			if (target == null) {
-				data.logger.error("Cannot resolve target class " + info.getOwner());
-				return info;
-			}
-
-			ResolveUtility resolver = new ResolveUtility(data.environment, data.logger);
-			MapUtility mapper = new MapUtility(data.remapper, data.logger);
-
-			Optional<TrMember> resolved = resolver.resolveMember(target, info.getName(), info.getDesc(), ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE);
-
-			if (resolved.isPresent()) {
-				String newOwner = data.remapper.map(info.getOwner());
-				String newName = mapper.map(resolved.get());
-				String newDesc = mapper.mapDesc(resolved.get());
-
-				return new MemberInfo(newOwner, newName, info.getQuantifier(), newDesc);
-			} else {
-				data.logger.error("Cannot resolve for target selector " + info);
-				return info;
-			}
-		}
-	}
-
-	private static class AtConstructorMappable implements IMappable<MemberInfo> {
-		private final CommonData data;
-		private final MemberInfo info;
-
-		AtConstructorMappable(CommonData data, MemberInfo info) {
-			this.data = Objects.requireNonNull(data);
-			this.info = Objects.requireNonNull(info);
-		}
-
-		@Override
-		public MemberInfo result() {
-			if (info.getDesc().isEmpty()) {
-				// remap owner only
-				return new MemberInfo(data.remapper.map(info.getOwner()), info.getName(), info.getQuantifier(), "");
-			} else if (info.getDesc().endsWith(")V")) {
-				// remap owner and desc
-				return new MemberInfo(data.remapper.map(info.getOwner()), info.getName(), info.getQuantifier(), data.remapper.mapMethodDesc(info.getDesc()));
-			} else {
-				// remap desc only
-				return new MemberInfo(info.getOwner(), info.getName(), info.getQuantifier(), data.remapper.mapMethodDesc(info.getDesc()));
-			}
-		}
 	}
 
 	private static class AtSecondPassAnnotationVisitor extends AnnotationVisitor {
@@ -169,6 +103,60 @@ class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
 			}
 
 			return av;
+		}
+	}
+
+	private static class AtMethodMappable implements IMappable<MemberInfo> {
+		private final CommonData data;
+		private final MemberInfo info;
+
+		AtMethodMappable(CommonData data, MemberInfo info) {
+			this.data = Objects.requireNonNull(data);
+			this.info = Objects.requireNonNull(info);
+		}
+
+		@Override
+		public MemberInfo result() {
+			if (!info.isFullyQualified()) {
+				data.logger.warn(String.format(Message.NOT_FULLY_QUALIFIED, info));
+				return info;
+			}
+
+			Optional<TrMember> resolved = data.resolver.resolveMember(info.getOwner(), info.getName(), info.getDesc(), ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE);
+
+			if (resolved.isPresent()) {
+				String newOwner = data.mapper.asTrRemapper().map(info.getOwner());
+				String newName = data.mapper.mapName(resolved.get());
+				String newDesc = data.mapper.mapDesc(resolved.get());
+
+				return new MemberInfo(newOwner, newName, info.getQuantifier(), newDesc);
+			} else {
+				return info;
+			}
+		}
+	}
+
+	private static class AtConstructorMappable implements IMappable<MemberInfo> {
+		private final CommonData data;
+		private final MemberInfo info;
+
+		AtConstructorMappable(CommonData data, MemberInfo info) {
+			this.data = Objects.requireNonNull(data);
+			this.info = Objects.requireNonNull(info);
+		}
+
+		@Override
+		public MemberInfo result() {
+			if (info.getDesc().isEmpty()) {
+				// remap owner only
+				return new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), info.getName(), info.getQuantifier(), "");
+			} else if (info.getDesc().endsWith(")V")) {
+				// remap owner and desc
+				return new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), info.getName(), info.getQuantifier(), data.mapper.asTrRemapper().mapMethodDesc(info.getDesc()));
+			} else {
+				// remap desc only
+				return new MemberInfo(info.getOwner(), info.getName(), info.getQuantifier(), data.mapper.asTrRemapper().mapMethodDesc(info.getDesc()));
+			}
 		}
 	}
 }

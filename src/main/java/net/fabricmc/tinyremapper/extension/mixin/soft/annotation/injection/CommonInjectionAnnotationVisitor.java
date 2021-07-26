@@ -11,12 +11,12 @@ import org.objectweb.asm.AnnotationVisitor;
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
-import net.fabricmc.tinyremapper.extension.mixin.common.MapUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Pair;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.FirstPassAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
@@ -51,44 +51,46 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 		InjectMethodMappable(CommonData data, MemberInfo info, List<String> targets) {
 			this.data = Objects.requireNonNull(data);
 			this.info = Objects.requireNonNull(info);
-			this.targets = info.getOwner().isEmpty()
-					? Objects.requireNonNull(targets).stream().map(data.environment::getClass).filter(Objects::nonNull).collect(Collectors.toList())
-					: Collections.singletonList(data.environment.getClass(info.getOwner()));
+
+			if (info.getOwner().isEmpty()) {
+				this.targets = Objects.requireNonNull(targets).stream()
+						.map(data.resolver::resolveClass)
+						.filter(Optional::isPresent)
+						.map(Optional::get)
+						.collect(Collectors.toList());
+			} else {
+				this.targets = data.resolver.resolveClass(info.getOwner())
+						.map(Collections::singletonList)
+						.orElse(Collections.emptyList());
+			}
 		}
 
 		private Optional<TrMember> resolvePartial(TrClass owner, String name, String desc) {
 			Objects.requireNonNull(owner);
 
-			ResolveUtility resolver = new ResolveUtility(data.environment, data.logger);
-
 			name = name.isEmpty() ? null : name;
 			desc = desc.isEmpty() ? null : desc;
 
-			return resolver.resolveMethod(owner, name, desc, ResolveUtility.FLAG_FIRST | ResolveUtility.FLAG_NON_SYN).map(m -> m);
+			return data.resolver.resolveMethod(owner, name, desc, ResolveUtility.FLAG_FIRST | ResolveUtility.FLAG_NON_SYN).map(m -> m);
 		}
 
 		@Override
 		public MemberInfo result() {
-			if (info.getName().isEmpty() && info.getDesc().isEmpty()) {
-				return new MemberInfo(data.remapper.map(info.getOwner()), info.getName(), info.getQuantifier(), info.getDesc());
-			}
-
-			MapUtility mapper = new MapUtility(data.remapper, data.logger);
 			List<Pair<String, String>> collection = targets.stream()
 					.map(target -> resolvePartial(target, info.getName(), info.getDesc()))
 					.filter(Optional::isPresent)
 					.map(Optional::get)
-					.map(m -> Pair.of(mapper.map(m), mapper.mapDesc(m)))
+					.map(m -> Pair.of(data.mapper.mapName(m), data.mapper.mapDesc(m)))
 					.distinct().collect(Collectors.toList());
 
 			if (collection.size() > 1) {
-				data.logger.error("Conflict mapping detected, " + info.getName() + " -> " + collection);
+				data.logger.error(String.format(Message.CONFLICT_MAPPING, info.getName(), collection));
 			} else if (collection.isEmpty()) {
-				data.logger.error("Cannot remap " + info.getName() + " because it does not exists in any of the targets " + targets);
+				data.logger.error(String.format(Message.NO_MAPPING_NON_RECURSIVE, info.getName(), targets));
 			}
 
 			return collection.stream().findFirst()
-					.map(pair -> new MemberInfo(data.remapper.map(info.getOwner()), pair.first(), info.getQuantifier(), pair.second()))
+					.map(pair -> new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), pair.first(), info.getQuantifier(), pair.second()))
 					.orElse(info);
 		}
 	}
