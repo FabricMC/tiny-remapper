@@ -70,6 +70,10 @@ public class InvokerAnnotationVisitor extends AnnotationVisitor {
 				this.prefix = "call";
 			} else if (self.getName().startsWith("invoke")) {
 				this.prefix = "invoke";
+			} else if (self.getName().startsWith("new")) {
+				this.prefix = "new";
+			} else if (self.getName().startsWith("create")) {
+				this.prefix = "create";
 			} else {
 				throw new RuntimeException(String.format("%s does not start with call or invoke.", self.getName()));
 			}
