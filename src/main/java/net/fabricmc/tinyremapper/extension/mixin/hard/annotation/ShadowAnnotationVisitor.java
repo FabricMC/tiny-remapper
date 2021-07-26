@@ -1,8 +1,6 @@
 package net.fabricmc.tinyremapper.extension.mixin.hard.annotation;
 
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -21,6 +19,7 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.util.PrefixString;
 /**
  * In case of multi-target, if a remap conflict is detected,
  * an error message will show up and the behaviour is undefined.
+ * If a prefix is detected, will only attempt to match the prefix-stripped name.
  */
 public class ShadowAnnotationVisitor extends AnnotationVisitor {
 	private final List<Consumer<CommonData>> tasks;
@@ -71,13 +70,11 @@ public class ShadowAnnotationVisitor extends AnnotationVisitor {
 		}
 
 		@Override
-		protected Collection<IConvertibleString> getPotentialNames() {
+		protected IConvertibleString getName() {
 			if (prefix.isEmpty()) {
-				return Collections.singleton(new IdentityString(self.getName()));
+				return new IdentityString(self.getName());
 			} else {
-				return Arrays.asList(
-						new PrefixString(prefix, self.getName()),
-						new IdentityString(self.getName()));
+				return new PrefixString(prefix, self.getName());
 			}
 		}
 

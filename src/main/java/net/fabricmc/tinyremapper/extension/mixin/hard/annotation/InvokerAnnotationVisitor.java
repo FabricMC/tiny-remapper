@@ -1,6 +1,5 @@
 package net.fabricmc.tinyremapper.extension.mixin.hard.annotation;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -13,13 +12,14 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.CamelPrefixString;
-import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConstantCamelPrefixString;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertibleMappable;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.IConvertibleString;
 
 /**
  * In case of multi-target, if a remap conflict is detected,
  * an error message will show up and the behaviour is undefined.
+ * If after strip the prefix, all characters are UPPER_CASE, then
+ * do not lower the first character of the remaining part.
  */
 public class InvokerAnnotationVisitor extends AnnotationVisitor {
 	private final List<Consumer<CommonData>> tasks;
@@ -80,10 +80,8 @@ public class InvokerAnnotationVisitor extends AnnotationVisitor {
 		}
 
 		@Override
-		protected Collection<IConvertibleString> getPotentialNames() {
-			return Arrays.asList(
-					new CamelPrefixString(prefix, self.getName()),
-					new ConstantCamelPrefixString(prefix, self.getName()));
+		protected IConvertibleString getName() {
+			return new CamelPrefixString(prefix, self.getName());
 		}
 
 		@Override

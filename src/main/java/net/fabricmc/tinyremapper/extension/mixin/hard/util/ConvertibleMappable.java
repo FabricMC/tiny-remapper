@@ -27,7 +27,7 @@ public abstract class ConvertibleMappable extends HardTargetMappable {
 				.collect(Collectors.toList());
 	}
 
-	protected abstract Collection<IConvertibleString> getPotentialNames();
+	protected abstract IConvertibleString getName();
 	protected abstract String getDesc();
 
 	protected Stream<String> mapMultiTarget(IConvertibleString name, String desc) {
@@ -40,8 +40,7 @@ public abstract class ConvertibleMappable extends HardTargetMappable {
 
 	@Override
 	protected Optional<String> getMappedName() {
-		List<String> collection = getPotentialNames().stream()
-				.flatMap(name -> mapMultiTarget(name, getDesc()))
+		List<String> collection = mapMultiTarget(getName(), getDesc())
 				.collect(Collectors.toList());
 
 		if (collection.size() > 1) {

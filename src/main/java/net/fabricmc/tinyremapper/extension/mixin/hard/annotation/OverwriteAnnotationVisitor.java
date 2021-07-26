@@ -1,7 +1,6 @@
 package net.fabricmc.tinyremapper.extension.mixin.hard.annotation;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -61,8 +60,8 @@ public class OverwriteAnnotationVisitor extends AnnotationVisitor {
 		}
 
 		@Override
-		protected Collection<IConvertibleString> getPotentialNames() {
-			return Collections.singleton(new IdentityString(self.getName()));
+		protected IConvertibleString getName() {
+			return new IdentityString(self.getName());
 		}
 
 		@Override
