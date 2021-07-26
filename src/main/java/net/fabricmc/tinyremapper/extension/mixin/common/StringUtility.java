@@ -29,7 +29,7 @@ public final class StringUtility {
 	public static String removeCamelPrefix(String prefix, String text) {
 		text = removePrefix(prefix, text);
 
-		if (text.isEmpty()) {
+		if (text.isEmpty() || text.toUpperCase(Locale.ROOT).equals(text)) {
 			return text;
 		} else {
 			if (Character.isLowerCase(text.charAt(0))) throw new RuntimeException(String.format("%s does not start with camel prefix %s", text, prefix));
