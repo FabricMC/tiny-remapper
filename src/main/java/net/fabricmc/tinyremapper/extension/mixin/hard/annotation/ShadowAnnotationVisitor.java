@@ -2,6 +2,7 @@ package net.fabricmc.tinyremapper.extension.mixin.hard.annotation;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -71,9 +72,13 @@ public class ShadowAnnotationVisitor extends AnnotationVisitor {
 
 		@Override
 		protected Collection<IConvertibleString> getPotentialNames() {
-			return Arrays.asList(
-					new PrefixString(prefix, self.getName()),
-					new IdentityString(self.getName()));
+			if (prefix.isEmpty()) {
+				return Collections.singleton(new IdentityString(self.getName()));
+			} else {
+				return Arrays.asList(
+						new PrefixString(prefix, self.getName()),
+						new IdentityString(self.getName()));
+			}
 		}
 
 		@Override

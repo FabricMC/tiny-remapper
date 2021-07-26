@@ -42,4 +42,14 @@ class IConvertibleStringTest {
 		assertThrows(RuntimeException.class, () -> new CamelPrefixString("abc", "def"));
 		assertDoesNotThrow(() -> new CamelPrefixString("abc", "abc123"));
 	}
+
+	@Test
+	void ConstantCamelPrefixString() {
+		IConvertibleString str;
+
+		str = new ConstantCamelPrefixString("get", "getBIOME");
+		assertEquals("getBIOME", str.getOriginal());
+		assertEquals("BIOME", str.getConverted());
+		assertEquals("getField_1234", str.getReverted("field_1234"));
+	}
 }

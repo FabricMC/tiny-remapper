@@ -15,9 +15,9 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.CamelPrefixString;
+import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConstantCamelPrefixString;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.ConvertibleMappable;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.IConvertibleString;
-import net.fabricmc.tinyremapper.extension.mixin.hard.util.PrefixString;
 
 /**
  * In case of multi-target, if a remap conflict is detected,
@@ -98,7 +98,7 @@ public class AccessorAnnotationVisitor extends AnnotationVisitor {
 		protected Collection<IConvertibleString> getPotentialNames() {
 			return Arrays.asList(
 					new CamelPrefixString(prefix, self.getName()),
-					new PrefixString(prefix, self.getName()));
+					new ConstantCamelPrefixString(prefix, self.getName()));
 		}
 
 		@Override
