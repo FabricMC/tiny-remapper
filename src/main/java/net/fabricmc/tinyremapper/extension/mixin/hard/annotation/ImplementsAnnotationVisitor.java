@@ -17,11 +17,13 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
+import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Pair;
 import net.fabricmc.tinyremapper.extension.mixin.hard.data.SoftInterface;
 import net.fabricmc.tinyremapper.extension.mixin.hard.data.SoftInterface.Remap;
 import net.fabricmc.tinyremapper.extension.mixin.hard.util.HardTargetMappable;
+import net.fabricmc.tinyremapper.extension.mixin.hard.util.PrefixString;
 
 /**
  * For multiple interfaces, if multiple match detected for a method, and result a
@@ -121,42 +123,54 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 		@Override
 		protected Optional<String> getMappedName() {
 			final ResolveUtility resolver = new ResolveUtility(data.environment, data.logger);
-			final MapUtility mapper = new MapUtility(data.remapper, data.logger);
+			final MapUtility mapper = new MapUtility(data.environment.getRemapper(), data.logger);
 
 			Stream<String> stream = Stream.empty();
 
 			stream = Stream.concat(stream, interfaces.stream()
-					.filter(iface -> iface.getRemap().compareTo(Remap.ONLY_PREFIX) >= 0)	// select the interface with ONLY_PREFIX, ALL, or FORCE
-					.filter(iface -> self.getName().startsWith(iface.getPrefix()))    		// select the interfaces matches the prefix
+					// select the interface with ONLY_PREFIX, ALL, or FORCE
+					.filter(iface -> iface.getRemap().compareTo(Remap.ONLY_PREFIX) >= 0)
+					// select the interfaces matches the prefix
+					.filter(iface -> self.getName().startsWith(iface.getPrefix()))
+					// resolve the method to target method
 					.map(iface -> Pair.of(
-							iface.getPrefix(),
+							new PrefixString(iface.getPrefix(), self.getName()),
 							resolver.resolveMethod(
 									iface.getTarget(),
 									self.getName().substring(iface.getPrefix().length()),
 									self.getDesc(),
 									ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE
 							)
-					))																		// resolve the method to target method
+					))
+					// select the successful resolution
 					.filter(pair -> pair.second().isPresent())
+					// unwrap the Optional
 					.map(pair -> Pair.of(pair.first(), pair.second().get()))
-					.map(pair -> Pair.of(pair.first(), mapper.map(pair.second())))			// remap the target method
-					.map(pair -> pair.first() + pair.second()));							// add back prefix
+					// remap the name
+					.map(pair -> Pair.of(pair.first(), mapper.mapName(pair.second())))
+					// apply conversion
+					.map(pair -> pair.first().getReverted(pair.second())));
 
 			stream = Stream.concat(stream, interfaces.stream()
-					.filter(iface -> iface.getRemap().compareTo(Remap.ALL) >= 0)			// select the interface with ALL, or FORCE
+					// select the interface with ONLY_PREFIX, ALL, or FORCE
+					.filter(iface -> iface.getRemap().compareTo(Remap.ALL) >= 0)
+					// resolve the method to target method
 					.map(iface -> resolver.resolveMethod(
 							iface.getTarget(),
 							self.getName(),
 							self.getDesc(),
 							ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE))
+					// select the successful resolution
 					.filter(Optional::isPresent)
+					// unwrap the Optional
 					.map(Optional::get)
-					.map(mapper::map));
+					// apply conversion
+					.map(mapper::mapName));
 
 			List<String> collection = stream.distinct().collect(Collectors.toList());
 
 			if (collection.size() > 1) {
-				data.logger.error("Conflict mapping detected, " + self.getName() + " -> " + collection);
+				data.logger.error(String.format(Message.CONFLICT_MAPPING, self.getName(), collection));
 			}
 
 			return collection.stream().findFirst();
