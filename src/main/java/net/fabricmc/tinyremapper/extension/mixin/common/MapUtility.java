@@ -50,13 +50,4 @@ public final class MapUtility {
 	public TrRemapper asTrRemapper() {
 		return this.remapper;
 	}
-
-	@Deprecated
-	public String map(TrMember member) {
-		if (member.isField()) {
-			return remapper.mapFieldName(member.getOwner().getName(), member.getName(), member.getDesc());
-		} else {
-			return remapper.mapMethodName(member.getOwner().getName(), member.getName(), member.getDesc());
-		}
-	}
 }

@@ -41,7 +41,13 @@ public class MixinAnnotationProcessor {
 
 	public void process(TrEnvironment environment) {
 		CommonData data = new CommonData(environment, logger);
-		tasks.forEach(task -> task.accept(data));
+		tasks.forEach(task -> {
+			try {
+				task.accept(data);
+			} catch (RuntimeException e) {
+				logger.error(e.getMessage());
+			}
+		});
 	}
 
 	public ClassVisitor getPreApplyVisitor(ClassVisitor cv, TrEnvironment environment) {

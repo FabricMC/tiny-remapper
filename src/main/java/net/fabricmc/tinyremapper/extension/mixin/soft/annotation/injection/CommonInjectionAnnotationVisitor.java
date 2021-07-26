@@ -76,6 +76,10 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 
 		@Override
 		public MemberInfo result() {
+			if (targets.isEmpty()) {
+				return info;
+			}
+
 			List<Pair<String, String>> collection = targets.stream()
 					.map(target -> resolvePartial(target, info.getName(), info.getDesc()))
 					.filter(Optional::isPresent)
@@ -86,7 +90,7 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 			if (collection.size() > 1) {
 				data.logger.error(String.format(Message.CONFLICT_MAPPING, info.getName(), collection));
 			} else if (collection.isEmpty()) {
-				data.logger.error(String.format(Message.NO_MAPPING_NON_RECURSIVE, info.getName(), targets));
+				data.logger.warn(String.format(Message.NO_MAPPING_NON_RECURSIVE, info.getName(), targets));
 			}
 
 			return collection.stream().findFirst()
