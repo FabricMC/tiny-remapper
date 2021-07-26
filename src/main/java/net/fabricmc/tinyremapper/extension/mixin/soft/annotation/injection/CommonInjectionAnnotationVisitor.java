@@ -21,6 +21,11 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.Pair;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.FirstPassAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
 
+/**
+ * If the {@code method} element does not contain a name, then do not remap it; If the
+ * {@code method} element has multiple matches (i.e. no desc), then the non-synthetic
+ * method with the first occurrence in ASM will be remapped.
+ */
 class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 	private final CommonData data;
 	private final AnnotationVisitor delegate;
@@ -76,7 +81,7 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 
 		@Override
 		public MemberInfo result() {
-			if (targets.isEmpty()) {
+			if (targets.isEmpty() || info.getName().isEmpty()) {
 				return info;
 			}
 
