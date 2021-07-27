@@ -76,7 +76,7 @@ public final class ResolveUtility {
 		Comparator<T> comparator;
 
 		if ((flag & FLAG_NON_SYN) != 0) {
-			comparator = (x, y) -> Boolean.compare(x.isSynthetic(), y.isSynthetic()) == 0
+			comparator = (x, y) -> Boolean.compare(x.isSynthetic(), y.isSynthetic()) != 0
 					? Boolean.compare(x.isSynthetic(), y.isSynthetic()) : Integer.compare(x.getIndex(), y.getIndex());
 		} else {
 			comparator = Comparator.comparingInt(TrMember::getIndex);
