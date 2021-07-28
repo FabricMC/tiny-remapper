@@ -189,6 +189,11 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public Builder extension(TinyRemapper.Extension extension) {
+			extension.attach(this);
+			return this;
+		}
+
 		public TinyRemapper build() {
 			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount,
 					keepInputData,
@@ -223,6 +228,10 @@ public class TinyRemapper {
 		private final List<ApplyVisitorProvider> preApplyVisitors = new ArrayList<>();
 		private final List<ApplyVisitorProvider> postApplyVisitors = new ArrayList<>();
 		private Remapper extraRemapper;
+	}
+
+	public interface Extension {
+		void attach(TinyRemapper.Builder builder);
 	}
 
 	public interface AnalyzeVisitorProvider {
