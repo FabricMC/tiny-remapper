@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'maven-publish'
 	id 'checkstyle'
+	id 'com.diffplug.spotless' version '5.14.2'
 	id 'com.github.johnrengelman.shadow' version '6.1.0'
 }
 
@@ -65,6 +66,14 @@ jar {
 checkstyle {
 	configFile = file("checkstyle.xml")
 	toolVersion = '8.31'
+}
+
+spotless {
+	ratchetFrom 'origin/master'
+
+	java {
+		licenseHeaderFile(rootProject.file('HEADER')).yearSeparator(', ')
+	}
 }
 
 publishing {
