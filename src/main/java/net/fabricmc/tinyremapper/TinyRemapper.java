@@ -63,11 +63,10 @@ import org.objectweb.asm.util.CheckClassAdapter;
 
 import net.fabricmc.tinyremapper.IMappingProvider.MappingAcceptor;
 import net.fabricmc.tinyremapper.IMappingProvider.Member;
-import net.fabricmc.tinyremapper.api.StateProcessor;
+import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
-import net.fabricmc.tinyremapper.api.WrapperFunction;
 
 public class TinyRemapper {
 	public static class Builder {
@@ -156,12 +155,17 @@ public class TinyRemapper {
 			return this;
 		}
 
+		@Deprecated
 		public Builder extraAnalyzeVisitor(ClassVisitor visitor) {
-			return this.extraAnalyzeVisitor(() -> visitor);
+			return extraAnalyzeVisitor((mrjVersion, className, next) -> {
+				if (next != null) throw new UnsupportedOperationException("can't chain fixed instance analyze visitors");
+
+				return visitor;
+			});
 		}
 
-		public Builder extraAnalyzeVisitor(Supplier<ClassVisitor> visitor) {
-			extraAnalyzeVisitor = visitor;
+		public Builder extraAnalyzeVisitor(AnalyzeVisitorProvider provider) {
+			extraAnalyzeVisitors.add(provider);
 			return this;
 		}
 
@@ -175,13 +179,13 @@ public class TinyRemapper {
 			return this;
 		}
 
-		public Builder extraPreApplyVisitor(WrapperFunction func) {
-			this.preApplyVisitors = func;
+		public Builder extraPreApplyVisitor(ApplyVisitorProvider provider) {
+			preApplyVisitors.add(provider);
 			return this;
 		}
 
-		public Builder extraPostApplyVisitor(WrapperFunction func) {
-			this.postApplyVisitors = func;
+		public Builder extraPostApplyVisitor(ApplyVisitorProvider provider) {
+			this.postApplyVisitors.add(provider);
 			return this;
 		}
 
@@ -192,7 +196,8 @@ public class TinyRemapper {
 					propagateBridges, propagateRecordComponents,
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
 					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals,
-					extraAnalyzeVisitor, stateProcessors, extraRemapper, preApplyVisitors, postApplyVisitors);
+					extraAnalyzeVisitors, stateProcessors, preApplyVisitors, postApplyVisitors,
+					extraRemapper);
 
 			return remapper;
 		}
@@ -213,10 +218,23 @@ public class TinyRemapper {
 		private boolean rebuildSourceFilenames = false;
 		private boolean skipLocalMapping = false;
 		private boolean renameInvalidLocals = false;
-		private Supplier<ClassVisitor> extraAnalyzeVisitor = () -> null;
+		private final List<AnalyzeVisitorProvider> extraAnalyzeVisitors = new ArrayList<>();
 		private final List<StateProcessor> stateProcessors = new ArrayList<>();
+		private final List<ApplyVisitorProvider> preApplyVisitors = new ArrayList<>();
+		private final List<ApplyVisitorProvider> postApplyVisitors = new ArrayList<>();
 		private Remapper extraRemapper;
-		private WrapperFunction preApplyVisitors, postApplyVisitors;
+	}
+
+	public interface AnalyzeVisitorProvider {
+		ClassVisitor insertAnalyzeVisitor(int mrjVersion, String className, ClassVisitor next);
+	}
+
+	public interface StateProcessor {
+		void process(TrEnvironment env);
+	}
+
+	public interface ApplyVisitorProvider {
+		ClassVisitor insertApplyVisitor(TrClass cls, ClassVisitor next);
 	}
 
 	private TinyRemapper(Collection<IMappingProvider> mappingProviders, boolean ignoreFieldDesc,
@@ -232,8 +250,9 @@ public class TinyRemapper {
 			boolean rebuildSourceFilenames,
 			boolean skipLocalMapping,
 			boolean renameInvalidLocals,
-			Supplier<ClassVisitor> extraAnalyzeVisitor, List<StateProcessor> stateProcessors, Remapper extraRemapper,
-			WrapperFunction preApplyVisitors, WrapperFunction postApplyVisitors) {
+			List<AnalyzeVisitorProvider> extraAnalyzeVisitors, List<StateProcessor> stateProcessors,
+			List<ApplyVisitorProvider> preApplyVisitors, List<ApplyVisitorProvider> postApplyVisitors,
+			Remapper extraRemapper) {
 		this.mappingProviders = mappingProviders;
 		this.ignoreFieldDesc = ignoreFieldDesc;
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
@@ -251,11 +270,11 @@ public class TinyRemapper {
 		this.rebuildSourceFilenames = rebuildSourceFilenames;
 		this.skipLocalMapping = skipLocalMapping;
 		this.renameInvalidLocals = renameInvalidLocals;
-		this.extraAnalyzeVisitor = extraAnalyzeVisitor;
+		this.extraAnalyzeVisitors = extraAnalyzeVisitors;
 		this.stateProcessors = stateProcessors;
-		this.extraRemapper = extraRemapper;
 		this.preApplyVisitors = preApplyVisitors;
 		this.postApplyVisitors = postApplyVisitors;
+		this.extraRemapper = extraRemapper;
 	}
 
 	public static Builder newRemapper() {
@@ -524,11 +543,16 @@ public class TinyRemapper {
 
 		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, isInput ? data : null);
 
-		reader.accept(new ClassVisitor(Opcodes.ASM9, extraAnalyzeVisitor.get()) {
+		reader.accept(new ClassVisitor(Opcodes.ASM9) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 				int mrjVersion = analyzeMrjVersion(file, name);
 				ret.init(mrjVersion, name, signature, superName, access, interfaces);
+
+				for (int i = extraAnalyzeVisitors.size() - 1; i >= 0; i--) {
+					cv = extraAnalyzeVisitors.get(i).insertAnalyzeVisitor(mrjVersion, name, cv);
+				}
+
 				super.visit(version, access, name, signature, superName, interfaces);
 			}
 
@@ -1002,17 +1026,14 @@ public class TinyRemapper {
 			visitor = new CheckClassAdapter(visitor);
 		}
 
-		MrjState state = cls.getContext();
-		AsmRemapper remapper = cls.getContext().remapper;
-
-		if (postApplyVisitors != null) {
-			visitor = postApplyVisitors.wrap(visitor, state);
+		for (int i = postApplyVisitors.size() - 1; i >= 0; i--) {
+			visitor = postApplyVisitors.get(i).insertApplyVisitor(cls, visitor);
 		}
 
-		visitor = new AsmClassRemapper(visitor, remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
+		visitor = new AsmClassRemapper(visitor, cls.getContext().remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
 
-		if (preApplyVisitors != null) {
-			visitor = preApplyVisitors.wrap(visitor, state);
+		for (int i = preApplyVisitors.size() - 1; i >= 0; i--) {
+			visitor = preApplyVisitors.get(i).insertApplyVisitor(cls, visitor);
 		}
 
 		reader.accept(visitor, flags);
@@ -1255,8 +1276,10 @@ public class TinyRemapper {
 	private final boolean rebuildSourceFilenames;
 	private final boolean skipLocalMapping;
 	private final boolean renameInvalidLocals;
-	private final Supplier<ClassVisitor> extraAnalyzeVisitor;
+	private final List<AnalyzeVisitorProvider> extraAnalyzeVisitors;
 	private final List<StateProcessor> stateProcessors;
+	private final List<ApplyVisitorProvider> preApplyVisitors;
+	private final List<ApplyVisitorProvider> postApplyVisitors;
 	final Remapper extraRemapper;
 
 	final AtomicReference<Map<InputTag, InputTag[]>> singleInputTags = new AtomicReference<>(Collections.emptyMap()); // cache for tag -> { tag }
@@ -1282,7 +1305,6 @@ public class TinyRemapper {
 	final boolean ignoreFieldDesc;
 	private final int threadCount;
 	private final ExecutorService threadPool;
-	final WrapperFunction preApplyVisitors, postApplyVisitors;
 
 	private volatile boolean dirty = true; // volatile to make the state debug asserts more reliable, shouldn't actually see concurrent modifications
 	private Map<ClassInstance, byte[]> outputBuffer;
