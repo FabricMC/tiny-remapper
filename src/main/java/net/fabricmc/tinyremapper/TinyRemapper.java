@@ -165,11 +165,11 @@ public class TinyRemapper {
 		}
 
 		public Builder extraAnalyzeVisitor(AnalyzeVisitorProvider provider) {
-			extraAnalyzeVisitors.add(provider);
+			analyzeVisitors.add(provider);
 			return this;
 		}
 
-		public Builder stateProcessor(StateProcessor processor) {
+		public Builder extraStateProcessor(StateProcessor processor) {
 			stateProcessors.add(processor);
 			return this;
 		}
@@ -189,6 +189,11 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public Builder extension(TinyRemapper.Extension extension) {
+			extension.attach(this);
+			return this;
+		}
+
 		public TinyRemapper build() {
 			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount,
 					keepInputData,
@@ -196,7 +201,7 @@ public class TinyRemapper {
 					propagateBridges, propagateRecordComponents,
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
 					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals,
-					extraAnalyzeVisitors, stateProcessors, preApplyVisitors, postApplyVisitors,
+					analyzeVisitors, stateProcessors, preApplyVisitors, postApplyVisitors,
 					extraRemapper);
 
 			return remapper;
@@ -218,11 +223,15 @@ public class TinyRemapper {
 		private boolean rebuildSourceFilenames = false;
 		private boolean skipLocalMapping = false;
 		private boolean renameInvalidLocals = false;
-		private final List<AnalyzeVisitorProvider> extraAnalyzeVisitors = new ArrayList<>();
+		private final List<AnalyzeVisitorProvider> analyzeVisitors = new ArrayList<>();
 		private final List<StateProcessor> stateProcessors = new ArrayList<>();
 		private final List<ApplyVisitorProvider> preApplyVisitors = new ArrayList<>();
 		private final List<ApplyVisitorProvider> postApplyVisitors = new ArrayList<>();
 		private Remapper extraRemapper;
+	}
+
+	public interface Extension {
+		void attach(TinyRemapper.Builder builder);
 	}
 
 	public interface AnalyzeVisitorProvider {
@@ -250,7 +259,7 @@ public class TinyRemapper {
 			boolean rebuildSourceFilenames,
 			boolean skipLocalMapping,
 			boolean renameInvalidLocals,
-			List<AnalyzeVisitorProvider> extraAnalyzeVisitors, List<StateProcessor> stateProcessors,
+			List<AnalyzeVisitorProvider> analyzeVisitors, List<StateProcessor> stateProcessors,
 			List<ApplyVisitorProvider> preApplyVisitors, List<ApplyVisitorProvider> postApplyVisitors,
 			Remapper extraRemapper) {
 		this.mappingProviders = mappingProviders;
@@ -270,7 +279,7 @@ public class TinyRemapper {
 		this.rebuildSourceFilenames = rebuildSourceFilenames;
 		this.skipLocalMapping = skipLocalMapping;
 		this.renameInvalidLocals = renameInvalidLocals;
-		this.extraAnalyzeVisitors = extraAnalyzeVisitors;
+		this.analyzeVisitors = analyzeVisitors;
 		this.stateProcessors = stateProcessors;
 		this.preApplyVisitors = preApplyVisitors;
 		this.postApplyVisitors = postApplyVisitors;
@@ -549,8 +558,8 @@ public class TinyRemapper {
 				int mrjVersion = analyzeMrjVersion(file, name);
 				ret.init(mrjVersion, name, signature, superName, access, interfaces);
 
-				for (int i = extraAnalyzeVisitors.size() - 1; i >= 0; i--) {
-					cv = extraAnalyzeVisitors.get(i).insertAnalyzeVisitor(mrjVersion, name, cv);
+				for (int i = analyzeVisitors.size() - 1; i >= 0; i--) {
+					cv = analyzeVisitors.get(i).insertAnalyzeVisitor(mrjVersion, name, cv);
 				}
 
 				super.visit(version, access, name, signature, superName, interfaces);
@@ -1276,7 +1285,7 @@ public class TinyRemapper {
 	private final boolean rebuildSourceFilenames;
 	private final boolean skipLocalMapping;
 	private final boolean renameInvalidLocals;
-	private final List<AnalyzeVisitorProvider> extraAnalyzeVisitors;
+	private final List<AnalyzeVisitorProvider> analyzeVisitors;
 	private final List<StateProcessor> stateProcessors;
 	private final List<ApplyVisitorProvider> preApplyVisitors;
 	private final List<ApplyVisitorProvider> postApplyVisitors;
