@@ -1119,10 +1119,18 @@ public class TinyRemapper {
 		return writer.toByteArray();
 	}
 
-	public synchronized AsmRemapper getRemapper() {
+	public synchronized TrEnvironment getEnvironment() {
 		refresh();
 		mrjRefresh(defaultState);
-		return defaultState.remapper;
+		return defaultState;
+	}
+
+	/**
+	 * @deprecated Use {@link #getEnvironment} and {@link TrEnvironment#getRemapper} instead.
+	 */
+	@Deprecated
+	public AsmRemapper getRemapper() {
+		return (AsmRemapper) getEnvironment().getRemapper();
 	}
 
 	private static void waitForAll(Iterable<Future<?>> futures) {

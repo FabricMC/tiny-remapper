@@ -27,5 +27,17 @@ public interface TrEnvironment {
 	 */
 	TrClass getClass(String internalName);
 
+	default TrField getField(String owner, String name, String desc) {
+		TrClass cls = getClass(owner);
+
+		return cls != null ? cls.getField(name, desc) : null;
+	}
+
+	default TrMethod getMethod(String owner, String name, String desc) {
+		TrClass cls = getClass(owner);
+
+		return cls != null ? cls.getMethod(name, desc) : null;
+	}
+
 	void propagate(TrMember member, String newName);
 }
