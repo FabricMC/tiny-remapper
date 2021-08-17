@@ -194,34 +194,35 @@ public class Main {
 
 		long startTime = System.nanoTime();
 
-		TinyRemapper remapper = TinyRemapper.newRemapper()
-				.withMappings(TinyUtils.createTinyMappingProvider(mappings, fromM, toM))
-				.ignoreFieldDesc(ignoreFieldDesc)
-				.withForcedPropagation(forcePropagation)
-				.propagatePrivate(propagatePrivate)
-				.propagateBridges(propagateBridges)
-				.removeFrames(removeFrames)
-				.ignoreConflicts(ignoreConflicts)
-				.checkPackageAccess(checkPackageAccess)
-				.fixPackageAccess(fixPackageAccess)
-				.resolveMissing(resolveMissing)
-				.rebuildSourceFilenames(rebuildSourceFilenames)
-				.skipLocalVariableMapping(skipLocalVariableMapping)
-				.renameInvalidLocals(renameInvalidLocals)
-				.threads(threads)
-				.build();
+		// This checkstyle is stupid
+		try (
+				TinyRemapper remapper = TinyRemapper.newRemapper()
+						.withMappings(TinyUtils.createTinyMappingProvider(mappings, fromM, toM))
+						.ignoreFieldDesc(ignoreFieldDesc)
+						.withForcedPropagation(forcePropagation)
+						.propagatePrivate(propagatePrivate)
+						.propagateBridges(propagateBridges)
+						.removeFrames(removeFrames)
+						.ignoreConflicts(ignoreConflicts)
+						.checkPackageAccess(checkPackageAccess)
+						.fixPackageAccess(fixPackageAccess)
+						.resolveMissing(resolveMissing)
+						.rebuildSourceFilenames(rebuildSourceFilenames)
+						.skipLocalVariableMapping(skipLocalVariableMapping)
+						.renameInvalidLocals(renameInvalidLocals)
+						.threads(threads)
+						.build()
+		) {
+			try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
+				outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
 
-		try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
-			outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
+				remapper.readInputs(input);
+				remapper.readClassPath(classpath);
 
-			remapper.readInputs(input);
-			remapper.readClassPath(classpath);
-
-			remapper.apply(outputConsumer);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		} finally {
-			remapper.finish();
+				remapper.apply(outputConsumer);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
 		}
 
 		System.out.printf("Finished after %.2f ms.\n", (System.nanoTime() - startTime) / 1e6);

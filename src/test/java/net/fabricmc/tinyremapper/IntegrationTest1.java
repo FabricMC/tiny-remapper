@@ -101,33 +101,32 @@ public class IntegrationTest1 {
 	 */
 	@Test
 	public void basic() throws IOException {
-		final TinyRemapper remapper = setupRemapper();
-		final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
-		final Path[] classpath = new Path[]{};
+		try (TinyRemapper remapper = setupRemapper()) {
+			final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
+			final Path[] classpath = new Path[]{};
 
-		Path output = TestUtil.output(BASIC_INPUT_PATH);
-		Path input = TestUtil.input(BASIC_INPUT_PATH);
+			Path output = TestUtil.output(BASIC_INPUT_PATH);
+			Path input = TestUtil.input(BASIC_INPUT_PATH);
 
-		try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
-			outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
+			try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
+				outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
 
-			remapper.readInputs(input);
-			remapper.readClassPath(classpath);
+				remapper.readInputs(input);
+				remapper.readClassPath(classpath);
 
-			remapper.apply(outputConsumer);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		} finally {
-			remapper.finish();
+				remapper.apply(outputConsumer);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+
+			final String MAIN_CLASS = "com/github/logicf/Main.class";
+			final String GREETING_CLASS = "com/github/logicf/Greeting.class";
+
+			try (JarFile result = new JarFile(output.toFile())) {
+				assertNotNull(result.getEntry(MAIN_CLASS));
+				assertNotNull(result.getEntry(GREETING_CLASS));
+			}
 		}
-
-		final String MAIN_CLASS = "com/github/logicf/Main.class";
-		final String GREETING_CLASS = "com/github/logicf/Greeting.class";
-
-		JarFile result = new JarFile(output.toFile());
-		assertNotNull(result.getEntry(MAIN_CLASS));
-		assertNotNull(result.getEntry(GREETING_CLASS));
-		result.close();
 	}
 
 	/**
@@ -137,35 +136,34 @@ public class IntegrationTest1 {
 	 */
 	@Test
 	public void mrj1() throws IOException {
-		final TinyRemapper remapper = setupRemapper();
-		final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
-		final Path[] classpath = new Path[]{};
-
 		Path output = TestUtil.output(MRJ1_INPUT_PATH);
 		Path input = TestUtil.input(MRJ1_INPUT_PATH);
 
-		try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
-			outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
+		try (TinyRemapper remapper = setupRemapper()) {
+			final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
+			final Path[] classpath = new Path[]{};
 
-			remapper.readInputs(input);
-			remapper.readClassPath(classpath);
+			try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
+				outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
 
-			remapper.apply(outputConsumer);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		} finally {
-			remapper.finish();
+				remapper.readInputs(input);
+				remapper.readClassPath(classpath);
+
+				remapper.apply(outputConsumer);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
 		}
 
 		final String MAIN_CLASS = "com/github/logicf/Main.class";
 		final String GREETING_CLASS = "com/github/logicf/Greeting.class";
 		final String MRJ_GREETING_CLASS = "META-INF/versions/9/com/github/logicf/Greeting.class";
 
-		JarFile result = new JarFile(output.toFile());
-		assertNotNull(result.getEntry(MAIN_CLASS));
-		assertNotNull(result.getEntry(GREETING_CLASS));
-		assertNotNull(result.getEntry(MRJ_GREETING_CLASS));
-		result.close();
+		try (JarFile result = new JarFile(output.toFile())) {
+			assertNotNull(result.getEntry(MAIN_CLASS));
+			assertNotNull(result.getEntry(GREETING_CLASS));
+			assertNotNull(result.getEntry(MRJ_GREETING_CLASS));
+		}
 	}
 
 	/**
@@ -176,24 +174,23 @@ public class IntegrationTest1 {
 	 */
 	@Test
 	public void mrj2() throws IOException {
-		final TinyRemapper remapper = setupRemapper();
-		final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
-		final Path[] classpath = new Path[]{};
-
 		Path output = TestUtil.output(MRJ2_INPUT_PATH);
 		Path input = TestUtil.input(MRJ2_INPUT_PATH);
 
-		try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
-			outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
+		try (TinyRemapper remapper = setupRemapper()) {
+			final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
+			final Path[] classpath = new Path[]{};
 
-			remapper.readInputs(input);
-			remapper.readClassPath(classpath);
+			try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
+				outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
 
-			remapper.apply(outputConsumer);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		} finally {
-			remapper.finish();
+				remapper.readInputs(input);
+				remapper.readClassPath(classpath);
+
+				remapper.apply(outputConsumer);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
 		}
 
 		final String J8_MAIN_CLASS = "com/github/logicf/Main.class";
@@ -204,33 +201,31 @@ public class IntegrationTest1 {
 		final String J9_D2_CLASS = "META-INF/versions/9/com/github/logicf/D2.class";
 		final String J9_D4_CLASS = "META-INF/versions/9/com/github/logicf/D4.class";
 
-		JarFile result = new JarFile(output.toFile());
+		try (JarFile result = new JarFile(output.toFile())) {
+			assertNotNull(result.getEntry(J8_MAIN_CLASS));
+			assertNotNull(result.getEntry(J8_D1_CLASS));
+			assertNotNull(result.getEntry(J8_D3_CLASS));
+			assertNotNull(result.getEntry(J8_D5_CLASS));
+			assertNotNull(result.getEntry(J9_D1_CLASS));
+			assertNotNull(result.getEntry(J9_D2_CLASS));
+			assertNotNull(result.getEntry(J9_D4_CLASS));
 
-		assertNotNull(result.getEntry(J8_MAIN_CLASS));
-		assertNotNull(result.getEntry(J8_D1_CLASS));
-		assertNotNull(result.getEntry(J8_D3_CLASS));
-		assertNotNull(result.getEntry(J8_D5_CLASS));
-		assertNotNull(result.getEntry(J9_D1_CLASS));
-		assertNotNull(result.getEntry(J9_D2_CLASS));
-		assertNotNull(result.getEntry(J9_D4_CLASS));
+			ClassReader readerJ8D1 = new ClassReader(result.getInputStream(result.getEntry(J8_D1_CLASS)));
+			readerJ8D1.accept(new ClassVisitor(Opcodes.ASM9, null) {
+				@Override
+				public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+					assertEquals("com/github/logicf/D3", superName);
+				}
+			}, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
 
-		ClassReader readerJ8D1 = new ClassReader(result.getInputStream(result.getEntry(J8_D1_CLASS)));
-		readerJ8D1.accept(new ClassVisitor(Opcodes.ASM9, null) {
-			@Override
-			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-				assertEquals("com/github/logicf/D3", superName);
-			}
-		}, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
-
-		ClassReader readerJ9D1 = new ClassReader(result.getInputStream(result.getEntry(J9_D1_CLASS)));
-		readerJ9D1.accept(new ClassVisitor(Opcodes.ASM9, null) {
-			@Override
-			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-				assertEquals("com/github/logicf/D2", superName);
-			}
-		}, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
-
-		result.close();
+			ClassReader readerJ9D1 = new ClassReader(result.getInputStream(result.getEntry(J9_D1_CLASS)));
+			readerJ9D1.accept(new ClassVisitor(Opcodes.ASM9, null) {
+				@Override
+				public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+					assertEquals("com/github/logicf/D2", superName);
+				}
+			}, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
+		}
 	}
 
 	/**
@@ -240,36 +235,35 @@ public class IntegrationTest1 {
 	 */
 	@Test
 	public void mrj4() throws IOException {
-		final TinyRemapper remapper = setupRemapper();
-		final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
-		final Path[] classpath = new Path[]{};
-		InputTag tag = remapper.createInputTag();
-
 		Path output = TestUtil.output(MRJ1_INPUT_PATH);
 		Path input = TestUtil.input(MRJ1_INPUT_PATH);
 
-		try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
-			outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
+		try (TinyRemapper remapper = setupRemapper()) {
+			final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
+			final Path[] classpath = new Path[]{};
+			InputTag tag = remapper.createInputTag();
 
-			remapper.readInputs(tag, input);
-			remapper.readClassPath(classpath);
+			try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
+				outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
 
-			remapper.apply(outputConsumer, tag);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		} finally {
-			remapper.finish();
+				remapper.readInputs(tag, input);
+				remapper.readClassPath(classpath);
+
+				remapper.apply(outputConsumer, tag);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
 		}
 
 		final String MAIN_CLASS = "com/github/logicf/Main.class";
 		final String GREETING_CLASS = "com/github/logicf/Greeting.class";
 		final String MRJ_GREETING_CLASS = "META-INF/versions/9/com/github/logicf/Greeting.class";
 
-		JarFile result = new JarFile(output.toFile());
-		assertNotNull(result.getEntry(MAIN_CLASS));
-		assertNotNull(result.getEntry(GREETING_CLASS));
-		assertNotNull(result.getEntry(MRJ_GREETING_CLASS));
-		result.close();
+		try (JarFile result = new JarFile(output.toFile())) {
+			assertNotNull(result.getEntry(MAIN_CLASS));
+			assertNotNull(result.getEntry(GREETING_CLASS));
+			assertNotNull(result.getEntry(MRJ_GREETING_CLASS));
+		}
 	}
 
 	@AfterAll
