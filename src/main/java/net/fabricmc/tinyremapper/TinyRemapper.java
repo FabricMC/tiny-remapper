@@ -291,6 +291,10 @@ public class TinyRemapper implements AutoCloseable {
 		return new Builder();
 	}
 
+	/**
+	 * @see #close
+	 * @deprecated Use try-with-resources
+	 */
 	@Deprecated
 	public void finish() {
 		close();
