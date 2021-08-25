@@ -25,10 +25,6 @@ public final class Logger {
 
 	private final Level level;
 
-	public Logger() {
-		this(Level.WARN);
-	}
-
 	public Logger(Level level) {
 		this.level = level;
 	}

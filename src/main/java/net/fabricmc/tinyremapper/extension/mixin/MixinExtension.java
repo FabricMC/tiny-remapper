@@ -19,6 +19,7 @@
 package net.fabricmc.tinyremapper.extension.mixin;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ import net.fabricmc.tinyremapper.TinyRemapper.Builder;
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.extension.mixin.common.Logger;
+import net.fabricmc.tinyremapper.extension.mixin.common.Logger.Level;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.hard.HardTargetMixinClassVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.SoftTargetMixinClassVisitor;
@@ -41,6 +43,11 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.SoftTargetMixinClassVisito
 public class MixinExtension implements TinyRemapper.Extension {
 	private final Logger logger;
 	private final Map<Integer, List<Consumer<CommonData>>> tasks;
+	private final EnumSet<AnnotationTarget> targets;
+
+	public enum AnnotationTarget {
+		SOFT, HARD
+	}
 
 	/**
 	 * Remap mixin annotation.
@@ -48,20 +55,33 @@ public class MixinExtension implements TinyRemapper.Extension {
 	 * <p>Hard-target: Shadow, Overwrite, Accessor, Invoker, Implements.</p>
 	 */
 	public MixinExtension() {
-		this.logger = new Logger();
-		this.tasks = new HashMap<>();
+		this(Level.WARN);
 	}
 
 	public MixinExtension(Logger.Level logLevel) {
+		this(EnumSet.allOf(AnnotationTarget.class), logLevel);
+	}
+
+	public MixinExtension(EnumSet<AnnotationTarget> targets) {
+		this(targets, Level.WARN);
+	}
+
+	public MixinExtension(EnumSet<AnnotationTarget> targets, Logger.Level logLevel) {
 		this.logger = new Logger(logLevel);
 		this.tasks = new HashMap<>();
+		this.targets = targets;
 	}
 
 	@Override
 	public void attach(Builder builder) {
-		builder.extraAnalyzeVisitor(this::analyzeVisitor)
-				.extraStateProcessor(this::stateProcessor)
-				.extraPreApplyVisitor(this::preApplyVisitor);
+		if (targets.contains(AnnotationTarget.HARD)) {
+			builder.extraAnalyzeVisitor(this::analyzeVisitor)
+					.extraStateProcessor(this::stateProcessor);
+		}
+
+		if (targets.contains(AnnotationTarget.SOFT)) {
+			builder.extraPreApplyVisitor(this::preApplyVisitor);
+		}
 	}
 
 	/**
