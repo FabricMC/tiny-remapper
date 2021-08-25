@@ -23,6 +23,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import org.objectweb.asm.ClassVisitor;
@@ -43,16 +44,23 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.SoftTargetMixinClassVisito
 public class MixinExtension implements TinyRemapper.Extension {
 	private final Logger logger;
 	private final Map<Integer, List<Consumer<CommonData>>> tasks;
-	private final EnumSet<AnnotationTarget> targets;
+	private final Set<AnnotationTarget> targets;
 
 	public enum AnnotationTarget {
-		SOFT, HARD
+		/**
+		 * The string literal in mixin annotation. E.g. Mixin, Invoker, Accessor, Inject,
+		 * ModifyArg, ModifyArgs, Redirect, ModifyVariable, ModifyConstant, At, Slice.
+		 */
+		SOFT,
+		/**
+		 * The field or method with mixin annotation. E.g. Shadow, Overwrite, Accessor,
+		 * Invoker, Implements.
+		 */
+		HARD
 	}
 
 	/**
 	 * Remap mixin annotation.
-	 * <p>Soft-target: Mixin, Invoker, Accessor, Inject, ModifyArg, ModifyArgs, Redirect, ModifyVariable, ModifyConstant, At, Slice.</p>
-	 * <p>Hard-target: Shadow, Overwrite, Accessor, Invoker, Implements.</p>
 	 */
 	public MixinExtension() {
 		this(Level.WARN);
@@ -62,11 +70,11 @@ public class MixinExtension implements TinyRemapper.Extension {
 		this(EnumSet.allOf(AnnotationTarget.class), logLevel);
 	}
 
-	public MixinExtension(EnumSet<AnnotationTarget> targets) {
+	public MixinExtension(Set<AnnotationTarget> targets) {
 		this(targets, Level.WARN);
 	}
 
-	public MixinExtension(EnumSet<AnnotationTarget> targets, Logger.Level logLevel) {
+	public MixinExtension(Set<AnnotationTarget> targets, Logger.Level logLevel) {
 		this.logger = new Logger(logLevel);
 		this.tasks = new HashMap<>();
 		this.targets = targets;
