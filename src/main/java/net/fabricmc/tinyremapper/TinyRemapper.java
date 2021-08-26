@@ -69,7 +69,7 @@ import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 
-public class TinyRemapper {
+public class TinyRemapper implements AutoCloseable {
 	public static class Builder {
 		private Builder() { }
 
@@ -291,7 +291,17 @@ public class TinyRemapper {
 		return new Builder();
 	}
 
+	/**
+	 * @see #close
+	 * @deprecated Use try-with-resources
+	 */
+	@Deprecated
 	public void finish() {
+		close();
+	}
+
+	@Override
+	public void close() {
 		threadPool.shutdown();
 
 		try {

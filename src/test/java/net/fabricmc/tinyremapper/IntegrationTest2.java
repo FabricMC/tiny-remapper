@@ -100,24 +100,23 @@ public class IntegrationTest2 {
 	 */
 	@Test
 	public void access() throws IOException {
-		final TinyRemapper remapper = setupRemapper();
-		final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
-		final Path[] classpath = new Path[]{};
-
 		Path output = TestUtil.output(ACCESS_INPUT_PATH);
 		Path input = TestUtil.input(ACCESS_INPUT_PATH);
 
-		try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
-			outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
+		try (TinyRemapper remapper = setupRemapper()) {
+			final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
+			final Path[] classpath = new Path[]{};
 
-			remapper.readInputs(input);
-			remapper.readClassPath(classpath);
+			try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
+				outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
 
-			remapper.apply(outputConsumer);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		} finally {
-			remapper.finish();
+				remapper.readInputs(input);
+				remapper.readClassPath(classpath);
+
+				remapper.apply(outputConsumer);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
 		}
 
 		final String MAIN_CLASS = "com/github/logicf/Main.class";
@@ -157,24 +156,23 @@ public class IntegrationTest2 {
 	 */
 	@Test
 	public void mrj3() throws IOException {
-		final TinyRemapper remapper = setupRemapper();
-		final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
-		final Path[] classpath = new Path[]{};
-
 		Path output = TestUtil.output(MRJ3_INPUT_PATH);
 		Path input = TestUtil.input(MRJ3_INPUT_PATH);
 
-		try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
-			outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
+		try (TinyRemapper remapper = setupRemapper()) {
+			final NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
+			final Path[] classpath = new Path[]{};
 
-			remapper.readInputs(input);
-			remapper.readClassPath(classpath);
+			try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
+				outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);
 
-			remapper.apply(outputConsumer);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		} finally {
-			remapper.finish();
+				remapper.readInputs(input);
+				remapper.readClassPath(classpath);
+
+				remapper.apply(outputConsumer);
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
 		}
 
 		final String J8_MAIN_CLASS = "com/github/logicf/Main.class";
@@ -182,32 +180,30 @@ public class IntegrationTest2 {
 		final String J8_D3_CLASS = "com/github/logicf/pkg2/D3.class";
 		final String J9_D1_CLASS = "META-INF/versions/9/com/github/logicf/pkg1/D1.class";
 
-		JarFile result = new JarFile(output.toFile());
+		try (JarFile result = new JarFile(output.toFile())) {
+			assertNotNull(result.getEntry(J8_MAIN_CLASS));
+			assertNotNull(result.getEntry(J8_D1_CLASS));
+			assertNotNull(result.getEntry(J8_D3_CLASS));
+			assertNotNull(result.getEntry(J9_D1_CLASS));
 
-		assertNotNull(result.getEntry(J8_MAIN_CLASS));
-		assertNotNull(result.getEntry(J8_D1_CLASS));
-		assertNotNull(result.getEntry(J8_D3_CLASS));
-		assertNotNull(result.getEntry(J9_D1_CLASS));
+			ClassReader readerD3 = new ClassReader(result.getInputStream(result.getEntry(J8_D3_CLASS)));
 
-		ClassReader readerD3 = new ClassReader(result.getInputStream(result.getEntry(J8_D3_CLASS)));
-
-		readerD3.accept(new ClassVisitor(Opcodes.ASM9, null) {
-			@Override
-			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-				assertNotEquals(0, (access & Opcodes.ACC_PUBLIC));
-			}
-
-			@Override
-			public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-				if (name.equals("say")) {
+			readerD3.accept(new ClassVisitor(Opcodes.ASM9, null) {
+				@Override
+				public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 					assertNotEquals(0, (access & Opcodes.ACC_PUBLIC));
 				}
 
-				return super.visitMethod(access, name, desc, signature, exceptions);
-			}
-		}, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
+				@Override
+				public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
+					if (name.equals("say")) {
+						assertNotEquals(0, (access & Opcodes.ACC_PUBLIC));
+					}
 
-		result.close();
+					return super.visitMethod(access, name, desc, signature, exceptions);
+				}
+			}, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
+		}
 	}
 
 	@AfterAll
