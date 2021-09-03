@@ -16,13 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.fabricmc.tinyremapper.extension.mixin.common.data;
+package net.fabricmc.tinyremapper.extension.mixin;
 
-public final class Message {
-	public static final String NO_CLASS = "Cannot resolve class %s.";
-	public static final String NO_MEMBER_NON_RECURSIVE = "Cannot resolve %s in any of targets %s";
-	public static final String NO_MEMBER_RECURSIVE = "Cannot resolve %s in any of the targets %s or their parents.";
-	public static final String CONFLICT_MAPPING = "%s -> %s is conflict mapping.";
-	public static final String NOT_FULLY_QUALIFIED = "%s is not fully qualified.";
-	public static final String INVALID_FORMAT = "%s is invalid format.";
+public class RefmapTransformer {
 }

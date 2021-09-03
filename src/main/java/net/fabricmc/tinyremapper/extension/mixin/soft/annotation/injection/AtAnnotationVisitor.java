@@ -23,16 +23,14 @@ import java.util.Optional;
 
 import org.objectweb.asm.AnnotationVisitor;
 
-import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
-import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
-import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.FirstPassAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
+import net.fabricmc.tinyremapper.extension.mixin.soft.util.MemberInfoMappable;
 
 /**
  * {@code @At} require fully-qualified {@link net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo} unless
@@ -124,33 +122,9 @@ class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
 		}
 	}
 
-	private static class AtMethodMappable implements IMappable<MemberInfo> {
-		private final CommonData data;
-		private final MemberInfo info;
-
+	private static class AtMethodMappable extends MemberInfoMappable {
 		AtMethodMappable(CommonData data, MemberInfo info) {
-			this.data = Objects.requireNonNull(data);
-			this.info = Objects.requireNonNull(info);
-		}
-
-		@Override
-		public MemberInfo result() {
-			if (!info.isFullyQualified()) {
-				data.logger.warn(String.format(Message.NOT_FULLY_QUALIFIED, info));
-				return info;
-			}
-
-			Optional<TrMember> resolved = data.resolver.resolveMember(info.getOwner(), info.getName(), info.getDesc(), ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE);
-
-			if (resolved.isPresent()) {
-				String newOwner = data.mapper.asTrRemapper().map(info.getOwner());
-				String newName = data.mapper.mapName(resolved.get());
-				String newDesc = data.mapper.mapDesc(resolved.get());
-
-				return new MemberInfo(newOwner, newName, info.getQuantifier(), newDesc);
-			} else {
-				return info;
-			}
+			super(data, info);
 		}
 	}
 

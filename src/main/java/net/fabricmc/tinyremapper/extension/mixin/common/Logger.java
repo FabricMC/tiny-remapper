@@ -20,7 +20,7 @@ package net.fabricmc.tinyremapper.extension.mixin.common;
 
 public final class Logger {
 	public enum Level {
-		INFO, WARN, ERROR
+		INFO, WARN, ERROR, NO_LOG
 	}
 
 	private final Level level;
