@@ -27,6 +27,7 @@ import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMethod;
 import net.fabricmc.tinyremapper.api.TrRemapper;
+import org.objectweb.asm.Type;
 
 class AsmRemapper extends TrRemapper {
 	AsmRemapper(MrjState context) {
@@ -131,6 +132,12 @@ class AsmRemapper extends TrRemapper {
 
 	public String mapMethodVar(String methodOwner, String methodName, String methodDesc, int lvIndex, int startOpIdx, int asmIndex, String name) {
 		return name; // TODO: implement
+	}
+
+	@Override
+	public String mapAnnotationAttributeName(String descriptor, String name) {
+		String annotationClass = Type.getType(descriptor).getInternalName();
+		return this.mapMethodNamePrefixDesc(annotationClass, name, "()");
 	}
 
 	void finish(String className, ClassVisitor cv) {
