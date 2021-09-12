@@ -130,11 +130,6 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		return new AsmAnnotationRemapper(descriptor, annotationVisitor, remapper);
 	}
 
-	public static AnnotationRemapper createAsmAnnotationRemapper(String desc, AnnotationVisitor annotationVisitor, Remapper remapper) {
-		System.out.println("static: " + desc + annotationVisitor.toString());
-		return annotationVisitor == null ? null : new AsmAnnotationRemapper(desc, annotationVisitor, remapper);
-	}
-
 	@Override
 	public void visitEnd() {
 		((AsmRemapper) remapper).finish(className, cv);
@@ -183,6 +178,11 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 			this.checkPackageAccess = checkPackageAccess;
 			this.skipLocalMapping = skipLocalMapping;
 			this.renameInvalidLocals = renameInvalidLocals;
+		}
+
+		@Override
+		public AnnotationVisitor createAnnotationRemapper(String descriptor, AnnotationVisitor annotationVisitor) {
+			return new AsmAnnotationRemapper(descriptor, annotationVisitor, remapper);
 		}
 
 		@Override
