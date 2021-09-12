@@ -1,0 +1,9 @@
+tiny	2	0	a	b
+c	com/github/logicf/App	com/github/logicf/Main
+c	com/github/logicf/A1	com/github/logicf/B1
+	m	()I	i	j
+	m	()[I	ir	jr
+	m	()[A2	ar	br
+c	com/github/logicf/A2	com/github/logicf/B2
+	m	()I	x	y
+
