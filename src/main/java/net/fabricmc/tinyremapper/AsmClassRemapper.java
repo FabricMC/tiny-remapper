@@ -100,7 +100,12 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 			PackageAccessChecker.checkDesc(className, descriptor, "field descriptor", (AsmRemapper) remapper);
 		}
 
-		return new AsmFieldRemapper(super.visitField(access, name, descriptor, signature, value), remapper);
+		return super.visitField(access, name, descriptor, signature, value);
+	}
+
+	@Override
+	protected FieldVisitor createFieldRemapper(FieldVisitor fieldVisitor) {
+		return new AsmFieldRemapper(fieldVisitor, remapper);
 	}
 
 	@Override
@@ -113,18 +118,12 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 			methodNode = new MethodNode(api, access, name, descriptor, signature, exceptions);
 		}
 
-		MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
-		return new AsmMethodRemapper(mv, remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
+		return super.visitMethod(access, name, descriptor, signature, exceptions);
 	}
 
 	@Override
-	protected FieldVisitor createFieldRemapper(FieldVisitor fieldVisitor) {
-		return fieldVisitor;
-	}
-
-	@Override
-	protected MethodVisitor createMethodRemapper(MethodVisitor mv) {
-		return mv;
+	protected MethodVisitor createMethodRemapper(MethodVisitor methodVisitor) {
+		return new AsmMethodRemapper(methodVisitor, remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
 	}
 
 	@Override
