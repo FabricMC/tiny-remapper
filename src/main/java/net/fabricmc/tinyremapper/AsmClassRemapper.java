@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 
 import javax.lang.model.SourceVersion;
 
@@ -712,7 +713,9 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		 */
 		@Override
 		public AnnotationVisitor visitArray(String name) {
-			return new AsmArrayAttributeAnnotationRemapper(remapper, name, this);
+			return new AsmArrayAttributeAnnotationRemapper(name,
+					(desc) -> super.visitArray(mapAnnotationAttributeName(name, desc == null ? null : "[" + desc)),
+					remapper);
 		}
 
 		protected String mapAnnotationAttributeName(String name, String attributeDescriptor) {
@@ -748,60 +751,52 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 		private static class AsmArrayAttributeAnnotationRemapper extends AsmAnnotationRemapper {
 			protected final String arrayName;
-			protected final AsmAnnotationRemapper parent;
+			protected final Function<String, AnnotationVisitor> avSupplier;
 
-			AsmArrayAttributeAnnotationRemapper(AsmRemapper remapper, String arrayName, AsmAnnotationRemapper parent) {
+			AsmArrayAttributeAnnotationRemapper(String arrayName, Function<String, AnnotationVisitor> avSupplier, AsmRemapper remapper) {
 				super(null, null, remapper);
 
 				this.arrayName = arrayName;
-				this.parent = Objects.requireNonNull(parent);
+				this.avSupplier = Objects.requireNonNull(avSupplier);
 			}
 
 			@Override
 			public void visit(String name, Object value) {
-				if (av == null) av = visitParent(getDescriptor(value));
+				if (av == null) av = avSupplier.apply(getDescriptor(value));
 
 				super.visit(name, value);
 			}
 
 			@Override
 			public void visitEnum(String name, String descriptor, String value) {
-				if (av == null) av = visitParent(descriptor);
+				if (av == null) av = avSupplier.apply(descriptor);
 
 				super.visitEnum(name, descriptor, value);
 			}
 
 			@Override
 			public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-				if (av == null) av = visitParent(descriptor);
+				if (av == null) av = avSupplier.apply(descriptor);
 
 				return super.visitAnnotation(name, descriptor);
 			}
 
 			@Override
 			public AnnotationVisitor visitArray(String name) {
-				return new AsmArrayAttributeAnnotationRemapper(remapper, name, this);
+				return new AsmArrayAttributeAnnotationRemapper(name,
+						(desc) -> {
+							if (this.av == null) this.av = this.avSupplier.apply(desc == null ? null : "[" + desc);
+
+							return super.visitArray(mapAnnotationAttributeName(name, desc == null ? null : "[" + desc));
+						},
+						remapper);
 			}
 
 			@Override
 			public void visitEnd() {
-				if (av == null) av = visitParent(null);
+				if (av == null) av = avSupplier.apply(null);
 
 				super.visitEnd();
-			}
-
-			/**
-			 * This emulate parent.super.visitArray.
-			 */
-			protected AnnotationVisitor visitParent(String attributeDescriptor) {
-				assert this.av == null;
-
-				// following copy from AnnotationVisitor
-				if (this.parent.av != null) {
-					return this.parent.av.visitArray(mapAnnotationAttributeName(arrayName, attributeDescriptor == null ? null : "[" + attributeDescriptor));
-				} else {
-					return null;
-				}
 			}
 		}
 	}
