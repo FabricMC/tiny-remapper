@@ -18,8 +18,6 @@
 
 package net.fabricmc.tinyremapper;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -33,7 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 public class IntegrationTest3 {
-	private static final String MAPPING2_PATH = "/mapping/mapping3.tiny";
+	private static final String MAPPING3_PATH = "/mapping/mapping3.tiny";
 	private static final String ANNOTATION_INPUT_PATH = "/integration/annotation/input.jar";
 
 	@TempDir
@@ -43,7 +41,7 @@ public class IntegrationTest3 {
 	public static void setup() throws IOException {
 		TestUtil.folder = folder;
 
-		TestUtil.copyFile(IntegrationTest3.class, MAPPING2_PATH);
+		TestUtil.copyFile(IntegrationTest3.class, MAPPING3_PATH);
 
 		TestUtil.copyFile(IntegrationTest3.class, ANNOTATION_INPUT_PATH);
 	}
@@ -67,7 +65,7 @@ public class IntegrationTest3 {
 		final String from = "a";
 		final String to = "b";
 
-		Path mappings = TestUtil.getFile(IntegrationTest3.MAPPING2_PATH).toPath();
+		Path mappings = TestUtil.getFile(IntegrationTest3.MAPPING3_PATH).toPath();
 
 		return TinyRemapper.newRemapper()
 				.withMappings(TinyUtils.createTinyMappingProvider(mappings, from, to))
@@ -111,15 +109,7 @@ public class IntegrationTest3 {
 			remapper.finish();
 		}
 
-		final String MAIN_CLASS = "com/github/logicf/Main.class";
-		final String B1_CLASS = "com/github/logicf/B1.class";
-		final String B2_CLASS = "com/github/logicf/B2.class";
-
 		JarFile result = new JarFile(output.toFile());
-
-		assertNotNull(result.getEntry(MAIN_CLASS));
-		assertNotNull(result.getEntry(B1_CLASS));
-		assertNotNull(result.getEntry(B2_CLASS));
 
 		result.close();
 	}
