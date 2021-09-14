@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 
 import javax.lang.model.SourceVersion;
 
@@ -33,10 +34,8 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.commons.AnnotationRemapper;
 import org.objectweb.asm.commons.FieldRemapper;
 import org.objectweb.asm.commons.MethodRemapper;
-import org.objectweb.asm.commons.Remapper;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LocalVariableNode;
@@ -104,7 +103,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 	@Override
 	protected FieldVisitor createFieldRemapper(FieldVisitor fieldVisitor) {
-		return new AsmFieldRemapper(fieldVisitor, remapper);
+		return new AsmFieldRemapper(fieldVisitor, (AsmRemapper) remapper);
 	}
 
 	@Override
@@ -122,12 +121,12 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 	@Override
 	protected MethodVisitor createMethodRemapper(MethodVisitor methodVisitor) {
-		return new AsmMethodRemapper(methodVisitor, remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
+		return new AsmMethodRemapper(methodVisitor, (AsmRemapper) remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
 	}
 
 	@Override
 	public AnnotationVisitor createAnnotationRemapper(String descriptor, AnnotationVisitor annotationVisitor) {
-		return new AsmAnnotationRemapper(descriptor, annotationVisitor, remapper);
+		return new AsmAnnotationRemapper(descriptor, annotationVisitor, (AsmRemapper) remapper);
 	}
 
 	@Override
@@ -153,19 +152,19 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 	private static class AsmFieldRemapper extends FieldRemapper {
 		AsmFieldRemapper(FieldVisitor fieldVisitor,
-				Remapper remapper) {
+				AsmRemapper remapper) {
 			super(fieldVisitor, remapper);
 		}
 
 		@Override
 		public AnnotationVisitor createAnnotationRemapper(String descriptor, AnnotationVisitor annotationVisitor) {
-			return new AsmAnnotationRemapper(descriptor, annotationVisitor, remapper);
+			return new AsmAnnotationRemapper(descriptor, annotationVisitor, (AsmRemapper) remapper);
 		}
 	}
 
 	private static class AsmMethodRemapper extends MethodRemapper {
 		AsmMethodRemapper(MethodVisitor methodVisitor,
-				Remapper remapper,
+				AsmRemapper remapper,
 				String owner,
 				MethodNode methodNode,
 				boolean checkPackageAccess,
@@ -182,7 +181,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 		@Override
 		public AnnotationVisitor createAnnotationRemapper(String descriptor, AnnotationVisitor annotationVisitor) {
-			return new AsmAnnotationRemapper(descriptor, annotationVisitor, remapper);
+			return new AsmAnnotationRemapper(descriptor, annotationVisitor, (AsmRemapper) remapper);
 		}
 
 		@Override
@@ -661,14 +660,149 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		private final boolean renameInvalidLocals;
 	}
 
-	private static class AsmAnnotationRemapper extends AnnotationRemapper {
-		AsmAnnotationRemapper(String descriptor, AnnotationVisitor annotationVisitor, Remapper remapper) {
-			super(descriptor, annotationVisitor, remapper);
+	/**
+	 * Since sfPlayer want to infer the method descriptor when possible, we need to implement all remapping logic by
+	 * ourselves.
+	 */
+	private static class AsmAnnotationRemapper extends AnnotationVisitor {
+		protected final String descriptor;
+		protected final AsmRemapper remapper;
+
+		AsmAnnotationRemapper(String descriptor, AnnotationVisitor annotationVisitor, AsmRemapper remapper) {
+			super(Opcodes.ASM9, annotationVisitor);
+			this.descriptor = descriptor;
+			this.remapper = remapper;
 		}
 
 		@Override
+		public void visit(String name, Object value) {
+			super.visit(
+					mapAnnotationAttributeName(name, getDescriptor(value)),
+					remapper.mapValue(value));
+		}
+
+		@Override
+		public void visitEnum(String name, String descriptor, String value) {
+			super.visitEnum(
+					mapAnnotationAttributeName(name, descriptor),
+					remapper.mapDesc(descriptor),
+					remapper.mapFieldName(Type.getType(descriptor).getInternalName(), value, descriptor));
+		}
+
+		@Override
+		public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+			AnnotationVisitor annotationVisitor = super.visitAnnotation(
+					mapAnnotationAttributeName(name, descriptor),
+					remapper.mapDesc(descriptor));
+
+			if (annotationVisitor == null) {
+				return null;
+			} else {
+				return annotationVisitor == av ? this : createAnnotationRemapper(descriptor, annotationVisitor);
+			}
+		}
+
 		public AnnotationVisitor createAnnotationRemapper(String descriptor, AnnotationVisitor annotationVisitor) {
 			return new AsmAnnotationRemapper(descriptor, annotationVisitor, remapper);
+		}
+
+		/**
+		 * Some hacks to allow inferring from elements in the array. {@code super.visitArray} will be called inside
+		 * {@link AsmArrayAttributeAnnotationRemapper}.
+		 */
+		@Override
+		public AnnotationVisitor visitArray(String name) {
+			return new AsmArrayAttributeAnnotationRemapper(remapper, name, this);
+		}
+
+		protected String mapAnnotationAttributeName(String name, String attributeDescriptor) {
+			if (descriptor == null || name == null) {
+				return name;
+			}
+
+			String annotationClass = Type.getType(descriptor).getInternalName();
+
+			if (attributeDescriptor == null) {
+				return remapper.mapMethodNamePrefixDesc(annotationClass, name, "()");
+			} else {
+				return remapper.mapMethodName(annotationClass, name, "()" + attributeDescriptor);
+			}
+		}
+
+		protected static String getDescriptor(Object value) {
+			if (value instanceof Type) return ((Type) value).getDescriptor();
+
+			Class<?> cls = value.getClass();
+
+			if (Byte.class.isAssignableFrom(cls)) return "B";
+			if (Boolean.class.isAssignableFrom(cls)) return "Z";
+			if (Character.class.isAssignableFrom(cls)) return "C";
+			if (Short.class.isAssignableFrom(cls)) return "S";
+			if (Integer.class.isAssignableFrom(cls)) return "I";
+			if (Long.class.isAssignableFrom(cls)) return "J";
+			if (Float.class.isAssignableFrom(cls)) return "F";
+			if (Double.class.isAssignableFrom(cls)) return "D";
+
+			return Type.getDescriptor(cls);
+		}
+
+		private static class AsmArrayAttributeAnnotationRemapper extends AsmAnnotationRemapper {
+			protected final String arrayName;
+			protected final AsmAnnotationRemapper parent;
+
+			AsmArrayAttributeAnnotationRemapper(AsmRemapper remapper, String arrayName, AsmAnnotationRemapper parent) {
+				super(null, null, remapper);
+
+				this.arrayName = arrayName;
+				this.parent = Objects.requireNonNull(parent);
+			}
+
+			@Override
+			public void visit(String name, Object value) {
+				if (av == null) av = visitParent(getDescriptor(value));
+
+				super.visit(name, value);
+			}
+
+			@Override
+			public void visitEnum(String name, String descriptor, String value) {
+				if (av == null) av = visitParent(descriptor);
+
+				super.visitEnum(name, descriptor, value);
+			}
+
+			@Override
+			public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+				if (av == null) av = visitParent(descriptor);
+
+				return super.visitAnnotation(name, descriptor);
+			}
+
+			@Override
+			public AnnotationVisitor visitArray(String name) {
+				return new AsmArrayAttributeAnnotationRemapper(remapper, name, this);
+			}
+
+			@Override
+			public void visitEnd() {
+				if (av == null) av = visitParent(null);
+
+				super.visitEnd();
+			}
+
+			/**
+			 * This emulate parent.super.visitArray.
+			 */
+			protected AnnotationVisitor visitParent(String attributeDescriptor) {
+				assert this.av == null;
+
+				// following copy from AnnotationVisitor
+				if (this.parent.av != null) {
+					return this.parent.av.visitArray(mapAnnotationAttributeName(arrayName, attributeDescriptor == null ? null : "[" + attributeDescriptor));
+				} else {
+					return null;
+				}
+			}
 		}
 	}
 }
