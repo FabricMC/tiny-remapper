@@ -35,4 +35,17 @@ public abstract class TrRemapper extends Remapper {
 	 * @param lvIndex the local variable index of the arg
 	 */
 	public abstract String mapMethodArg(String methodOwner, String methodName, String methodDesc, int lvIndex, String name);
+
+	public abstract String mapMethodVar(String methodOwner, String methodName, String methodDesc, int lvIndex, int startOpIdx, int asmIndex, String name);
+
+	/**
+	 * @deprecated Please use {@link TrRemapper#mapAnnotationAttributeName(String, String, String)}
+	 */
+	@Deprecated
+	@Override
+	public String mapAnnotationAttributeName(String descriptor, String name) {
+		return super.mapAnnotationAttributeName(descriptor, name);
+	}
+
+	public abstract String mapAnnotationAttributeName(String annotationDesc, String name, String attributeDesc);
 }

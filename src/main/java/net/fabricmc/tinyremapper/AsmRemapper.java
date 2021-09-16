@@ -27,6 +27,7 @@ import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMethod;
 import net.fabricmc.tinyremapper.api.TrRemapper;
+import org.objectweb.asm.Type;
 
 class AsmRemapper extends TrRemapper {
 	AsmRemapper(MrjState context) {
@@ -135,8 +136,18 @@ class AsmRemapper extends TrRemapper {
 
 	@Override
 	public String mapAnnotationAttributeName(String descriptor, String name) {
-		throw new IllegalStateException("This function should not be invoked. They should be redirected to "
-				+ "AsmAnnotationRemapper#mapAnnotationAttributeName.");
+		throw new RuntimeException("Deprecated function");
+	}
+
+	@Override
+	public String mapAnnotationAttributeName(final String annotationDesc, final String name, String attributeDesc) {
+		String annotationClass = Type.getType(annotationDesc).getInternalName();
+
+		if (attributeDesc == null) {
+			return this.mapMethodNamePrefixDesc(annotationClass, name, "()");
+		} else {
+			return this.mapMethodName(annotationClass, name, "()" + attributeDesc);
+		}
 	}
 
 	void finish(String className, ClassVisitor cv) {
