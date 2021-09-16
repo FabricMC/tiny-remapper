@@ -718,18 +718,12 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 					remapper);
 		}
 
-		protected String mapAnnotationAttributeName(String name, String attributeDescriptor) {
+		protected String mapAnnotationAttributeName(String name, String attributeDesc) {
 			if (descriptor == null || name == null) {
 				return name;
 			}
 
-			String annotationClass = Type.getType(descriptor).getInternalName();
-
-			if (attributeDescriptor == null) {
-				return remapper.mapMethodNamePrefixDesc(annotationClass, name, "()");
-			} else {
-				return remapper.mapMethodName(annotationClass, name, "()" + attributeDescriptor);
-			}
+			return remapper.mapAnnotationAttributeName(descriptor, name, attributeDesc);
 		}
 
 		protected static String getDescriptor(Object value) {
