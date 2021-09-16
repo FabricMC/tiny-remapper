@@ -20,6 +20,10 @@ c	test/TestAnnotation	pkg/c_test_annotation
 	m	()Ltest/TestEnum;	enumVal	m_enum_val
 	m	()[Ltest/TestEnum;	enumArrayVal	m_enum_array_val
 	m	()[Ltest/TestEnum;	enumArrayVal2	m_enum_array_val_2
+	m	()Ltest/TestAnnotation1;	annVal	m_ann_val
+	m	()[Ltest/TestAnnotation1;	annArrayVal	m_ann_array_val
+c	test/TestAnnotation1	pkg/c_test_annotation_1
+	m	()Ljava/lang/String;	strVal	m_str_val
 c	test/TestEnum	pkg/c_test_enum
 	f	Ltest/TestEnum;	Test1	f_test1
 	f	Ltest/TestEnum;	Test2	f_test2
