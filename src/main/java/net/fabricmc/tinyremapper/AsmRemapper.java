@@ -71,6 +71,10 @@ class AsmRemapper extends TrRemapper {
 
 	@Override
 	public String mapMethodName(String owner, String name, String desc) {
+		if (!desc.startsWith("(")) { // workaround for Remapper.mapValue calling mapMethodName even if the Handle is a field one
+			return mapFieldName(owner, name, desc);
+		}
+
 		ClassInstance cls = getClass(owner);
 		if (cls == null) return name; // TODO: try to map these from just the mappings?, warn if actual class is missing
 

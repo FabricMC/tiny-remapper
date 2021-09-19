@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 
@@ -50,6 +51,7 @@ public class Main {
 		boolean rebuildSourceFilenames = false;
 		boolean skipLocalVariableMapping = false;
 		boolean renameInvalidLocals = false;
+		Pattern invalidLvNamePattern = null;
 		NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
 		int threads = -1;
 
@@ -104,6 +106,9 @@ public class Main {
 					break;
 				case "renameinvalidlocals":
 					renameInvalidLocals = true;
+					break;
+				case "invalidlvnamepattern":
+					invalidLvNamePattern = Pattern.compile(arg.substring(valueSepPos + 1));
 					break;
 				case "nonclasscopymode":
 					switch (arg.substring(valueSepPos + 1).toLowerCase(Locale.ENGLISH)) {
@@ -208,6 +213,7 @@ public class Main {
 				.rebuildSourceFilenames(rebuildSourceFilenames)
 				.skipLocalVariableMapping(skipLocalVariableMapping)
 				.renameInvalidLocals(renameInvalidLocals)
+				.invalidLvNamePattern(invalidLvNamePattern)
 				.threads(threads)
 				.build();
 
