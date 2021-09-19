@@ -21,6 +21,7 @@ package net.fabricmc.tinyremapper;
 import java.util.Collection;
 
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Type;
 
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
@@ -135,6 +136,22 @@ class AsmRemapper extends TrRemapper {
 
 	public String mapMethodVar(String methodOwner, String methodName, String methodDesc, int lvIndex, int startOpIdx, int asmIndex, String name) {
 		return name; // TODO: implement
+	}
+
+	@Override
+	public String mapAnnotationAttributeName(String descriptor, String name) {
+		throw new RuntimeException("Deprecated function");
+	}
+
+	@Override
+	public String mapAnnotationAttributeName(final String annotationDesc, final String name, String attributeDesc) {
+		String annotationClass = Type.getType(annotationDesc).getInternalName();
+
+		if (attributeDesc == null) {
+			return this.mapMethodNamePrefixDesc(annotationClass, name, "()");
+		} else {
+			return this.mapMethodName(annotationClass, name, "()" + attributeDesc);
+		}
 	}
 
 	void finish(String className, ClassVisitor cv) {
