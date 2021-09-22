@@ -18,6 +18,8 @@
 
 package net.fabricmc.tinyremapper.api;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Predicate;
@@ -138,5 +140,16 @@ public interface TrClass {
 	 */
 	default boolean isModule() {
 		return (getAccess() & Opcodes.ACC_MODULE) != 0;
+	}
+
+	static Path getPathInJar(String clsName, int mrjVersion) {
+		final String CLASS_SUFFIX = ".class";
+		final String MRJ_PREFIX = "/META-INF/versions";
+
+		if (mrjVersion != TrEnvironment.DEFAULT_MRJ_VERSION) {
+			return Paths.get(MRJ_PREFIX, Integer.toString(mrjVersion), clsName + CLASS_SUFFIX);
+		} else {
+			return Paths.get(clsName + CLASS_SUFFIX);
+		}
 	}
 }

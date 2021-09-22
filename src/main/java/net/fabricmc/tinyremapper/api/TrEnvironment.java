@@ -40,4 +40,6 @@ public interface TrEnvironment {
 	}
 
 	void propagate(TrMember member, String newName);
+
+	int DEFAULT_MRJ_VERSION = -1;
 }
