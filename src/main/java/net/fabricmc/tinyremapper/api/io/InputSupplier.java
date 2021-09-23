@@ -22,56 +22,20 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
-
-import net.fabricmc.tinyremapper.api.TrClass;
+import java.util.function.Predicate;
 
 public interface InputSupplier {
-	/**
-	 * Only {@link InputConsumer#acceptResourceFile(Path, byte[])}
-	 * and {@link InputConsumer#acceptClassFile(Path, byte[])}
-	 * will be overwritten in the internal implementation.
-	 */
 	interface InputConsumer {
-		/**
-		 * @deprecated Unstable API
-		 */
-		@Deprecated
-		void acceptResourceFile(Path path, byte[] data);
-		void acceptClassFile(Path path, byte[] data);
-		default void acceptClassFile(String name, int mrjVersion, byte[] data) {
-			this.acceptClassFile(TrClass.getPathInJar(name, mrjVersion), data);
-		}
+		void accept(Path path, byte[] data);
 	}
 
 	/**
-	 * Flags to indicate which type of file should be read. Only useful for sub-classes.
-	 */
-	enum FileType {
-		CLASS_FILE, RESOURCE_FILE
-	}
-
-	/**
-	 * Get the source of the input. Only useful for logging.
+	 * Get the source of the input.
 	 */
 	String getSource();
 
 	/**
-	 * Must be called exactly once before {@link InputSupplier#load(InputConsumer)}.
+	 * Load matching files into {@link InputConsumer}.
 	 */
-	void open() throws IOException;
-
-	/**
-	 * Load files into {@link InputConsumer}. Only valid after {@link InputSupplier#open()}, before {@link InputSupplier#close()}.
-	 */
-	CompletableFuture<?> loadAsync(InputConsumer consumer, Executor executor);
-	default void load(InputConsumer consumer) {
-		// ForkJoinPool.commonPool() is the default executor in Java.
-		loadAsync(consumer, ForkJoinPool.commonPool()).join();
-	}
-
-	/**
-	 * Release any resources binding with this object.
-	 */
-	void close() throws IOException;
+	CompletableFuture<?> read(Predicate<String> fileNameFilter, Executor executor, InputConsumer consumer) throws IOException;
 }

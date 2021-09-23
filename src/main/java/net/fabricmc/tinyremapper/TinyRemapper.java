@@ -19,6 +19,7 @@
 package net.fabricmc.tinyremapper;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -42,6 +43,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -61,7 +64,7 @@ import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.api.io.InputSupplier;
-import net.fabricmc.tinyremapper.legacy.PathInputSupplier;
+import net.fabricmc.tinyremapper.util.PathInputSupplier;
 
 public class TinyRemapper {
 	public static class Builder {
@@ -397,21 +400,13 @@ public class TinyRemapper {
 		for (InputSupplier input : inputs) {
 			String source = input.getSource();
 
-			try {
-				input.open();
-				futures.add(input.loadAsync(new InputSupplier.InputConsumer() {
-					@Override
-					public void acceptResourceFile(Path path, byte[] data) { }
-
-					@Override
-					public void acceptClassFile(Path path, byte[] data) {
-						ClassInstance cls = analyze(isInput, tags, source, path, data);
-						if (cls != null) addClass(cls, readClasses, true);
-					}
-				}, threadPool));
-			} catch (IOException e) {
-				System.out.println("Fail to open file " + source);
-			}
+			futures.add(CompletableFuture.supplyAsync(() -> {
+				try {
+					return input.read(classFileNameFilter, threadPool, (path, data) -> analyze(isInput, tags, source, path, data));
+				} catch (IOException e) {
+					throw new UncheckedIOException("Error reading "+input, e);
+				}
+			}).thenCompose(Function.identity()));
 		}
 
 		if (!dirty) {
@@ -422,16 +417,7 @@ public class TinyRemapper {
 			}
 		}
 
-		return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-				.thenRunAsync(() -> {
-					for (InputSupplier input : inputs) {
-						try {
-							input.close();
-						} catch (IOException e) {
-							throw new RuntimeException(e);
-						}
-					}
-				}, threadPool);
+		return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
 	}
 
 	/** Path overloads. **/
@@ -450,7 +436,7 @@ public class TinyRemapper {
 	public CompletableFuture<?> readInputsAsync(InputTag tag, Path... paths) {
 		InputSupplier[] inputs = new InputSupplier[paths.length];
 
-		for (int i = 0; i < paths.length; i += 1) {
+		for (int i = 0; i < paths.length; i++) {
 			try {
 				inputs[i] = new PathInputSupplier(paths[i]);
 			} catch (IOException e) {
@@ -543,21 +529,21 @@ public class TinyRemapper {
 			}
 		}
 
-		return ClassInstance.MRJ_DEFAULT;
+		return TrEnvironment.DEFAULT_MRJ_VERSION;
 	}
 
-	private ClassInstance analyze(boolean isInput, InputTag[] tags, String source, Path file, byte[] data) {
+	private void analyze(boolean isInput, InputTag[] tags, String source, Path file, byte[] data) {
 		ClassReader reader = new ClassReader(data);
 
-		if ((reader.getAccess() & Opcodes.ACC_MODULE) != 0) return null; // special attribute for module-info.class, can't be a regular class
+		if ((reader.getAccess() & Opcodes.ACC_MODULE) != 0) return; // special attribute for module-info.class, can't be a regular class
 
-		final ClassInstance ret = new ClassInstance(this, isInput, tags, source, isInput ? data : null);
+		final ClassInstance cls = new ClassInstance(this, isInput, tags, source, isInput ? data : null);
 
 		reader.accept(new ClassVisitor(Opcodes.ASM9) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 				int mrjVersion = analyzeMrjVersion(file, name);
-				ret.init(mrjVersion, name, signature, superName, access, interfaces);
+				cls.init(mrjVersion, name, signature, superName, access, interfaces);
 
 				for (int i = analyzeVisitors.size() - 1; i >= 0; i--) {
 					cv = analyzeVisitors.get(i).insertAnalyzeVisitor(mrjVersion, name, cv);
@@ -568,22 +554,22 @@ public class TinyRemapper {
 
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.METHOD, ret, name, desc, access, ret.getMembers().size()));
-				if (prev != null) throw new RuntimeException(String.format("duplicate method %s/%s%s in inputs", ret.getName(), name, desc));
+				MemberInstance prev = cls.addMember(new MemberInstance(TrMember.MemberType.METHOD, cls, name, desc, access, cls.getMembers().size()));
+				if (prev != null) throw new RuntimeException(String.format("duplicate method %s/%s%s in inputs", cls.getName(), name, desc));
 
 				return super.visitMethod(access, name, desc, signature, exceptions);
 			}
 
 			@Override
 			public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
-				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.FIELD, ret, name, desc, access, ret.getMembers().size()));
-				if (prev != null) throw new RuntimeException(String.format("duplicate field %s/%s;;%s in inputs", ret.getName(), name, desc));
+				MemberInstance prev = cls.addMember(new MemberInstance(TrMember.MemberType.FIELD, cls, name, desc, access, cls.getMembers().size()));
+				if (prev != null) throw new RuntimeException(String.format("duplicate field %s/%s;;%s in inputs", cls.getName(), name, desc));
 
 				return super.visitField(access, name, desc, signature, value);
 			}
 		}, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
 
-		return ret;
+		addClass(cls, readClasses, true);
 	}
 
 	private void loadMappings() {
@@ -1279,7 +1265,9 @@ public class TinyRemapper {
 		volatile boolean dirty = true;
 	}
 
-	private final boolean check = false;
+	private static final boolean check = false;
+
+	private static final Predicate<String> classFileNameFilter = name -> name.endsWith(".class");
 
 	private final boolean keepInputData;
 	final Set<String> forcePropagation;
@@ -1306,7 +1294,7 @@ public class TinyRemapper {
 	final List<CompletableFuture<?>> pendingReads = new ArrayList<>(); // reads that need to be waited for before continuing processing (assumes lack of external waiting)
 	final Map<String, ClassInstance> readClasses = new ConcurrentHashMap<>(); // classes being potentially concurrently read, to be transferred into unsynchronized classes later
 
-	final MrjState defaultState = new MrjState(this, ClassInstance.MRJ_DEFAULT);
+	final MrjState defaultState = new MrjState(this, TrEnvironment.DEFAULT_MRJ_VERSION);
 	final Map<Integer, MrjState> mrjStates = new HashMap<>();
 
 	{

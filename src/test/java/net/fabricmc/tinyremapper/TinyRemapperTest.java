@@ -26,6 +26,8 @@ import java.nio.file.Paths;
 
 import org.junit.jupiter.api.Test;
 
+import net.fabricmc.tinyremapper.api.TrEnvironment;
+
 class TinyRemapperTest {
 	@Test
 	public void analyzeMrjVersion() throws ReflectiveOperationException {
@@ -53,27 +55,27 @@ class TinyRemapperTest {
 
 		input = "/path/to/bin/com/github/logicf/App.class";
 		result = getMrjVersionFromPath(input, name);
-		assertEquals(ClassInstance.MRJ_DEFAULT, result);
+		assertEquals(TrEnvironment.DEFAULT_MRJ_VERSION, result);
 
 		input = "/path/to/bin/META-INF/versions/16/abc/com/github/logicf/App.class";
 		result = getMrjVersionFromPath(input, name);
-		assertEquals(ClassInstance.MRJ_DEFAULT, result);
+		assertEquals(TrEnvironment.DEFAULT_MRJ_VERSION, result);
 
 		input = "/path/to/bin/versions/16/com/github/logicf/App.class";
 		result = getMrjVersionFromPath(input, name);
-		assertEquals(ClassInstance.MRJ_DEFAULT, result);
+		assertEquals(TrEnvironment.DEFAULT_MRJ_VERSION, result);
 
 		input = "/META-INF/versions/9aa/com/github/logicf/App.class";
 		result = getMrjVersionFromPath(input, name);
-		assertEquals(ClassInstance.MRJ_DEFAULT, result);
+		assertEquals(TrEnvironment.DEFAULT_MRJ_VERSION, result);
 
 		input = "/bin/App.class";
 		result = getMrjVersionFromPath(input, name);
-		assertEquals(ClassInstance.MRJ_DEFAULT, result);
+		assertEquals(TrEnvironment.DEFAULT_MRJ_VERSION, result);
 
 		input = "App.class";
 		result = getMrjVersionFromPath(input, name);
-		assertEquals(ClassInstance.MRJ_DEFAULT, result);
+		assertEquals(TrEnvironment.DEFAULT_MRJ_VERSION, result);
 	}
 
 	private static int getMrjVersionFromPath(String file, String name) throws ReflectiveOperationException {
