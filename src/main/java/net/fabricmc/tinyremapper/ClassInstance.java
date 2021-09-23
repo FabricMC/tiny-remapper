@@ -18,7 +18,6 @@
 
 package net.fabricmc.tinyremapper;
 
-import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,12 +50,12 @@ import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.api.TrMethod;
 
 public final class ClassInstance implements TrClass {
-	ClassInstance(TinyRemapper tr, boolean isInput, InputTag[] inputTags, Path srcFile, byte[] data) {
+	ClassInstance(TinyRemapper tr, boolean isInput, InputTag[] inputTags, String source, byte[] data) {
 		assert !isInput || data != null;
 		this.tr = tr;
 		this.isInput = isInput;
 		this.inputTags = inputTags;
-		this.srcPath = srcFile;
+		this.source = source;
 		this.data = data;
 		this.mrjOrigin = this;
 	}
@@ -837,7 +836,7 @@ public final class ClassInstance implements TrClass {
 
 	ClassInstance constructMrjCopy(MrjState newContext) {
 		// isInput should be false, since the MRJ copy should not be emitted
-		ClassInstance copy = new ClassInstance(tr, false, inputTags, srcPath, data);
+		ClassInstance copy = new ClassInstance(tr, false, inputTags, source, data);
 		copy.init(mrjVersion, name, signature, superName, access, interfaces);
 		copy.setContext(newContext);
 
@@ -885,7 +884,7 @@ public final class ClassInstance implements TrClass {
 
 	final boolean isInput;
 	private volatile InputTag[] inputTags; // cow input tag list, null for none
-	final Path srcPath;
+	final String source;
 	byte[] data;
 	private ClassInstance mrjOrigin;
 	private final Map<String, MemberInstance> members = new HashMap<>(); // methods and fields are distinct due to their different desc separators
