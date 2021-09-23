@@ -328,6 +328,7 @@ public class TinyRemapper {
 	/**
 	 * @deprecated Unstable API
 	 */
+	@Deprecated
 	public void readInputs(InputSupplier... inputs) {
 		readInputsAsync(inputs).join();
 	}
@@ -335,6 +336,7 @@ public class TinyRemapper {
 	/**
 	 * @deprecated Unstable API
 	 */
+	@Deprecated
 	public void readInputs(InputTag tag, InputSupplier... inputs) {
 		readInputsAsync(tag, inputs).join();
 	}
@@ -342,6 +344,7 @@ public class TinyRemapper {
 	/**
 	 * @deprecated Unstable API
 	 */
+	@Deprecated
 	public CompletableFuture<?> readInputsAsync(InputSupplier... inputs) {
 		return readInputsAsync(null, inputs);
 	}
@@ -349,6 +352,7 @@ public class TinyRemapper {
 	/**
 	 * @deprecated Unstable API
 	 */
+	@Deprecated
 	public CompletableFuture<?> readInputsAsync(InputTag tag, InputSupplier... inputs) {
 		CompletableFuture<?> ret = readAsync0(true, tag, inputs);
 
@@ -364,6 +368,7 @@ public class TinyRemapper {
 	/**
 	 * @deprecated Unstable API
 	 */
+	@Deprecated
 	public void readClasspath(InputSupplier... inputs) {
 		readClasspathAsync(inputs).join();
 	}
@@ -371,6 +376,7 @@ public class TinyRemapper {
 	/**
 	 * @deprecated Unstable API
 	 */
+	@Deprecated
 	public CompletableFuture<?> readClasspathAsync(InputSupplier... inputs) {
 		CompletableFuture<?> ret = readAsync0(false, null, inputs);
 

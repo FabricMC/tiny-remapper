@@ -872,6 +872,7 @@ public final class ClassInstance implements TrClass {
 	/**
 	 * @deprecated Please use {@link TrEnvironment#DEFAULT_MRJ_VERSION}.
 	 */
+	@Deprecated
 	public static final int MRJ_DEFAULT = -1;
 	public static final String MRJ_PREFIX = "/META-INF/versions";
 

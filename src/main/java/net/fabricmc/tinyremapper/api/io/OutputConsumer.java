@@ -29,6 +29,7 @@ import net.fabricmc.tinyremapper.api.TrClass;
  * and {@link OutputConsumer#acceptClassFile(String, int, byte[])}
  * will be called in the internal implementation.
  */
+@Deprecated
 public interface OutputConsumer {
 	void acceptResource(Path path, byte[] data) throws IOException;
 	void acceptClassFile(Path path, byte[] data) throws IOException;

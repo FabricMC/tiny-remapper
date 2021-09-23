@@ -23,6 +23,7 @@ import java.io.IOException;
 /**
  * @deprecated Not Implemented.
  */
+@Deprecated
 public interface MappingSupplier {
 	String getSource();
 	void load(MappingConsumer consumer) throws IOException;

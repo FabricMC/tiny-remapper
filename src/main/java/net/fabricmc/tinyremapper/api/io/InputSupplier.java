@@ -36,6 +36,7 @@ public interface InputSupplier {
 		/**
 		 * @deprecated Unstable API
 		 */
+		@Deprecated
 		void acceptResourceFile(Path path, byte[] data);
 		void acceptClassFile(Path path, byte[] data);
 		default void acceptClassFile(String name, int mrjVersion, byte[] data) {
