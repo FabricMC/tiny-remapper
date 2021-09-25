@@ -84,6 +84,16 @@ public class TinyRemapper {
 		}
 
 		public Builder threads(int threadCount) {
+			this.service = Executors.newFixedThreadPool(threadCount);
+			this.threadCount = threadCount;
+			return this;
+		}
+
+		/**
+		 * @param threadCount The amount, or an approximation of the amount of threads this Executor service can use
+		 */
+		public Builder threadExecutor(ExecutorService service, int threadCount) {
+			this.service = service;
 			this.threadCount = threadCount;
 			return this;
 		}
@@ -177,7 +187,7 @@ public class TinyRemapper {
 		}
 
 		public TinyRemapper build() {
-			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount,
+			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount, service,
 					keepInputData,
 					forcePropagation, propagatePrivate,
 					propagateBridges, propagateRecordComponents,
@@ -190,7 +200,7 @@ public class TinyRemapper {
 
 		private final Set<IMappingProvider> mappingProviders = new HashSet<>();
 		private boolean ignoreFieldDesc;
-		private int threadCount;
+		private ExecutorService service;
 		private final Set<String> forcePropagation = new HashSet<>();
 		private boolean keepInputData = false;
 		private boolean propagatePrivate = false;
@@ -207,10 +217,12 @@ public class TinyRemapper {
 		private ClassVisitor extraAnalyzeVisitor;
 		private Remapper extraRemapper;
 		private WrapperFunction pre, post;
+		private int threadCount;
 	}
 
 	private TinyRemapper(Collection<IMappingProvider> mappingProviders, boolean ignoreFieldDesc,
 			int threadCount,
+			ExecutorService service,
 			boolean keepInputData,
 			Set<String> forcePropagation, boolean propagatePrivate,
 			LinkedMethodPropagation propagateBridges, LinkedMethodPropagation propagateRecordComponents,
@@ -225,11 +237,11 @@ public class TinyRemapper {
 			ClassVisitor extraAnalyzeVisitor, Remapper extraRemapper, WrapperFunction pre, WrapperFunction post) {
 		this.mappingProviders = mappingProviders;
 		this.ignoreFieldDesc = ignoreFieldDesc;
-		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
 		this.keepInputData = keepInputData;
+		this.threadCount = threadCount;
 		this.pre = pre;
 		this.post = post;
-		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
+		this.threadPool = service;
 		this.forcePropagation = forcePropagation;
 		this.propagatePrivate = propagatePrivate;
 		this.propagateBridges = propagateBridges;
