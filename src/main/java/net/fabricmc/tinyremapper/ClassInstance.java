@@ -452,7 +452,7 @@ public final class ClassInstance implements TrClass {
 
 		if (member == null) {
 			// compute
-			member = resolve0(type, id);
+			member = resolve0(type, id, null);
 			assert member != null;
 
 			// put in cache
@@ -463,7 +463,11 @@ public final class ClassInstance implements TrClass {
 		return member != nullMember ? member : null;
 	}
 
-	private MemberInstance resolve0(MemberType type, String id) {
+	public void resolve(MemberType type, String id, List<MemberInstance> multiResolve) {
+		this.resolve0(type, id, multiResolve);
+	}
+
+	private MemberInstance resolve0(MemberType type, String id, List<MemberInstance> multiResolve) {
 		boolean isField = type == TrMember.MemberType.FIELD;
 		Set<ClassInstance> visited = Collections.newSetFromMap(new IdentityHashMap<>());
 		Deque<ClassInstance> queue = new ArrayDeque<>();
@@ -482,7 +486,13 @@ public final class ClassInstance implements TrClass {
 				for (ClassInstance parent : cls.parents) {
 					if (parent.isInterface() == isField && visited.add(parent)) {
 						MemberInstance ret = parent.getMember(type, id);
-						if (ret != null) return ret;
+						if (ret != null) {
+							if(multiResolve == null) {
+								return ret;
+							} else {
+								multiResolve.add(ret);
+							}
+						}
 
 						queue.addLast(parent);
 					}
@@ -518,7 +528,11 @@ public final class ClassInstance implements TrClass {
 								if (!isField && (parentMember.access & (Opcodes.ACC_ABSTRACT)) != 0) {
 									secondaryMatch = parentMember;
 								} else {
-									return parentMember;
+									if(multiResolve == null) {
+										return parentMember;
+									} else {
+										multiResolve.add(parentMember);
+									}
 								}
 							}
 						}
@@ -528,6 +542,14 @@ public final class ClassInstance implements TrClass {
 				}
 			} while (!isField && (cls = queue.pollFirst()) != null);
 		} while ((context = queue.pollFirst()) != null); // overall-recursion for fields
+		if(multiResolve != null) {
+			if(secondaryMatch != null) {
+				multiResolve.add(secondaryMatch);
+			}
+			if(!multiResolve.isEmpty()) {
+				return multiResolve.get(0);
+			}
+		}
 
 		return secondaryMatch != null ? secondaryMatch : nullMember;
 	}
