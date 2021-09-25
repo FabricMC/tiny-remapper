@@ -85,8 +85,8 @@ public class TinyRemapper {
 		}
 
 		public Builder threads(int threadCount) {
-			this.service = Executors.newFixedThreadPool(threadCount);
-			this.threadCount = threadCount;
+			this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
+			this.service = Executors.newFixedThreadPool(this.threadCount);
 			return this;
 		}
 
