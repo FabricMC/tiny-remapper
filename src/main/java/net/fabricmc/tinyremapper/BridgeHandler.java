@@ -1,3 +1,21 @@
+/*
+ * Copyright (c) 2016, 2018, Player, asie
+ * Copyright (c) 2020, 2021, FabricMC
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package net.fabricmc.tinyremapper;
 
 import org.objectweb.asm.ClassVisitor;
@@ -19,7 +37,7 @@ final class BridgeHandler {
 		String bridgeId = bridgeMethod.getId();
 		int descStart = bridgeId.indexOf('(');
 
-		for (MemberInstance m : bridgeMethod.cls.getMembers0()) {
+		for (MemberInstance m : bridgeMethod.cls.getMembers()) {
 			if (m != bridgeMethod // same method
 					&& m.isVirtual() // not a method or not relevant
 					&& !m.isBridge() // method is a bridge on its own
@@ -85,7 +103,7 @@ final class BridgeHandler {
 	}
 
 	public static void generateCompatBridges(ClassInstance cls, AsmRemapper remapper, ClassVisitor out) {
-		memberLoop: for (MemberInstance m : cls.getMembers0()) {
+		memberLoop: for (MemberInstance m : cls.getMembers()) {
 			String bridgedName = m.getNewBridgedName();
 			String mappedName;
 
@@ -95,7 +113,7 @@ final class BridgeHandler {
 				continue;
 			}
 
-			for (MemberInstance o : cls.getMembers0()) {
+			for (MemberInstance o : cls.getMembers()) {
 				if (o != m
 						&& o.desc.equals(m.desc)
 						&& remapper.mapMethodName(cls.getName(), o.name, o.desc).equals(mappedName)) {

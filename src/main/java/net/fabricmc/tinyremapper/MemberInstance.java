@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2016, 2018 Player, asie
+ * Copyright (c) 2016, 2018, Player, asie
+ * Copyright (c) 2019, 2021, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -23,15 +24,48 @@ import org.objectweb.asm.Opcodes;
 
 import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
 import net.fabricmc.tinyremapper.api.TrClass;
+import net.fabricmc.tinyremapper.api.TrField;
 import net.fabricmc.tinyremapper.api.TrMember;
+import net.fabricmc.tinyremapper.api.TrMethod;
 
-public final class MemberInstance implements TrMember {
-	MemberInstance(TrMember.MemberType type, ClassInstance cls, String name, String desc, int access) {
+public final class MemberInstance implements TrField, TrMethod {
+	MemberInstance(TrMember.MemberType type, ClassInstance cls, String name, String desc, int access, int index) {
 		this.type = type;
 		this.cls = cls;
 		this.name = name;
 		this.desc = desc;
 		this.access = access;
+		this.index = index;
+	}
+
+	@Override
+	public MemberType getType() {
+		return this.type;
+	}
+
+	@Override
+	public TrClass getOwner() {
+		return this.cls;
+	}
+
+	@Override
+	public String getName() {
+		return this.name;
+	}
+
+	@Override
+	public String getDesc() {
+		return this.desc;
+	}
+
+	@Override
+	public int getAccess() {
+		return this.access;
+	}
+
+	@Override
+	public int getIndex() {
+		return index;
 	}
 
 	public MrjState getContext() {
@@ -42,26 +76,11 @@ public final class MemberInstance implements TrMember {
 		return getId(type, name, desc, cls.tr.ignoreFieldDesc);
 	}
 
-	public boolean isStatic() {
-		return (access & Opcodes.ACC_STATIC) != 0;
-	}
-
-	public boolean isVirtual() {
-		return type == TrMember.MemberType.METHOD && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
-	}
-
-	public boolean isBridge() {
-		return type == TrMember.MemberType.METHOD && (access & Opcodes.ACC_BRIDGE) != 0;
-	}
-
 	public boolean isPublicOrPrivate() {
 		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
 	}
 
-	public boolean isProtected() {
-		return (access & Opcodes.ACC_PROTECTED) != 0;
-	}
-
+	@Override
 	public String getNewName() {
 		String ret = newBridgedName;
 
@@ -126,36 +145,12 @@ public final class MemberInstance implements TrMember {
 	private static final AtomicReferenceFieldUpdater<MemberInstance, String> newNameUpdater = AtomicReferenceFieldUpdater.newUpdater(MemberInstance.class, String.class, "newName");
 	private static final AtomicReferenceFieldUpdater<MemberInstance, String> newBridgedNameUpdater = AtomicReferenceFieldUpdater.newUpdater(MemberInstance.class, String.class, "newBridgedName");
 
-	@Override
-	public TrClass getOwner() {
-		return this.cls;
-	}
-
-	@Override
-	public int getAccess() {
-		return this.access;
-	}
-
-	@Override
-	public String getName() {
-		return this.name;
-	}
-
-	@Override
-	public String getDesc() {
-		return this.desc;
-	}
-
-	@Override
-	public MemberType getType() {
-		return this.type;
-	}
-
 	final TrMember.MemberType type;
 	final ClassInstance cls;
 	final String name;
 	final String desc;
 	final int access;
+	final int index;
 	private volatile String newName;
 	private volatile String newBridgedName;
 	String newNameOriginatingCls;

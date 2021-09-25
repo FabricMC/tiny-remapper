@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2016, 2018 Player, asie
+ * Copyright (c) 2016, 2018, Player, asie
+ * Copyright (c) 2018, 2021, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -17,14 +18,18 @@
 
 package net.fabricmc.tinyremapper;
 
+import java.util.Collection;
+
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Type;
 
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
 import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
-import net.fabricmc.tinyremapper.api.ExtendedRemapper;
 import net.fabricmc.tinyremapper.api.TrMember;
+import net.fabricmc.tinyremapper.api.TrMethod;
+import net.fabricmc.tinyremapper.api.TrRemapper;
 
-class AsmRemapper extends ExtendedRemapper {
+class AsmRemapper extends TrRemapper {
 	AsmRemapper(MrjState context) {
 		this.context = context;
 		this.tr = context.tr;
@@ -66,6 +71,10 @@ class AsmRemapper extends ExtendedRemapper {
 
 	@Override
 	public String mapMethodName(String owner, String name, String desc) {
+		if (!desc.startsWith("(")) { // workaround for Remapper.mapValue calling mapMethodName even if the Handle is a field one
+			return mapFieldName(owner, name, desc);
+		}
+
 		ClassInstance cls = getClass(owner);
 		if (cls == null) return name; // TODO: try to map these from just the mappings?, warn if actual class is missing
 
@@ -90,7 +99,8 @@ class AsmRemapper extends ExtendedRemapper {
 		ClassInstance cls = getClass(owner);
 		if (cls == null) return name;
 
-		MemberInstance member = cls.resolvePartial(TrMember.MemberType.METHOD, name, descPrefix);
+		Collection<TrMethod> members = cls.resolveMethods(name, descPrefix, true, null, null);
+		MemberInstance member = members.size() == 1 ? (MemberInstance) members.iterator().next() : null;
 		String newName;
 
 		if (member != null && (newName = member.getNewName()) != null) {
@@ -128,6 +138,22 @@ class AsmRemapper extends ExtendedRemapper {
 		return name; // TODO: implement
 	}
 
+	@Override
+	public String mapAnnotationAttributeName(String descriptor, String name) {
+		throw new RuntimeException("Deprecated function");
+	}
+
+	@Override
+	public String mapAnnotationAttributeName(final String annotationDesc, final String name, String attributeDesc) {
+		String annotationClass = Type.getType(annotationDesc).getInternalName();
+
+		if (attributeDesc == null) {
+			return this.mapMethodNamePrefixDesc(annotationClass, name, "()");
+		} else {
+			return this.mapMethodName(annotationClass, name, "()" + attributeDesc);
+		}
+	}
+
 	void finish(String className, ClassVisitor cv) {
 		ClassInstance cls = null;
 
@@ -142,7 +168,7 @@ class AsmRemapper extends ExtendedRemapper {
 	}
 
 	ClassInstance getClass(String owner) {
-		return context.getClass0(owner);
+		return context.getClass(owner);
 	}
 
 	final MrjState context;

@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2016, 2018 Player, asie
+ * Copyright (c) 2016, 2018, Player, asie
+ * Copyright (c) 2016, 2021, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -49,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.ZipError;
 
@@ -63,11 +65,10 @@ import org.objectweb.asm.util.CheckClassAdapter;
 
 import net.fabricmc.tinyremapper.IMappingProvider.MappingAcceptor;
 import net.fabricmc.tinyremapper.IMappingProvider.Member;
-import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.api.TrMember;
-import net.fabricmc.tinyremapper.api.WrapperFunction;
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 
 public class TinyRemapper {
 	public static class Builder {
@@ -166,8 +167,30 @@ public class TinyRemapper {
 			return this;
 		}
 
+		/**
+		 * Pattern that flags matching local variable (and arg) names as invalid for the usual renameInvalidLocals processing.
+		 */
+		public Builder invalidLvNamePattern(Pattern value) {
+			this.invalidLvNamePattern = value;
+			return this;
+		}
+
+		@Deprecated
 		public Builder extraAnalyzeVisitor(ClassVisitor visitor) {
-			extraAnalyzeVisitor = visitor;
+			return extraAnalyzeVisitor((mrjVersion, className, next) -> {
+				if (next != null) throw new UnsupportedOperationException("can't chain fixed instance analyze visitors");
+
+				return visitor;
+			});
+		}
+
+		public Builder extraAnalyzeVisitor(AnalyzeVisitorProvider provider) {
+			analyzeVisitors.add(provider);
+			return this;
+		}
+
+		public Builder extraStateProcessor(StateProcessor processor) {
+			stateProcessors.add(processor);
 			return this;
 		}
 
@@ -176,13 +199,18 @@ public class TinyRemapper {
 			return this;
 		}
 
-		public Builder extraPreVisitor(WrapperFunction func) {
-			this.pre = func;
+		public Builder extraPreApplyVisitor(ApplyVisitorProvider provider) {
+			preApplyVisitors.add(provider);
 			return this;
 		}
 
-		public Builder extraPostVisitor(WrapperFunction func) {
-			this.post = func;
+		public Builder extraPostApplyVisitor(ApplyVisitorProvider provider) {
+			this.postApplyVisitors.add(provider);
+			return this;
+		}
+
+		public Builder extension(TinyRemapper.Extension extension) {
+			extension.attach(this);
 			return this;
 		}
 
@@ -192,8 +220,9 @@ public class TinyRemapper {
 					forcePropagation, propagatePrivate,
 					propagateBridges, propagateRecordComponents,
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
-					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals,
-					extraAnalyzeVisitor, extraRemapper, pre, post);
+					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals, invalidLvNamePattern,
+					analyzeVisitors, stateProcessors, preApplyVisitors, postApplyVisitors,
+					extraRemapper);
 
 			return remapper;
 		}
@@ -214,10 +243,29 @@ public class TinyRemapper {
 		private boolean rebuildSourceFilenames = false;
 		private boolean skipLocalMapping = false;
 		private boolean renameInvalidLocals = false;
-		private ClassVisitor extraAnalyzeVisitor;
+		private Pattern invalidLvNamePattern;
+		private final List<AnalyzeVisitorProvider> analyzeVisitors = new ArrayList<>();
+		private final List<StateProcessor> stateProcessors = new ArrayList<>();
+		private final List<ApplyVisitorProvider> preApplyVisitors = new ArrayList<>();
+		private final List<ApplyVisitorProvider> postApplyVisitors = new ArrayList<>();
 		private Remapper extraRemapper;
-		private WrapperFunction pre, post;
 		private int threadCount;
+	}
+
+	public interface Extension {
+		void attach(TinyRemapper.Builder builder);
+	}
+
+	public interface AnalyzeVisitorProvider {
+		ClassVisitor insertAnalyzeVisitor(int mrjVersion, String className, ClassVisitor next);
+	}
+
+	public interface StateProcessor {
+		void process(TrEnvironment env);
+	}
+
+	public interface ApplyVisitorProvider {
+		ClassVisitor insertApplyVisitor(TrClass cls, ClassVisitor next);
 	}
 
 	private TinyRemapper(Collection<IMappingProvider> mappingProviders, boolean ignoreFieldDesc,
@@ -233,14 +281,14 @@ public class TinyRemapper {
 			boolean fixPackageAccess,
 			boolean rebuildSourceFilenames,
 			boolean skipLocalMapping,
-			boolean renameInvalidLocals,
-			ClassVisitor extraAnalyzeVisitor, Remapper extraRemapper, WrapperFunction pre, WrapperFunction post) {
+			boolean renameInvalidLocals, Pattern invalidLvNamePattern,
+			List<AnalyzeVisitorProvider> analyzeVisitors, List<StateProcessor> stateProcessors,
+			List<ApplyVisitorProvider> preApplyVisitors, List<ApplyVisitorProvider> postApplyVisitors,
+			Remapper extraRemapper) {
 		this.mappingProviders = mappingProviders;
 		this.ignoreFieldDesc = ignoreFieldDesc;
 		this.keepInputData = keepInputData;
 		this.threadCount = threadCount;
-		this.pre = pre;
-		this.post = post;
 		this.threadPool = service;
 		this.forcePropagation = forcePropagation;
 		this.propagatePrivate = propagatePrivate;
@@ -254,7 +302,11 @@ public class TinyRemapper {
 		this.rebuildSourceFilenames = rebuildSourceFilenames;
 		this.skipLocalMapping = skipLocalMapping;
 		this.renameInvalidLocals = renameInvalidLocals;
-		this.extraAnalyzeVisitor = extraAnalyzeVisitor;
+		this.invalidLvNamePattern = invalidLvNamePattern;
+		this.analyzeVisitors = analyzeVisitors;
+		this.stateProcessors = stateProcessors;
+		this.preApplyVisitors = preApplyVisitors;
+		this.postApplyVisitors = postApplyVisitors;
 		this.extraRemapper = extraRemapper;
 	}
 
@@ -524,17 +576,22 @@ public class TinyRemapper {
 
 		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, isInput ? data : null);
 
-		reader.accept(new ClassVisitor(Opcodes.ASM9, extraAnalyzeVisitor) {
+		reader.accept(new ClassVisitor(Opcodes.ASM9) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 				int mrjVersion = analyzeMrjVersion(file, name);
 				ret.init(mrjVersion, name, signature, superName, access, interfaces);
+
+				for (int i = analyzeVisitors.size() - 1; i >= 0; i--) {
+					cv = analyzeVisitors.get(i).insertAnalyzeVisitor(mrjVersion, name, cv);
+				}
+
 				super.visit(version, access, name, signature, superName, interfaces);
 			}
 
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.METHOD, ret, name, desc, access));
+				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.METHOD, ret, name, desc, access, ret.getMembers().size()));
 				if (prev != null) throw new RuntimeException(String.format("duplicate method %s/%s%s in inputs", ret.getName(), name, desc));
 
 				return super.visitMethod(access, name, desc, signature, exceptions);
@@ -542,7 +599,7 @@ public class TinyRemapper {
 
 			@Override
 			public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
-				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.FIELD, ret, name, desc, access));
+				MemberInstance prev = ret.addMember(new MemberInstance(TrMember.MemberType.FIELD, ret, name, desc, access, ret.getMembers().size()));
 				if (prev != null) throw new RuntimeException(String.format("duplicate field %s/%s;;%s in inputs", ret.getName(), name, desc));
 
 				return super.visitField(access, name, desc, signature, value);
@@ -654,15 +711,15 @@ public class TinyRemapper {
 		for (ClassInstance node : state.classes.values()) {
 			assert node.getSuperName() != null;
 
-			ClassInstance parent = state.getClass0(node.getSuperName());
+			ClassInstance parent = state.getClass(node.getSuperName());
 
 			if (parent != null) {
 				node.parents.add(parent);
 				parent.children.add(node);
 			}
 
-			for (String iface : node.getInterfaces0()) {
-				parent = state.getClass0(iface);
+			for (String iface : node.getInterfaceNames0()) {
+				parent = state.getClass(iface);
 
 				if (parent != null) {
 					node.parents.add(parent);
@@ -711,14 +768,14 @@ public class TinyRemapper {
 		boolean targetNameCheckFailed = false;
 
 		for (ClassInstance cls : state.classes.values()) {
-			for (MemberInstance member : cls.getMembers0()) {
+			for (MemberInstance member : cls.getMembers()) {
 				String name = member.getNewMappedName();
 				if (name == null) name = member.name;
 
 				testSet.add(MemberInstance.getId(member.type, name, member.desc, ignoreFieldDesc));
 			}
 
-			if (testSet.size() != cls.getMembers0().size()) {
+			if (testSet.size() != cls.getMembers().size()) {
 				if (!targetNameCheckFailed) {
 					targetNameCheckFailed = true;
 					System.out.println("Mapping target name conflicts detected:");
@@ -726,7 +783,7 @@ public class TinyRemapper {
 
 				Map<String, List<MemberInstance>> duplicates = new HashMap<>();
 
-				for (MemberInstance member : cls.getMembers0()) {
+				for (MemberInstance member : cls.getMembers()) {
 					String name = member.getNewMappedName();
 					if (name == null) name = member.name;
 
@@ -984,6 +1041,10 @@ public class TinyRemapper {
 		merge(state);
 		propagate(state);
 
+		for (StateProcessor processor : stateProcessors) {
+			processor.process(state);
+		}
+
 		state.dirty = false;
 	}
 
@@ -998,17 +1059,14 @@ public class TinyRemapper {
 			visitor = new CheckClassAdapter(visitor);
 		}
 
-		MrjState state = cls.getContext();
-		AsmRemapper remapper = cls.getContext().remapper;
-
-		if (post != null) {
-			visitor = post.wrap(visitor, remapper, state);
+		for (int i = postApplyVisitors.size() - 1; i >= 0; i--) {
+			visitor = postApplyVisitors.get(i).insertApplyVisitor(cls, visitor);
 		}
 
-		visitor = new AsmClassRemapper(visitor, remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals);
+		visitor = new AsmClassRemapper(visitor, cls.getContext().remapper, rebuildSourceFilenames, checkPackageAccess, skipLocalMapping, renameInvalidLocals, invalidLvNamePattern);
 
-		if (pre != null) {
-			visitor = pre.wrap(visitor, remapper, state);
+		for (int i = preApplyVisitors.size() - 1; i >= 0; i--) {
+			visitor = preApplyVisitors.get(i).insertApplyVisitor(cls, visitor);
 		}
 
 		reader.accept(visitor, flags);
@@ -1024,7 +1082,7 @@ public class TinyRemapper {
 		boolean makeClsPublic = classesToMakePublic.contains(cls);
 		Set<String> clsMembersToMakePublic = null;
 
-		for (MemberInstance member : cls.getMembers0()) {
+		for (MemberInstance member : cls.getMembers()) {
 			if (membersToMakePublic.contains(member)) {
 				if (clsMembersToMakePublic == null) clsMembersToMakePublic = new HashSet<>();
 
@@ -1084,10 +1142,18 @@ public class TinyRemapper {
 		return writer.toByteArray();
 	}
 
-	public synchronized AsmRemapper getRemapper() {
+	public synchronized TrEnvironment getEnvironment() {
 		refresh();
 		mrjRefresh(defaultState);
-		return defaultState.remapper;
+		return defaultState;
+	}
+
+	/**
+	 * @deprecated Use {@link #getEnvironment} and {@link TrEnvironment#getRemapper} instead.
+	 */
+	@Deprecated
+	public AsmRemapper getRemapper() {
+		return (AsmRemapper) getEnvironment().getRemapper();
 	}
 
 	private static void waitForAll(Iterable<Future<?>> futures) {
@@ -1150,7 +1216,7 @@ public class TinyRemapper {
 
 			for (Map.Entry<String, String> entry : tasks) {
 				String className = getClassName(entry.getKey(), type);
-				ClassInstance cls = state.getClass0(className);
+				ClassInstance cls = state.getClass(className);
 				if (cls == null) continue; // not available for this Side
 
 				String idSrc = stripClassName(entry.getKey(), type);
@@ -1168,32 +1234,7 @@ public class TinyRemapper {
 					continue;
 				}
 
-				cls = member.cls;
-				boolean isVirtual = member.isVirtual();
-
-				visitedUp.add(cls);
-				visitedDown.add(cls);
-				cls.propagate(TinyRemapper.this, type, className, idSrc, nameDst,
-						(isVirtual ? Direction.ANY : Direction.DOWN), isVirtual, false,
-						true, visitedUp, visitedDown);
-				visitedUp.clear();
-				visitedDown.clear();
-
-				if (propagateRecordComponents != LinkedMethodPropagation.DISABLED
-						&& cls.isRecord()
-						&& type == TrMember.MemberType.FIELD
-						&& (member.access & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL)) == (Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL)) { // not static, but private+final
-					String getterIdSrc = MemberInstance.getMethodId(member.name, "()".concat(member.desc));
-					MemberInstance getter = cls.getMember(TrMember.MemberType.METHOD, getterIdSrc);
-
-					if (getter != null && getter.isVirtual()) {
-						visitedUp.add(cls);
-						visitedDown.add(cls);
-						cls.propagate(TinyRemapper.this, TrMember.MemberType.METHOD, className, getterIdSrc, nameDst, Direction.ANY, true, true, true, visitedUp, visitedDown);
-						visitedUp.clear();
-						visitedDown.clear();
-					}
-				}
+				Propagator.propagate(member, idSrc, nameDst, visitedUp, visitedDown);
 			}
 		}
 
@@ -1230,8 +1271,28 @@ public class TinyRemapper {
 			this.remapper = new AsmRemapper(this);
 		}
 
-		ClassInstance getClass0(String owner) {
-			return classes.get(owner);
+		@Override
+		public int getMrjVersion() {
+			return version;
+		}
+
+		@Override
+		public AsmRemapper getRemapper() {
+			return remapper;
+		}
+
+		@Override
+		public ClassInstance getClass(String internalName) {
+			return classes.get(internalName);
+		}
+
+		@Override
+		public void propagate(TrMember m, String newName) {
+			MemberInstance member = (MemberInstance) m;
+			Set<ClassInstance> visitedUp = Collections.newSetFromMap(new IdentityHashMap<>());
+			Set<ClassInstance> visitedDown = Collections.newSetFromMap(new IdentityHashMap<>());
+
+			Propagator.propagate(member, member.getId(), newName, visitedUp, visitedDown);
 		}
 
 		final TinyRemapper tr;
@@ -1239,16 +1300,6 @@ public class TinyRemapper {
 		final Map<String, ClassInstance> classes = new HashMap<>();
 		final AsmRemapper remapper;
 		volatile boolean dirty = true;
-
-		@Override
-		public TrClass getClass(String internalName) {
-			return this.getClass0(internalName);
-		}
-
-		@Override
-		public String mapType(String internalName) {
-			return this.remapper.mapType(internalName);
-		}
 	}
 
 	private final boolean check = false;
@@ -1266,7 +1317,11 @@ public class TinyRemapper {
 	private final boolean rebuildSourceFilenames;
 	private final boolean skipLocalMapping;
 	private final boolean renameInvalidLocals;
-	private final ClassVisitor extraAnalyzeVisitor;
+	private final Pattern invalidLvNamePattern;
+	private final List<AnalyzeVisitorProvider> analyzeVisitors;
+	private final List<StateProcessor> stateProcessors;
+	private final List<ApplyVisitorProvider> preApplyVisitors;
+	private final List<ApplyVisitorProvider> postApplyVisitors;
 	final Remapper extraRemapper;
 
 	final AtomicReference<Map<InputTag, InputTag[]>> singleInputTags = new AtomicReference<>(Collections.emptyMap()); // cache for tag -> { tag }
@@ -1292,7 +1347,6 @@ public class TinyRemapper {
 	final boolean ignoreFieldDesc;
 	private final int threadCount;
 	private final ExecutorService threadPool;
-	final WrapperFunction pre, post;
 
 	private volatile boolean dirty = true; // volatile to make the state debug asserts more reliable, shouldn't actually see concurrent modifications
 	private Map<ClassInstance, byte[]> outputBuffer;

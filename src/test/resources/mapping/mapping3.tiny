@@ -1,0 +1,30 @@
+tiny	2	0	a	b
+c	test/Test	pkg/c_test
+	m	(ILjava/lang/String;DZ)V	someAbstractMethod	some_abstract_method
+		p	1	someArg1	some_arg_1
+		p	2	someArg2	some_arg_2
+		p	3	someArg3	some_arg_3
+		p	5	someArg4	some_arg_4
+	m	(ILjava/lang/String;DZ)V	someStaticMethod	some_static_method
+		p	0	someArg1	some_arg_1
+		p	1	someArg2	some_arg_2
+		p	2	someArg3	some_arg_3
+		p	4	someArg4	some_arg_4
+c	test/TestAnnotation	pkg/c_test_annotation
+	m	()Ljava/lang/String;	strVal	m_str_val
+	m	()[Ljava/lang/String;	strArrayVal	m_str_array_val
+	m	()[Ljava/lang/String;	strArrayVal2	m_str_array_val_2
+	m	()I	intVal	m_int_val
+	m	()[I	intArrayVal	m_int_array_val
+	m	()[I	intArrayVal2	m_int_array_val_2
+	m	()Ltest/TestEnum;	enumVal	m_enum_val
+	m	()[Ltest/TestEnum;	enumArrayVal	m_enum_array_val
+	m	()[Ltest/TestEnum;	enumArrayVal2	m_enum_array_val_2
+	m	()Ltest/TestAnnotation1;	annVal	m_ann_val
+	m	()[Ltest/TestAnnotation1;	annArrayVal	m_ann_array_val
+c	test/TestAnnotation1	pkg/c_test_annotation_1
+	m	()Ljava/lang/String;	strVal	m_str_val
+c	test/TestEnum	pkg/c_test_enum
+	f	Ltest/TestEnum;	Test1	f_test1
+	f	Ltest/TestEnum;	Test2	f_test2
+	f	Ltest/TestEnum;	Test3	f_test3
