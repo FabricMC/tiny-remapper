@@ -215,9 +215,10 @@ public class TinyRemapper {
 		}
 
 		public TinyRemapper build() {
-			if(this.threadCount <= 0) {
+			if (this.threadCount <= 0) {
 				this.threads(Math.max(Runtime.getRuntime().availableProcessors(), 2));
 			}
+
 			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount, service,
 					keepInputData,
 					forcePropagation, propagatePrivate,
