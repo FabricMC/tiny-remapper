@@ -288,7 +288,7 @@ public class TinyRemapper {
 		this.mappingProviders = mappingProviders;
 		this.ignoreFieldDesc = ignoreFieldDesc;
 		this.keepInputData = keepInputData;
-		this.threadCount = threadCount;
+		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
 		this.threadPool = service;
 		this.forcePropagation = forcePropagation;
 		this.propagatePrivate = propagatePrivate;
