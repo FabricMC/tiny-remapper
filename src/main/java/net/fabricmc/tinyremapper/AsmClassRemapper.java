@@ -418,7 +418,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 								for (int j = 0; j < methodNode.localVariables.size(); j++) {
 									if (j == i) continue;
 
-									LocalVariableNode otherLv = methodNode.localVariables.get(i);
+									LocalVariableNode otherLv = methodNode.localVariables.get(j);
 
 									if (otherLv.index == lv.index
 											&& otherLv.name != null
