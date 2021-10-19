@@ -422,6 +422,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 									if (otherLv.index == lv.index
 											&& otherLv.name != null
+											&& otherLv.desc.equals(lv.desc)
 											&& (j < i || isValidLvName(otherLv.name))) {
 										lv.name = otherLv.name;
 										continue lvLoop;
