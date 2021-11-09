@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
+import net.fabricmc.tinyremapper.extension.mixin.MixinExtension;
 
 public class Main {
 	public static void main(String[] rawArgs) {
@@ -54,6 +55,7 @@ public class Main {
 		Pattern invalidLvNamePattern = null;
 		NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
 		int threads = -1;
+		boolean enableMixin = false;
 
 		for (String arg : rawArgs) {
 			if (arg.startsWith("--")) {
@@ -130,6 +132,9 @@ public class Main {
 					}
 
 					break;
+				case "mixin":
+					enableMixin = true;
+					break;
 				default:
 					System.out.println("invalid argument: "+arg+".");
 					System.exit(1);
@@ -199,7 +204,7 @@ public class Main {
 
 		long startTime = System.nanoTime();
 
-		TinyRemapper remapper = TinyRemapper.newRemapper()
+		TinyRemapper.Builder builder = TinyRemapper.newRemapper()
 				.withMappings(TinyUtils.createTinyMappingProvider(mappings, fromM, toM))
 				.ignoreFieldDesc(ignoreFieldDesc)
 				.withForcedPropagation(forcePropagation)
@@ -214,8 +219,13 @@ public class Main {
 				.skipLocalVariableMapping(skipLocalVariableMapping)
 				.renameInvalidLocals(renameInvalidLocals)
 				.invalidLvNamePattern(invalidLvNamePattern)
-				.threads(threads)
-				.build();
+				.threads(threads);
+
+		if (enableMixin) {
+			builder = builder.extension(new MixinExtension());
+		}
+
+		TinyRemapper remapper = builder.build();
 
 		try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
 			outputConsumer.addNonClassFiles(input, ncCopyMode, remapper);

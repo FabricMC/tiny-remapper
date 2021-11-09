@@ -37,15 +37,25 @@ public final class Logger {
 
 	public void warn(String message) {
 		if (this.level.compareTo(Level.WARN) <= 0) {
-			System.out.println(ANSI_YELLOW + "[WARN]  [MIXIN] " + ANSI_RESET + message);
+			if (USE_ANSI) {
+				System.out.println(ANSI_YELLOW + "[WARN]  [MIXIN] " + ANSI_RESET + message);
+			} else {
+				System.out.println("[WARN]  [MIXIN] " + message);
+			}
 		}
 	}
 
 	public void error(String message) {
 		if (this.level.compareTo(Level.ERROR) <= 0) {
-			System.out.println(ANSI_RED + "[ERROR] [MIXIN] " + ANSI_RESET + message);
+			if (USE_ANSI) {
+				System.out.println(ANSI_RED + "[ERROR] [MIXIN] " + ANSI_RESET + message);
+			} else {
+				System.out.println("[ERROR] [MIXIN] " + message);
+			}
 		}
 	}
+
+	private static final boolean USE_ANSI = false;
 
 	private static final String ANSI_RESET = "\u001B[0m";
 	private static final String ANSI_BLACK = "\u001B[30m";

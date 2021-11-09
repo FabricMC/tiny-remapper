@@ -63,9 +63,9 @@ class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
 	@Override
 	public void visitEnd() {
 		if (remap) {
-			this.accept(new AtSecondPassAnnotationVisitor(data, delegate, value));
+			accept(new AtSecondPassAnnotationVisitor(data, delegate, value));
 		} else {
-			this.accept(delegate);
+			accept(delegate);
 		}
 
 		super.visitEnd();
@@ -85,12 +85,14 @@ class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
 		@Override
 		public void visit(String name, Object value) {
 			if (name.equals(AnnotationElement.TARGET)) {
-				Optional<MemberInfo> info = Optional.ofNullable(MemberInfo.parse(Objects.requireNonNull((String) value).replaceAll("\\s", "")));
+				MemberInfo info = MemberInfo.parse(Objects.requireNonNull((String) value).replaceAll("\\s", ""));
 
-				if (this.value.equals("NEW")) {
-					value = info.map(i -> new AtConstructorMappable(data, i).result().toString()).orElse((String) value);
-				} else {
-					value = info.map(i -> new AtMethodMappable(data, i).result().toString()).orElse((String) value);
+				if (info != null) {
+					if (this.value.equals("NEW")) {
+						value = new AtConstructorMappable(data, info).result().toString();
+					} else {
+						value = new AtMethodMappable(data, info).result().toString();
+					}
 				}
 			}
 
@@ -108,11 +110,11 @@ class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
 					@Override
 					public void visit(String name, Object value) {
 						String argument = Objects.requireNonNull((String) value);
+						MemberInfo info;
 
-						if (argument.startsWith(prefix)) {
-							Optional<MemberInfo> info = Optional.ofNullable(MemberInfo.parse(argument.substring(prefix.length()).replaceAll("\\s", "")));
-
-							value = prefix + info.map(i -> new AtConstructorMappable(data, i).result().toString()).orElse((String) value);
+						if (argument.startsWith(prefix)
+								&& (info = MemberInfo.parse(argument.substring(prefix.length()).replaceAll("\\s", ""))) != null) {
+							value = prefix + new AtConstructorMappable(data, info).result().toString();
 						}
 
 						super.visit(name, value);
