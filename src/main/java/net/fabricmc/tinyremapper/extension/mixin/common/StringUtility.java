@@ -67,7 +67,7 @@ public final class StringUtility {
 	}
 
 	private static final Pattern FIELD_DESC_PATTERN = Pattern.compile("\\[*(" + CLASS_DESC_PATTERN +"|[BCDFIJSZ])");
-	private static final Pattern METHOD_DESC_PATTERN = Pattern.compile("\\(" + FIELD_DESC_PATTERN + "*\\)(" + FIELD_DESC_PATTERN + "|V)");
+	private static final Pattern METHOD_DESC_PATTERN = Pattern.compile("\\((" + FIELD_DESC_PATTERN + ")*\\)(" + FIELD_DESC_PATTERN + "|V)");
 
 	public static boolean isFieldDesc(String text) {
 		return FIELD_DESC_PATTERN.matcher(text).matches();

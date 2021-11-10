@@ -63,7 +63,7 @@ class StringUtilityTest {
 		assertTrue(StringUtility.isClassName("com/github/logicf/$$__cl_a_ss"));
 		assertTrue(StringUtility.isClassName("com/gith$$ub/log$$icf/cla$$ss"));
 		assertTrue(StringUtility.isClassName("$$/__"));
-		assertFalse(StringUtility.isClassName("abc"));
+		assertTrue(StringUtility.isClassName("abc"));
 		assertFalse(StringUtility.isClassName("com/github/logicf/"));
 		assertFalse(StringUtility.isClassName("com//github/logicf"));
 		assertFalse(StringUtility.isClassName("com.github.logicf.class"));
@@ -75,7 +75,7 @@ class StringUtilityTest {
 		assertTrue(StringUtility.isClassDesc("Lcom/github/logicf/$$__cl_a_ss;"));
 		assertTrue(StringUtility.isClassDesc("Lcom/gith$$ub/log$$icf/cla$$ss;"));
 		assertTrue(StringUtility.isClassDesc("L$$/__;"));
-		assertFalse(StringUtility.isClassDesc("Labc;"));
+		assertTrue(StringUtility.isClassDesc("Labc;"));
 		assertFalse(StringUtility.isClassDesc("Lcom/github/logicf/;"));
 		assertFalse(StringUtility.isClassDesc("Lcom//github/logicf;"));
 		assertFalse(StringUtility.isClassDesc("Lcom.github.logicf.class;"));
@@ -134,6 +134,6 @@ class StringUtilityTest {
 		assertTrue(StringUtility.isInternalClassName("java/lang/Boolean"));
 		assertTrue(StringUtility.isInternalClassName("javax/crypto/Cipher"));
 		assertFalse(StringUtility.isInternalClassName("net/minecraft/bla"));
-		assertThrows(RuntimeException.class, () -> StringUtility.isInternalClassName("bla"));
+		assertThrows(RuntimeException.class, () -> StringUtility.isInternalClassName("()bla"));
 	}
 }
