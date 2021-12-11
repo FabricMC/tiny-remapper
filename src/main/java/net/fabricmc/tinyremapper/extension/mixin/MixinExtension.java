@@ -83,8 +83,7 @@ public class MixinExtension implements TinyRemapper.Extension {
 	@Override
 	public void attach(Builder builder) {
 		if (targets.contains(AnnotationTarget.HARD)) {
-			builder.extraAnalyzeVisitor(this::analyzeVisitor)
-					.extraStateProcessor(this::stateProcessor);
+			builder.extraAnalyzeVisitor(this::analyzeVisitor).extraStateProcessor(this::stateProcessor);
 		}
 
 		if (targets.contains(AnnotationTarget.SOFT)) {
@@ -102,13 +101,14 @@ public class MixinExtension implements TinyRemapper.Extension {
 
 	private void stateProcessor(TrEnvironment environment) {
 		CommonData data = new CommonData(environment, logger);
-		tasks.get(environment.getMrjVersion()).forEach(task -> {
+
+		for (Consumer<CommonData> task : tasks.get(environment.getMrjVersion())) {
 			try {
 				task.accept(data);
 			} catch (RuntimeException e) {
 				logger.error(e.getMessage());
 			}
-		});
+		}
 	}
 
 	/**

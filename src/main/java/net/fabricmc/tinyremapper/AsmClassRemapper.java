@@ -49,13 +49,14 @@ import net.fabricmc.tinyremapper.api.TrMember;
 final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper,
 			boolean rebuildSourceFilenames, boolean checkPackageAccess, boolean skipLocalMapping,
-			boolean renameInvalidLocals, Pattern invalidLvNamePattern) {
+			boolean renameInvalidLocals, Pattern invalidLvNamePattern, boolean inferNameFromSameLvIndex) {
 		super(cv, remapper);
 		this.rebuildSourceFilenames = rebuildSourceFilenames;
 		this.checkPackageAccess = checkPackageAccess;
 		this.skipLocalMapping = skipLocalMapping;
 		this.renameInvalidLocals = renameInvalidLocals;
 		this.invalidLvNamePattern = invalidLvNamePattern;
+		this.inferNameFromSameLvIndex = inferNameFromSameLvIndex;
 	}
 
 	@Override
@@ -126,7 +127,8 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 	@Override
 	protected MethodVisitor createMethodRemapper(MethodVisitor methodVisitor) {
-		return new AsmMethodRemapper(methodVisitor, (AsmRemapper) remapper, className, methodNode, checkPackageAccess, skipLocalMapping, renameInvalidLocals, invalidLvNamePattern);
+		return new AsmMethodRemapper(methodVisitor, (AsmRemapper) remapper, className, methodNode,
+				checkPackageAccess, skipLocalMapping, renameInvalidLocals, invalidLvNamePattern, inferNameFromSameLvIndex);
 	}
 
 	@Override
@@ -153,6 +155,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	private final boolean skipLocalMapping;
 	private final boolean renameInvalidLocals;
 	private final Pattern invalidLvNamePattern;
+	private final boolean inferNameFromSameLvIndex;
 	private boolean sourceNameVisited;
 	private MethodNode methodNode;
 
@@ -176,7 +179,8 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 				boolean checkPackageAccess,
 				boolean skipLocalMapping,
 				boolean renameInvalidLocals,
-				Pattern invalidLvNamePattern) {
+				Pattern invalidLvNamePattern,
+				boolean inferNameFromSameLvIndex) {
 			super(methodNode != null ? methodNode : methodVisitor, remapper);
 			this.owner = owner;
 			this.methodNode = methodNode;
@@ -185,6 +189,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 			this.skipLocalMapping = skipLocalMapping;
 			this.renameInvalidLocals = renameInvalidLocals;
 			this.invalidLvNamePattern = invalidLvNamePattern;
+			this.inferNameFromSameLvIndex = inferNameFromSameLvIndex;
 		}
 
 		@Override
@@ -398,7 +403,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 				boolean[] argsWritten = new boolean[args.length];
 
-				for (int i = 0; i < methodNode.localVariables.size(); i++) {
+				lvLoop: for (int i = 0; i < methodNode.localVariables.size(); i++) {
 					LocalVariableNode lv = methodNode.localVariables.get(i);
 
 					if (!isStatic && lv.index == 0) { // this ref
@@ -409,6 +414,22 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 						argsWritten[asmIndex] = true;
 					} else { // var
 						if (renameInvalidLocals && !isValidLvName(lv.name)) {
+							if (inferNameFromSameLvIndex) {
+								for (int j = 0; j < methodNode.localVariables.size(); j++) {
+									if (j == i) continue;
+
+									LocalVariableNode otherLv = methodNode.localVariables.get(j);
+
+									if (otherLv.index == lv.index
+											&& otherLv.name != null
+											&& otherLv.desc.equals(lv.desc)
+											&& (j < i || isValidLvName(otherLv.name))) {
+										lv.name = otherLv.name;
+										continue lvLoop;
+									}
+								}
+							}
+
 							lv.name = getNameFromType(lv.desc, false);
 						}
 					}
@@ -668,6 +689,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		private final boolean skipLocalMapping;
 		private final boolean renameInvalidLocals;
 		private final Pattern invalidLvNamePattern;
+		private final boolean inferNameFromSameLvIndex;
 	}
 
 	/**

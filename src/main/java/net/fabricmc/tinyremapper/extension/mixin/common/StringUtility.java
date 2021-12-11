@@ -55,8 +55,8 @@ public final class StringUtility {
 		}
 	}
 
-	private static final Pattern CLASS_NAME_PATTERN = Pattern.compile("(([A-Za-z0-9_$]+/)+[A-Za-z0-9_$]+)");
-	private static final Pattern CLASS_DESC_PATTERN = Pattern.compile("(L" + CLASS_NAME_PATTERN + ";)");
+	private static final Pattern CLASS_NAME_PATTERN = Pattern.compile("([A-Za-z0-9_$]+/)*[A-Za-z0-9_$]+");
+	private static final Pattern CLASS_DESC_PATTERN = Pattern.compile("L" + CLASS_NAME_PATTERN + ";");
 
 	public static boolean isClassName(String text) {
 		return CLASS_NAME_PATTERN.matcher(text).matches();
@@ -66,8 +66,8 @@ public final class StringUtility {
 		return CLASS_DESC_PATTERN.matcher(text).matches();
 	}
 
-	private static final Pattern FIELD_DESC_PATTERN = Pattern.compile("(\\[*(" + CLASS_DESC_PATTERN +"|[BCDFIJSZ]))");
-	private static final Pattern METHOD_DESC_PATTERN = Pattern.compile("(\\(" + FIELD_DESC_PATTERN + "*\\)(" + FIELD_DESC_PATTERN + "|V))");
+	private static final Pattern FIELD_DESC_PATTERN = Pattern.compile("\\[*(" + CLASS_DESC_PATTERN +"|[BCDFIJSZ])");
+	private static final Pattern METHOD_DESC_PATTERN = Pattern.compile("\\((" + FIELD_DESC_PATTERN + ")*\\)(" + FIELD_DESC_PATTERN + "|V)");
 
 	public static boolean isFieldDesc(String text) {
 		return FIELD_DESC_PATTERN.matcher(text).matches();
