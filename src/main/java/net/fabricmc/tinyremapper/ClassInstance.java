@@ -209,6 +209,16 @@ public final class ClassInstance implements TrClass {
 		return interfaces;
 	}
 
+	@Override
+	public Collection<ClassInstance> getParents() {
+		return parents;
+	}
+
+	@Override
+	public Collection<ClassInstance> getChildren() {
+		return children;
+	}
+
 	public boolean isPublicOrPrivate() {
 		return (access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PRIVATE)) != 0;
 	}

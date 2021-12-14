@@ -37,6 +37,9 @@ public interface TrClass {
 	TrClass getSuperClass();
 	List<? extends TrClass> getInterfaces();
 
+	Collection<? extends TrClass> getParents();
+	Collection<? extends TrClass> getChildren();
+
 	TrField getField(String name, String desc);
 	TrMethod getMethod(String name, String desc);
 
