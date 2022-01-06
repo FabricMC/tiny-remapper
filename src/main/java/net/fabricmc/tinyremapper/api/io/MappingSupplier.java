@@ -16,30 +16,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.fabricmc.tinyremapper.api;
+package net.fabricmc.tinyremapper.api.io;
 
-public interface TrEnvironment {
-	int getMrjVersion();
-	TrRemapper getRemapper();
+import java.io.IOException;
 
-	/**
-	 * @return the class with the passed name, or null if not found.
-	 */
-	TrClass getClass(String internalName);
+/**
+ * @deprecated Not Implemented.
+ */
+@Deprecated
+public interface MappingSupplier {
+	String getSource();
+	void load(MappingConsumer consumer) throws IOException;
 
-	default TrField getField(String owner, String name, String desc) {
-		TrClass cls = getClass(owner);
-
-		return cls != null ? cls.getField(name, desc) : null;
+	interface MappingConsumer {
+		void acceptClass(String srcName, String dstName);
+		void acceptMethod(String owner, String srcName, String desc, String dstName);
+		void acceptMethodArg(String owner, String srcName, String desc, int lvIndex, String dstName);
+		void acceptMethodVar(String owner, String srcName, String desc, int lvIndex, int startOpIdx, int asmIndex, String dstName);
+		void acceptField(String owner, String srcName, String desc, String dstName);
 	}
-
-	default TrMethod getMethod(String owner, String name, String desc) {
-		TrClass cls = getClass(owner);
-
-		return cls != null ? cls.getMethod(name, desc) : null;
-	}
-
-	void propagate(TrMember member, String newName);
-
-	int DEFAULT_MRJ_VERSION = -1;
 }

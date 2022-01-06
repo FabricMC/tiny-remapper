@@ -16,30 +16,26 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.fabricmc.tinyremapper.api;
+package net.fabricmc.tinyremapper.api.io;
 
-public interface TrEnvironment {
-	int getMrjVersion();
-	TrRemapper getRemapper();
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.function.Predicate;
+
+public interface InputSupplier {
+	interface InputConsumer {
+		void accept(Path path, byte[] data);
+	}
 
 	/**
-	 * @return the class with the passed name, or null if not found.
+	 * Get the source of the input.
 	 */
-	TrClass getClass(String internalName);
+	String getSource();
 
-	default TrField getField(String owner, String name, String desc) {
-		TrClass cls = getClass(owner);
-
-		return cls != null ? cls.getField(name, desc) : null;
-	}
-
-	default TrMethod getMethod(String owner, String name, String desc) {
-		TrClass cls = getClass(owner);
-
-		return cls != null ? cls.getMethod(name, desc) : null;
-	}
-
-	void propagate(TrMember member, String newName);
-
-	int DEFAULT_MRJ_VERSION = -1;
+	/**
+	 * Load matching files into {@link InputConsumer}.
+	 */
+	CompletableFuture<?> read(Predicate<String> fileNameFilter, Executor executor, InputConsumer consumer) throws IOException;
 }

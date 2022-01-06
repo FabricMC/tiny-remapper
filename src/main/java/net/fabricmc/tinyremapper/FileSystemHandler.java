@@ -20,10 +20,12 @@ package net.fabricmc.tinyremapper;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystemAlreadyExistsException;
 import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -36,6 +38,14 @@ import java.util.Map;
  * invocations are mirrored.
  */
 public final class FileSystemHandler {
+	public static synchronized FileSystem open(Path path) throws IOException {
+		try {
+			return open(new URI("jar:" + path.toUri()));
+		} catch (URISyntaxException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
 	public static synchronized FileSystem open(URI uri) throws IOException {
 		boolean opened = false;
 		FileSystem ret = null;
