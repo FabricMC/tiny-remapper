@@ -1,5 +1,5 @@
 plugins {
-	id 'java'
+	id 'java-library'
 	id 'maven-publish'
 	id 'checkstyle'
 	id 'com.diffplug.spotless' version '5.14.2'
@@ -22,8 +22,8 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.ow2.asm:asm:9.1'
-	implementation 'org.ow2.asm:asm-commons:9.1'
+	api 'org.ow2.asm:asm:9.1'
+	api 'org.ow2.asm:asm-commons:9.1'
 	implementation 'org.ow2.asm:asm-tree:9.1'
 	implementation 'org.ow2.asm:asm-util:9.1'
 
