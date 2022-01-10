@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2021, FabricMC
+ * Copyright (c) 2021, 2022, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -100,7 +100,7 @@ public class MetaInfFixer implements OutputConsumerPath.ResourceRemapper {
 			if (val != null) mainAttrs.put(Attributes.Name.MAIN_CLASS, mapFullyQualifiedClassName(val, remapper));
 
 			val = mainAttrs.getValue("Launcher-Agent-Class");
-			if (val != null) mainAttrs.put("Launcher-Agent-Class", mapFullyQualifiedClassName(val, remapper));
+			if (val != null) mainAttrs.putValue("Launcher-Agent-Class", mapFullyQualifiedClassName(val, remapper));
 		}
 
 		mainAttrs.remove(Attributes.Name.SIGNATURE_VERSION);
