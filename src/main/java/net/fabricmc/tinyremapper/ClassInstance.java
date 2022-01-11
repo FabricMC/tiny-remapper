@@ -61,11 +61,12 @@ public final class ClassInstance implements TrClass {
 		this.mrjOrigin = this;
 	}
 
-	void init(int mrjVersion, String name, String sign, String superName, int access, String[] interfaces) {
+	void init(String name, int classVersion, int mrjVersion, String signature, String superName, int access, String[] interfaces) {
 		this.name = name;
+		this.classVersion = classVersion;
 		this.mrjVersion = mrjVersion;
 		this.superName = superName;
-		this.signature = sign;
+		this.signature = signature;
 		this.access = access;
 		this.interfaces = interfaces;
 	}
@@ -164,6 +165,10 @@ public final class ClassInstance implements TrClass {
 	@Override
 	public String getName() {
 		return name;
+	}
+
+	public int getClassVersion() {
+		return classVersion;
 	}
 
 	public int getMrjVersion() {
@@ -848,7 +853,7 @@ public final class ClassInstance implements TrClass {
 	ClassInstance constructMrjCopy(MrjState newContext) {
 		// isInput should be false, since the MRJ copy should not be emitted
 		ClassInstance copy = new ClassInstance(tr, false, inputTags, srcPath, data);
-		copy.init(mrjVersion, name, signature, superName, access, interfaces);
+		copy.init(name, classVersion, mrjVersion, signature, superName, access, interfaces);
 		copy.setContext(newContext);
 
 		for (MemberInstance member : members.values()) {
@@ -900,6 +905,7 @@ public final class ClassInstance implements TrClass {
 	final Set<ClassInstance> parents = new HashSet<>();
 	final Set<ClassInstance> children = new HashSet<>();
 	private String name;
+	private int classVersion;
 	private int mrjVersion;
 	private String superName;
 	private String signature;
