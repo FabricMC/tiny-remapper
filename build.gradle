@@ -9,7 +9,7 @@ plugins {
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
 
-version = '0.7.0'
+version = '0.8.0'
 
 def ENV = System.getenv()
 version = version + (ENV.GITHUB_ACTIONS ? "" : "+local")
@@ -22,10 +22,10 @@ repositories {
 }
 
 dependencies {
-	api 'org.ow2.asm:asm:9.1'
-	api 'org.ow2.asm:asm-commons:9.1'
-	implementation 'org.ow2.asm:asm-tree:9.1'
-	implementation 'org.ow2.asm:asm-util:9.1'
+	api 'org.ow2.asm:asm:9.2'
+	api 'org.ow2.asm:asm-commons:9.2'
+	implementation 'org.ow2.asm:asm-tree:9.2'
+	implementation 'org.ow2.asm:asm-util:9.2'
 
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.6.2'
 }
