@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2018, 2021, FabricMC
+ * Copyright (c) 2018, 2022, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -35,9 +35,11 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.RecordComponentVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.FieldRemapper;
 import org.objectweb.asm.commons.MethodRemapper;
+import org.objectweb.asm.commons.RecordComponentRemapper;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LocalVariableNode;
@@ -132,6 +134,11 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	}
 
 	@Override
+	protected RecordComponentVisitor createRecordComponentRemapper(RecordComponentVisitor recordComponentVisitor) {
+		return new AsmRecordComponentRemapper(recordComponentVisitor, (AsmRemapper) remapper);
+	}
+
+	@Override
 	public AnnotationVisitor createAnnotationRemapper(String descriptor, AnnotationVisitor annotationVisitor) {
 		return new AsmAnnotationRemapper(descriptor, annotationVisitor, (AsmRemapper) remapper);
 	}
@@ -160,8 +167,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	private MethodNode methodNode;
 
 	private static class AsmFieldRemapper extends FieldRemapper {
-		AsmFieldRemapper(FieldVisitor fieldVisitor,
-				AsmRemapper remapper) {
+		AsmFieldRemapper(FieldVisitor fieldVisitor, AsmRemapper remapper) {
 			super(fieldVisitor, remapper);
 		}
 
@@ -690,6 +696,17 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		private final boolean renameInvalidLocals;
 		private final Pattern invalidLvNamePattern;
 		private final boolean inferNameFromSameLvIndex;
+	}
+
+	private static class AsmRecordComponentRemapper extends RecordComponentRemapper {
+		AsmRecordComponentRemapper(RecordComponentVisitor recordComponentVisitor, AsmRemapper remapper) {
+			super(recordComponentVisitor, remapper);
+		}
+
+		@Override
+		public AnnotationVisitor createAnnotationRemapper(String descriptor, AnnotationVisitor annotationVisitor) {
+			return new AsmAnnotationRemapper(descriptor, annotationVisitor, (AsmRemapper) remapper);
+		}
 	}
 
 	/**
