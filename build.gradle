@@ -66,6 +66,8 @@ jar {
 checkstyle {
 	configFile = file("checkstyle.xml")
 	toolVersion = '8.31'
+
+	checkstyleMain.exclude("**/lib/**/*.java")
 }
 
 spotless {
@@ -73,6 +75,7 @@ spotless {
 
 	java {
 		licenseHeaderFile(rootProject.file('HEADER')).yearSeparator(', ')
+		targetExclude("**/lib/**/*.java")
 	}
 }
 
