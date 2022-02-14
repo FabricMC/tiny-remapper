@@ -416,6 +416,13 @@ public class TinyRemapper {
 
 			if (instance != null) {
 				addClass(instance, readClasses, true);
+				if (!dirty) {
+					dirty = true;
+
+					for (MrjState state : mrjStates.values()) {
+						state.dirty = true;
+					}
+				}
 			}
 		} catch (IOException e) {
 			throw new RuntimeException(e);
@@ -469,20 +476,20 @@ public class TinyRemapper {
 		});
 	}
 
-	private static void addClass(ClassInstance cls, Map<String, ClassInstance> out, boolean isVersionAware) {
+	private void addClass(ClassInstance cls, Map<String, ClassInstance> out, boolean isVersionAware) {
 		// two different MRJ version will not cause warning if isVersionAware is true
 		String name = isVersionAware ? ClassInstance.getMrjName(cls.getName(), cls.getMrjVersion()) : cls.getName();
 
 		// add new class or replace non-input class with input class, warn if two input classes clash
 		for (;;) {
 			ClassInstance prev = out.putIfAbsent(name, cls);
-			if (prev == null) return;
+			if (prev == null) break;
 
 			if (prev.isMrjCopy() && prev.getMrjVersion() < cls.getMrjVersion()) {
 				// if {@code prev} is MRJ copy and {@code prev}'s origin version is less than {@code cls}'s
 				// origin version, then we should update the class.
 				if (out.replace(name, prev, cls)) {
-					return;
+					break;
 				} else {
 					// loop
 				}
@@ -490,16 +497,16 @@ public class TinyRemapper {
 				if (prev.isInput) {
 					System.out.printf("duplicate input class %s, from %s and %s%n", name, prev.srcPath, cls.srcPath);
 					prev.addInputTags(cls.getInputTags());
-					return;
+					break;
 				} else if (out.replace(name, prev, cls)) { // cas with retry-loop on failure
 					cls.addInputTags(prev.getInputTags());
-					return;
+					break;
 				} else {
 					// loop
 				}
 			} else {
 				prev.addInputTags(cls.getInputTags());
-				return;
+				break;
 			}
 		}
 	}
