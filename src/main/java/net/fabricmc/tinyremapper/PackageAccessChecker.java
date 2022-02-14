@@ -24,8 +24,8 @@ import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Type;
 
-import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.api.TrMember;
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 
 public final class PackageAccessChecker {
 	/**
@@ -130,11 +130,13 @@ public final class PackageAccessChecker {
 		}
 
 		// check if accessible via public, private or same class
-		// private is fine since it can't have been influenced by remapping
+		// private class or private different-nest member is fine since it can't have been influenced by remapping
 		boolean clsAccessible = cls.isPublicOrPrivate() || accessingOwner.equals(owner);
-		boolean memberAccessible = member.isPublicOrPrivate() || accessingOwner.equals(member.cls.getName());
+		boolean memberAccessible = member.isPublic() // already public
+				|| member.isPrivate() && cls.getClassVersion() < 55 // private in different nest in the original namespace (always before java 11) TODO: check for java 11+ if it is faster than comparing the packages?
+				|| accessingOwner.equals(member.cls.getName()); // same owner
 
-		if (clsAccessible && memberAccessible) { // trivially accessible
+		if (clsAccessible && memberAccessible) { // trivially accessible (or not influenced by remapping)
 			return;
 		}
 
@@ -197,10 +199,10 @@ public final class PackageAccessChecker {
 
 		if (!memberAccessible) {
 			String memberMsg = String.format("%s %s %s/%s",
-					member.isProtected() ? "protected" : "package-private",
-							type.name().toLowerCase(Locale.ENGLISH),
-							remapper.map(member.cls.getName()),
-							MemberInstance.getId(type, mappedName, mappedDesc, remapper.tr.ignoreFieldDesc));
+					(member.isProtected() ? "protected" : (member.isPrivate() ? "private" : "package-private")),
+					type.name().toLowerCase(Locale.ENGLISH),
+					remapper.map(member.cls.getName()),
+					MemberInstance.getId(type, mappedName, mappedDesc, remapper.tr.ignoreFieldDesc));
 
 			if (inaccessible == null) {
 				inaccessible = memberMsg;

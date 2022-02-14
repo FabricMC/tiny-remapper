@@ -624,7 +624,7 @@ public class TinyRemapper {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 				int mrjVersion = analyzeMrjVersion(filePath, name);
-				ret.init(mrjVersion, name, signature, superName, access, interfaces);
+				ret.init(name, version, mrjVersion, signature, superName, access, interfaces);
 
 				for (int i = analyzeVisitors.size() - 1; i >= 0; i--) {
 					cv = analyzeVisitors.get(i).insertAnalyzeVisitor(mrjVersion, name, cv);
