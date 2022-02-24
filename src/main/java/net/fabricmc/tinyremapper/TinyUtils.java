@@ -226,7 +226,7 @@ public final class TinyUtils {
 		String line;
 
 		while ((line = reader.readLine()) != null) {
-			String[] splitLine = line.split("\t");
+			String[] splitLine = line.split("\t", -1);
 			if (splitLine.length < 2) continue;
 
 			String type = splitLine[0];
