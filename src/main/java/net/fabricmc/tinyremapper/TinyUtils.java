@@ -173,7 +173,12 @@ public final class TinyUtils {
 					for (Member m : members) {
 						if (remapClasses) m.owner = classMapper.map(m.owner);
 						if (!m.owner.isEmpty()) {
-							m.desc = classMapper.mapDesc(m.desc);
+							try {
+								m.desc = classMapper.mapDesc(m.desc);
+							} catch (Exception e) {
+								e.printStackTrace();
+								// lazy temp thing to allow me to test more
+							}
 						}
 					}
 				});
