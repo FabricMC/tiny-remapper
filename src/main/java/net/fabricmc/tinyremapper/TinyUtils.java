@@ -171,8 +171,8 @@ public final class TinyUtils {
 				tmp,
 				(remapClasses, classMapper) -> {
 					for (Member m : members) {
+						if (remapClasses) m.owner = classMapper.map(m.owner);
 						if (!m.owner.isEmpty()) {
-							if (remapClasses) m.owner = classMapper.map(m.owner);
 							m.desc = classMapper.mapDesc(m.desc);
 						}
 					}
