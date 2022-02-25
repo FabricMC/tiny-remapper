@@ -139,41 +139,31 @@ public final class TinyUtils {
 		MappingAcceptor tmp = new MappingAcceptor() {
 			@Override
 			public void acceptClass(String srcName, String dstName) {
-				if (!dstName.isEmpty()) {
-					out.acceptClass(srcName, dstName);
-				}
+				out.acceptClass(srcName, dstName);
 			}
 
 			@Override
 			public void acceptMethod(Member method, String dstName) {
-				if (!dstName.isEmpty()) {
-					methodMappings.add(new MemberMapping(method, dstName));
-					members.add(method);
-				}
+				methodMappings.add(new MemberMapping(method, dstName));
+				members.add(method);
 			}
 
 			@Override
 			public void acceptMethodArg(Member method, int lvIndex, String dstName) {
-				if (!dstName.isEmpty()) {
-					methodArgMappings.add(new MethodArgMapping(method, lvIndex, dstName));
-					members.add(method);
-				}
+				methodArgMappings.add(new MethodArgMapping(method, lvIndex, dstName));
+				members.add(method);
 			}
 
 			@Override
 			public void acceptMethodVar(Member method, int lvIndex, int startOpIdx, int asmIndex, String dstName) {
-				if (!dstName.isEmpty()) {
-					methodVarMappings.add(new MethodVarMapping(method, lvIndex, startOpIdx, asmIndex, dstName));
-					members.add(method);
-				}
+				methodVarMappings.add(new MethodVarMapping(method, lvIndex, startOpIdx, asmIndex, dstName));
+				members.add(method);
 			}
 
 			@Override
 			public void acceptField(Member field, String dstName) {
-				if (!dstName.isEmpty()) {
-					fieldMappings.add(new MemberMapping(field, dstName));
-					members.add(field);
-				}
+				fieldMappings.add(new MemberMapping(field, dstName));
+				members.add(field);
 			}
 		};
 
@@ -243,7 +233,7 @@ public final class TinyUtils {
 
 			if ("CLASS".equals(type)) {
 				out.acceptClass(splitLine[1 + fromIndex], splitLine[1 + toIndex]);
-				if (obfFrom != null) obfFrom.put(splitLine[1], splitLine[1 + fromIndex]);
+				if (obfFrom != null && !splitLine[1 + fromIndex].isEmpty()) obfFrom.put(splitLine[1], splitLine[1 + fromIndex]);
 			} else {
 				boolean isMethod;
 
@@ -261,10 +251,12 @@ public final class TinyUtils {
 				String nameTo = splitLine[3 + toIndex];
 				Member member = new Member(owner, name, desc);
 
-				if (isMethod) {
-					out.acceptMethod(member, nameTo);
-				} else {
-					out.acceptField(member, nameTo);
+				if (!nameTo.isEmpty()) {
+					if (isMethod) {
+						out.acceptMethod(member, nameTo);
+					} else {
+						out.acceptField(member, nameTo);
+					}
 				}
 			}
 		}
