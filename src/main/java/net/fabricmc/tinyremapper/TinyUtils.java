@@ -139,31 +139,41 @@ public final class TinyUtils {
 		MappingAcceptor tmp = new MappingAcceptor() {
 			@Override
 			public void acceptClass(String srcName, String dstName) {
-				out.acceptClass(srcName, dstName);
+				if (!dstName.isEmpty()) {
+					out.acceptClass(srcName, dstName);
+				}
 			}
 
 			@Override
 			public void acceptMethod(Member method, String dstName) {
-				methodMappings.add(new MemberMapping(method, dstName));
-				members.add(method);
+				if (!dstName.isEmpty()) {
+					methodMappings.add(new MemberMapping(method, dstName));
+					members.add(method);
+				}
 			}
 
 			@Override
 			public void acceptMethodArg(Member method, int lvIndex, String dstName) {
-				methodArgMappings.add(new MethodArgMapping(method, lvIndex, dstName));
-				members.add(method);
+				if (!dstName.isEmpty()) {
+					methodArgMappings.add(new MethodArgMapping(method, lvIndex, dstName));
+					members.add(method);
+				}
 			}
 
 			@Override
 			public void acceptMethodVar(Member method, int lvIndex, int startOpIdx, int asmIndex, String dstName) {
-				methodVarMappings.add(new MethodVarMapping(method, lvIndex, startOpIdx, asmIndex, dstName));
-				members.add(method);
+				if (!dstName.isEmpty()) {
+					methodVarMappings.add(new MethodVarMapping(method, lvIndex, startOpIdx, asmIndex, dstName));
+					members.add(method);
+				}
 			}
 
 			@Override
 			public void acceptField(Member field, String dstName) {
-				fieldMappings.add(new MemberMapping(field, dstName));
-				members.add(field);
+				if (!dstName.isEmpty()) {
+					fieldMappings.add(new MemberMapping(field, dstName));
+					members.add(field);
+				}
 			}
 		};
 
@@ -172,14 +182,7 @@ public final class TinyUtils {
 				(remapClasses, classMapper) -> {
 					for (Member m : members) {
 						if (remapClasses) m.owner = classMapper.map(m.owner);
-						if (!m.owner.isEmpty()) {
-							try {
-								m.desc = classMapper.mapDesc(m.desc);
-							} catch (Exception e) {
-								e.printStackTrace();
-								// lazy temp thing to allow me to test more
-							}
-						}
+						m.desc = classMapper.mapDesc(m.desc);
 					}
 				});
 
