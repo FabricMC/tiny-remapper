@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2016, 2021, FabricMC
+ * Copyright (c) 2016, 2022, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -46,6 +46,7 @@ public class Main {
 		Set<String> forcePropagation = Collections.emptySet();
 		File forcePropagationFile = null;
 		boolean ignoreConflicts = false;
+		boolean useResolvedOwners = false;
 		boolean checkPackageAccess = false;
 		boolean fixPackageAccess = false;
 		boolean resolveMissing = false;
@@ -90,6 +91,9 @@ public class Main {
 					break;
 				case "ignoreconflicts":
 					ignoreConflicts = true;
+					break;
+				case "useresolvedowners":
+					useResolvedOwners = true;
 					break;
 				case "checkpackageaccess":
 					checkPackageAccess = true;
@@ -145,7 +149,25 @@ public class Main {
 		}
 
 		if (args.size() < 5) {
-			System.out.println("usage: <input> <output> <mappings> <from> <to> [<classpath>]... [--reverse] [--forcePropagation=<file>] [--propagatePrivate] [--ignoreConflicts]");
+			System.out.printf("usage: <input> <output> <mappings> <from> <to> [<classpath>]... [OPTIONS]%n"
+					+ "options:%n"
+					+ "  --ignoreFieldDesc%n"
+					+ "  --forcePropagation=<file>%n"
+					+ "  --propagatePrivate%n"
+					+ "  --propagateBridges=(disabled|enabled|compatible)%n"
+					+ "  --removeFrames%n"
+					+ "  --ignoreConflicts%n"
+					+ "  --useResolvedOwners%n"
+					+ "  --checkPackagAaccess%n"
+					+ "  --fixPackageAccess%n"
+					+ "  --resolveMissing%n"
+					+ "  --rebuildSourceFilenames%n"
+					+ "  --skipLocalVariableMapping%n"
+					+ "  --renameInvalidLocals%n"
+					+ "  --invalidLvNamePattern=<pattern>%n"
+					+ "  --nonClassCopyMode=(unchanged|fixmeta|skipmeta)%n"
+					+ "  --threads=<n>%n"
+					+ "  --mixin%n");
 			System.exit(1);
 		}
 
@@ -212,6 +234,7 @@ public class Main {
 				.propagateBridges(propagateBridges)
 				.removeFrames(removeFrames)
 				.ignoreConflicts(ignoreConflicts)
+				.useResolvedOwners(useResolvedOwners)
 				.checkPackageAccess(checkPackageAccess)
 				.fixPackageAccess(fixPackageAccess)
 				.resolveMissing(resolveMissing)
