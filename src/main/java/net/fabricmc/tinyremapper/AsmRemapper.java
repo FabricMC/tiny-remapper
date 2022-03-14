@@ -48,11 +48,12 @@ class AsmRemapper extends TrRemapper {
 		ClassInstance cls = getClass(owner);
 		if (cls == null) return name;
 
-		return mapFieldName(cls, name, desc);
+		MemberInstance member = cls.resolveField(name, desc);
+
+		return mapFieldName(cls, member, name, desc);
 	}
 
-	final String mapFieldName(ClassInstance cls, String name, String desc) {
-		MemberInstance member = cls.resolve(TrMember.MemberType.FIELD, MemberInstance.getFieldId(name, desc, tr.ignoreFieldDesc));
+	final String mapFieldName(ClassInstance cls, MemberInstance member, String name, String desc) {
 		String newName;
 
 		if (member != null && (newName = member.getNewName()) != null) {
@@ -78,11 +79,12 @@ class AsmRemapper extends TrRemapper {
 		ClassInstance cls = getClass(owner);
 		if (cls == null) return name; // TODO: try to map these from just the mappings?, warn if actual class is missing
 
-		return mapMethodName(cls, name, desc);
+		MemberInstance member = cls.resolveMethod(name, desc);
+
+		return mapMethodName(cls, member, name, desc);
 	}
 
-	final String mapMethodName(ClassInstance cls, String name, String desc) {
-		MemberInstance member = cls.resolve(TrMember.MemberType.METHOD, MemberInstance.getMethodId(name, desc));
+	final String mapMethodName(ClassInstance cls, MemberInstance member, String name, String desc) {
 		String newName;
 
 		if (member != null && (newName = member.getNewName()) != null) {
@@ -134,6 +136,7 @@ class AsmRemapper extends TrRemapper {
 		return originatingNewName != null ? originatingNewName : name;
 	}
 
+	@Override
 	public String mapMethodVar(String methodOwner, String methodName, String methodDesc, int lvIndex, int startOpIdx, int asmIndex, String name) {
 		return name; // TODO: implement
 	}
@@ -148,7 +151,7 @@ class AsmRemapper extends TrRemapper {
 		String annotationClass = Type.getType(annotationDesc).getInternalName();
 
 		if (attributeDesc == null) {
-			return this.mapMethodNamePrefixDesc(annotationClass, name, "()");
+			return mapMethodNamePrefixDesc(annotationClass, name, "()");
 		} else {
 			return this.mapMethodName(annotationClass, name, "()" + attributeDesc);
 		}

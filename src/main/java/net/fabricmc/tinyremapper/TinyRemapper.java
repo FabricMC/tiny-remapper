@@ -132,6 +132,14 @@ public class TinyRemapper {
 			return this;
 		}
 
+		/**
+		 * Whether to use the resolved owner class instead of the current class for member accesses.
+		 */
+		public Builder useResolvedOwners(boolean value) {
+			useResolvedOwners = value;
+			return this;
+		}
+
 		public Builder checkPackageAccess(boolean value) {
 			checkPackageAccess = value;
 			return this;
@@ -217,7 +225,7 @@ public class TinyRemapper {
 					keepInputData,
 					forcePropagation, propagatePrivate,
 					propagateBridges, propagateRecordComponents,
-					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
+					removeFrames, ignoreConflicts, resolveMissing, useResolvedOwners, checkPackageAccess || fixPackageAccess, fixPackageAccess,
 					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals, invalidLvNamePattern, inferNameFromSameLvIndex,
 					analyzeVisitors, stateProcessors, preApplyVisitors, postApplyVisitors,
 					extraRemapper);
@@ -236,6 +244,7 @@ public class TinyRemapper {
 		private boolean removeFrames = false;
 		private boolean ignoreConflicts = false;
 		private boolean resolveMissing = false;
+		private boolean useResolvedOwners = false;
 		private boolean checkPackageAccess = false;
 		private boolean fixPackageAccess = false;
 		private boolean rebuildSourceFilenames = false;
@@ -274,6 +283,7 @@ public class TinyRemapper {
 			boolean removeFrames,
 			boolean ignoreConflicts,
 			boolean resolveMissing,
+			boolean useResolvedOwners,
 			boolean checkPackageAccess,
 			boolean fixPackageAccess,
 			boolean rebuildSourceFilenames,
@@ -294,6 +304,7 @@ public class TinyRemapper {
 		this.removeFrames = removeFrames;
 		this.ignoreConflicts = ignoreConflicts;
 		this.resolveMissing = resolveMissing;
+		this.useResolvedOwners = useResolvedOwners;
 		this.checkPackageAccess = checkPackageAccess;
 		this.fixPackageAccess = fixPackageAccess;
 		this.rebuildSourceFilenames = rebuildSourceFilenames;
@@ -1089,10 +1100,10 @@ public class TinyRemapper {
 				String mappedName, mappedDesc;
 
 				if (member.type == TrMember.MemberType.FIELD) {
-					mappedName = remapper.mapFieldName(cls, member.name, member.desc);
+					mappedName = remapper.mapFieldName(cls, member, member.name, member.desc);
 					mappedDesc = remapper.mapDesc(member.desc);
 				} else {
-					mappedName = remapper.mapMethodName(cls, member.name, member.desc);
+					mappedName = remapper.mapMethodName(cls, member, member.name, member.desc);
 					mappedDesc = remapper.mapMethodDesc(member.desc);
 				}
 
@@ -1311,6 +1322,7 @@ public class TinyRemapper {
 	private final boolean removeFrames;
 	private final boolean ignoreConflicts;
 	private final boolean resolveMissing;
+	final boolean useResolvedOwners;
 	private final boolean checkPackageAccess;
 	private final boolean fixPackageAccess;
 	private final boolean rebuildSourceFilenames;
