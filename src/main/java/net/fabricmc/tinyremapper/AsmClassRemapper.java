@@ -255,8 +255,9 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 			}
 
 			AsmRemapper asmRemapper = ((AsmRemapper) remapper);
+
 			for (ClassInstance checkClass = asmRemapper.getClass(owner); checkClass != null; checkClass = checkClass.getSuperClass()) {
-				if(checkClass.getMethod(name, descriptor) != null) {
+				if (checkClass.getMethod(name, descriptor) != null) {
 					owner = checkClass.getName();
 					break;
 				}
