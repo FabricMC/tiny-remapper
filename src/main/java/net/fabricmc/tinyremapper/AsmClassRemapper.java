@@ -254,6 +254,14 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 				PackageAccessChecker.checkMember(this.owner, owner, name, descriptor, TrMember.MemberType.METHOD, "method instruction", (AsmRemapper) remapper);
 			}
 
+			AsmRemapper asmRemapper = ((AsmRemapper) remapper);
+			for (ClassInstance checkClass = asmRemapper.getClass(owner); checkClass != null; checkClass = checkClass.getSuperClass()) {
+				if(checkClass.getMethod(name, descriptor) != null) {
+					owner = checkClass.getName();
+					break;
+				}
+			}
+
 			super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
 		}
 
