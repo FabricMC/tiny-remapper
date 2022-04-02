@@ -21,8 +21,6 @@ package net.fabricmc.tinyremapper;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.reflect.Method;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import org.junit.jupiter.api.Test;
 
@@ -77,14 +75,14 @@ class TinyRemapperTest {
 	}
 
 	private static int getMrjVersionFromPath(String file, String name) throws ReflectiveOperationException {
-		return (int) getMrjVersionFromPathMethod.invoke(null, Paths.get(file), name);
+		return (int) getMrjVersionFromPathMethod.invoke(null, file, name);
 	}
 
 	private static final Method getMrjVersionFromPathMethod;
 
 	static {
 		try {
-			getMrjVersionFromPathMethod = TinyRemapper.class.getDeclaredMethod("analyzeMrjVersion", Path.class, String.class);
+			getMrjVersionFromPathMethod = TinyRemapper.class.getDeclaredMethod("analyzeMrjVersion", String.class, String.class);
 			getMrjVersionFromPathMethod.setAccessible(true);
 		} catch (ReflectiveOperationException e) {
 			throw new RuntimeException(e);

@@ -57,7 +57,7 @@ public class MetaInfFixer implements OutputConsumerPath.ResourceRemapper {
 			Path outputDir = outputFile.getParent();
 			if (outputDir != null) Files.createDirectories(outputDir);
 
-			try (OutputStream os = new BufferedOutputStream(Files.newOutputStream(outputFile))) {
+			try (OutputStream os = new BufferedOutputStream(Files.newOutputStream(outputFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE))) {
 				manifest.write(os);
 			}
 		} else if (remapper != null && relativePath.getNameCount() == 3 && relativePath.getName(1).toString().equals("services")) {

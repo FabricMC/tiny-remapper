@@ -382,6 +382,53 @@ public class TinyRemapper {
 		return ret;
 	}
 
+	public void readFileToClassPath(InputTag tag, Path classFile) {
+		readSingleClass(tag, classFile, false);
+	}
+
+	public void readFileToInput(InputTag tag, Path classFile) {
+		readSingleClass(tag, classFile, true);
+	}
+
+	public void readFileToClassPath(InputTag tag, String path, byte[] code, int offset, int len) {
+		readSingleClass(tag, path, code, offset, false);
+	}
+
+	public void readFileToInput(InputTag tag, String path, byte[] code, int offset, int len) {
+		readSingleClass(tag, path, code, offset, true);
+	}
+
+	private void readSingleClass(InputTag tag, Path path, boolean isInput) {
+		try {
+			this.readSingleClass(tag, path.toString(), Files.readAllBytes(path), 0, isInput);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	/**
+	 * Read a single class file into the classpath.
+	 */
+	private void readSingleClass(InputTag tag, String file, byte[] code, int offset, boolean isInput) {
+		try {
+			InputTag[] tags = singleInputTags.get().get(tag);
+			ClassInstance instance = analyze(isInput, tags, null, file, code, offset);
+
+			if (instance != null) {
+				addClass(instance, readClasses, true);
+				if (!dirty) {
+					dirty = true;
+
+					for (MrjState state : mrjStates.values()) {
+						state.dirty = true;
+					}
+				}
+			}
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
 	private CompletableFuture<List<ClassInstance>> read(Path[] inputs, boolean isInput, InputTag tag) {
 		InputTag[] tags = singleInputTags.get().get(tag);
 		List<CompletableFuture<List<ClassInstance>>> futures = new ArrayList<>();
@@ -429,20 +476,20 @@ public class TinyRemapper {
 		});
 	}
 
-	private static void addClass(ClassInstance cls, Map<String, ClassInstance> out, boolean isVersionAware) {
+	private void addClass(ClassInstance cls, Map<String, ClassInstance> out, boolean isVersionAware) {
 		// two different MRJ version will not cause warning if isVersionAware is true
 		String name = isVersionAware ? ClassInstance.getMrjName(cls.getName(), cls.getMrjVersion()) : cls.getName();
 
 		// add new class or replace non-input class with input class, warn if two input classes clash
 		for (;;) {
 			ClassInstance prev = out.putIfAbsent(name, cls);
-			if (prev == null) return;
+			if (prev == null) break;
 
 			if (prev.isMrjCopy() && prev.getMrjVersion() < cls.getMrjVersion()) {
 				// if {@code prev} is MRJ copy and {@code prev}'s origin version is less than {@code cls}'s
 				// origin version, then we should update the class.
 				if (out.replace(name, prev, cls)) {
-					return;
+					break;
 				} else {
 					// loop
 				}
@@ -450,16 +497,16 @@ public class TinyRemapper {
 				if (prev.isInput) {
 					System.out.printf("duplicate input class %s, from %s and %s%n", name, prev.srcPath, cls.srcPath);
 					prev.addInputTags(cls.getInputTags());
-					return;
+					break;
 				} else if (out.replace(name, prev, cls)) { // cas with retry-loop on failure
 					cls.addInputTags(prev.getInputTags());
-					return;
+					break;
 				} else {
 					// loop
 				}
 			} else {
 				prev.addInputTags(cls.getInputTags());
-				return;
+				break;
 			}
 		}
 	}
@@ -534,32 +581,28 @@ public class TinyRemapper {
 		return ret;
 	}
 
+	static final String MRJ_PREFIX = "META-INF/versions/";
 	/**
 	 * Determine the MRJ version of the supplied class file and name.
 	 *
 	 * <p>This assumes that the file path follows the usual META-INF/versions/{@code <version>}/pkg/for/cls.class form.
 	 */
-	private static int analyzeMrjVersion(Path file, String name) {
-		assert file.getFileName().toString().endsWith(".class");
+	private static int analyzeMrjVersion(String file, String name) {
+		assert file.endsWith(".class");
+		int index = file.lastIndexOf("META-INF/versions/");
 
-		int pkgCount = 0;
-		int pos = 0;
+		if (index != -1) {
+			int startOfVersionStringIndex = index + MRJ_PREFIX.length();
+			int endOfVersionStrIndex = file.indexOf('/', startOfVersionStringIndex);
 
-		while ((pos = name.indexOf('/', pos) + 1) > 0) {
-			pkgCount++;
-		}
-
-		int pathNameCount = file.getNameCount();
-		int pathNameOffset = pathNameCount - pkgCount - 1; // path index for root package
-
-		if (pathNameOffset >= 3
-				&& file.getName(pathNameOffset - 3).toString().equals("META-INF") // root pkg is in META-INF/x/x
-				&& file.getName(pathNameOffset - 2).toString().equals("versions") // root pkg is in META-INF/versions/x
-				&& file.subpath(pathNameOffset, pathNameCount).toString().replace('\\', '/').regionMatches(0, name, 0, name.length())) { // verify class name == path from root pkg dir, ignores suffix like .class
 			try {
-				return Integer.parseInt(file.getName(pathNameOffset - 1).toString());
-			} catch (NumberFormatException e) {
-				// ignore
+				int vers = Integer.parseInt(file.substring(startOfVersionStringIndex, endOfVersionStrIndex));
+
+				if (file.regionMatches(endOfVersionStrIndex + 1, name, 0, name.length())) {
+					return vers;
+				}
+			} catch (NumberFormatException ignored) {
+				// ignored
 			}
 		}
 
@@ -567,8 +610,11 @@ public class TinyRemapper {
 	}
 
 	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, Path file) throws IOException {
-		byte[] data = Files.readAllBytes(file);
-		ClassReader reader = new ClassReader(data);
+		return this.analyze(isInput, tags, srcPath, file.toString(), Files.readAllBytes(file), 0);
+	}
+
+	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, String filePath, byte[] data, int offset) throws IOException {
+		ClassReader reader = new ClassReader(data, offset, data.length); // asm doesn't actually use the length parameter
 
 		if ((reader.getAccess() & Opcodes.ACC_MODULE) != 0) return null; // special attribute for module-info.class, can't be a regular class
 
@@ -577,7 +623,7 @@ public class TinyRemapper {
 		reader.accept(new ClassVisitor(Opcodes.ASM9) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-				int mrjVersion = analyzeMrjVersion(file, name);
+				int mrjVersion = analyzeMrjVersion(filePath, name);
 				ret.init(name, version, mrjVersion, signature, superName, access, interfaces);
 
 				for (int i = analyzeVisitors.size() - 1; i >= 0; i--) {
