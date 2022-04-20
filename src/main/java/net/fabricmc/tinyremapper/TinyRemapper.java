@@ -568,7 +568,13 @@ public class TinyRemapper {
 
 	private ClassInstance analyze(boolean isInput, InputTag[] tags, Path srcPath, Path file) throws IOException {
 		byte[] data = Files.readAllBytes(file);
-		ClassReader reader = new ClassReader(data);
+		ClassReader reader;
+
+		try {
+			reader = new ClassReader(data);
+		} catch (Throwable t) {
+			throw new RuntimeException("error analyzing "+file+" from "+srcPath, t);
+		}
 
 		if ((reader.getAccess() & Opcodes.ACC_MODULE) != 0) return null; // special attribute for module-info.class, can't be a regular class
 
