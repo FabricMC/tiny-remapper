@@ -36,52 +36,76 @@ import java.util.Map;
  * invocations are mirrored.
  */
 public final class FileSystemHandler {
-	public static synchronized FileSystem open(URI uri) throws IOException {
-		boolean opened = false;
-		FileSystem ret = null;
+	public static FileSystem open(URI uri) throws IOException {
+		synchronized (fsRefs) {
+			boolean opened = false;
+			FileSystem ret = null;
 
-		try {
-			ret = FileSystems.getFileSystem(uri);
-		} catch (FileSystemNotFoundException e) {
 			try {
-				ret = FileSystems.newFileSystem(uri, Collections.emptyMap());
-				opened = true;
-			} catch (FileSystemAlreadyExistsException f) {
 				ret = FileSystems.getFileSystem(uri);
+			} catch (FileSystemNotFoundException e) {
+				try {
+					ret = FileSystems.newFileSystem(uri, Collections.emptyMap());
+					opened = true;
+				} catch (FileSystemAlreadyExistsException f) {
+					ret = FileSystems.getFileSystem(uri);
+				}
+			}
+
+			Integer count = fsRefs.get(ret);
+
+			if (count == null || count == 0) {
+				count = opened ? 1 : -1;
+			} else if (opened) {
+				throw new IllegalStateException("fs ref tracking indicates fs "+ret+" is open, but it wasn't");
+			} else {
+				count += Integer.signum(count);
+			}
+
+			fsRefs.put(ret, count);
+
+			return ret;
+		}
+	}
+
+	public static  void close(FileSystem fs) throws IOException {
+		synchronized (fsRefs) {
+			Integer count = fsRefs.get(fs);
+			if (count == null || count == 0) throw new IllegalStateException("fs "+fs+" never opened via FileSystemHandler");
+
+			boolean canClose = count > 0;
+			count -= Integer.signum(count);
+
+			if (count == 0) {
+				fsRefs.remove(fs);
+				if (canClose) fs.close();
+			} else {
+				fsRefs.put(fs, count);
 			}
 		}
-
-		RefData data = fsRefs.get(ret);
-
-		if (data == null) {
-			fsRefs.put(ret, new RefData(opened, 1));
-		} else {
-			data.refs++;
-		}
-
-		return ret;
 	}
 
-	public static synchronized void close(FileSystem fs) throws IOException {
-		RefData data = fsRefs.get(fs);
-		if (data == null || data.refs <= 0) throw new IllegalStateException("fs "+fs+" never opened via FileSystemHandler");
+	private static final Map<FileSystem, Integer> fsRefs; // fs->refCount map, counting positive if the fs was originally opened by this system
 
-		if (--data.refs == 0) {
-			fsRefs.remove(fs);
+	static {
+		synchronized (FileSystems.class) {
+			final String property = "fsRefsProvider";
+			String provider = System.getProperty(property);
 
-			if (data.opened) fs.close();
+			if (provider != null) {
+				try {
+					int pos = provider.lastIndexOf('/');
+					@SuppressWarnings("unchecked")
+					Map<FileSystem, Integer> map = (Map<FileSystem, Integer>) Class.forName(provider.substring(0, pos)).getField(provider.substring(pos + 1)).get(null);
+					fsRefs = map;
+				} catch (ReflectiveOperationException e) {
+					throw new RuntimeException(e);
+				}
+			} else {
+				fsRefs = new IdentityHashMap<>();
+				provider = String.format("%s/%s", FileSystemHandler.class.getName(), "fsRefs");
+				System.setProperty(property, provider);
+			}
 		}
 	}
-
-	private static class RefData {
-		RefData(boolean opened, int refs) {
-			this.opened = opened;
-			this.refs = refs;
-		}
-
-		boolean opened; // fs opened by us -> close when refs get to 0
-		int refs;
-	}
-
-	private static final Map<FileSystem, RefData> fsRefs = new IdentityHashMap<>();
 }
