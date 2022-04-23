@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2019, 2021, FabricMC
+ * Copyright (c) 2019, 2022, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -68,7 +68,7 @@ public final class FileSystemHandler {
 		}
 	}
 
-	public static  void close(FileSystem fs) throws IOException {
+	public static void close(FileSystem fs) throws IOException {
 		synchronized (fsRefs) {
 			Integer count = fsRefs.get(fs);
 			if (count == null || count == 0) throw new IllegalStateException("fs "+fs+" never opened via FileSystemHandler");
