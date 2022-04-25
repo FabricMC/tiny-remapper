@@ -85,7 +85,9 @@ public final class FileSystemHandler {
 		}
 	}
 
-	private static final Map<FileSystem, Integer> fsRefs; // fs->refCount map, counting positive if the fs was originally opened by this system
+	// fs->refCount map, counting positive if the fs was originally opened by this system
+	// public for reflection only!
+	public static final Map<FileSystem, Integer> fsRefs;
 
 	static {
 		synchronized (FileSystems.class) {
