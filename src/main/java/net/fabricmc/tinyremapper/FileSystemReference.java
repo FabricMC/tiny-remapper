@@ -129,7 +129,7 @@ public final class FileSystemReference implements Closeable {
 			if (refs.isEmpty()) {
 				openFsMap.remove(fileSystem);
 				fileSystem.close();
-			} else if (refs.size() == 1 && refs.iterator().next() == null) { // only null -> not opened by us, just abandon
+			} else if (refs.size() == 1 && refs.contains(null)) { // only null -> not opened by us, just abandon
 				openFsMap.remove(fileSystem);
 			}
 		}
