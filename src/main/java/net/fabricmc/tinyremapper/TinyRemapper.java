@@ -979,7 +979,9 @@ public class TinyRemapper {
 	}
 	
 	private <T> void executeThreaded(Collection<T> list, Consumer<T> consumer) {
-		if(this.threadPool == ForkJoinPool.commonPool()) { // the pool used by Stream#parallel, perhaps it's best to leave the threading to java
+		// the pool used by Stream#parallel, it's best to leave the threading to java
+		//  made in preparation for custom thread pools
+		if(this.threadPool == ForkJoinPool.commonPool()) {
 			list.parallelStream().forEach(consumer);
 		} else {
 			List<Future<?>> futures = new ArrayList<>(outputBuffer.size());
