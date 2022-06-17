@@ -914,6 +914,7 @@ public class TinyRemapper {
 				for (MrjState state : mrjStates.values()) {
 					mrjRefresh(state);
 					
+					BiConsumer<ClassInstance, byte[]> finalImmediateConsumer = immediateConsumer;
 					this.executeThreaded(state.classes.values(), cls -> {
 						if (!cls.isInput) return;
 						
@@ -921,6 +922,8 @@ public class TinyRemapper {
 							if (!hasInputTags && !keepInputData) throw new IllegalStateException("invoking apply multiple times without input tags or hasInputData");
 							throw new IllegalStateException("data for input class " + cls + " is missing?!");
 						}
+						
+						finalImmediateConsumer.accept(cls, apply(cls));
 					});
 				}
 				
