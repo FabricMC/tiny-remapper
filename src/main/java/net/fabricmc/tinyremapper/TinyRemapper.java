@@ -911,25 +911,18 @@ public class TinyRemapper {
 					consumedAll = true;
 				}
 				
-				List<Future<?>> futures = new ArrayList<>();
-				
 				for (MrjState state : mrjStates.values()) {
 					mrjRefresh(state);
 					
-					for (final ClassInstance cls : state.classes.values()) {
-						if (!cls.isInput) continue;
+					this.executeThreaded(state.classes.values(), cls -> {
+						if (!cls.isInput) return;
 						
 						if (cls.data == null) {
 							if (!hasInputTags && !keepInputData) throw new IllegalStateException("invoking apply multiple times without input tags or hasInputData");
 							throw new IllegalStateException("data for input class " + cls + " is missing?!");
 						}
-						
-						BiConsumer<ClassInstance, byte[]> localImmediateConsumer = immediateConsumer;
-						futures.add(threadPool.submit(() -> localImmediateConsumer.accept(cls, apply(cls))));
-					}
+					});
 				}
-				
-				waitForAll(futures);
 				
 				boolean needsFixes = !classesToMakePublic.isEmpty() || !membersToMakePublic.isEmpty();
 				
