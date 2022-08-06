@@ -83,6 +83,7 @@ public class MetaInfFixer implements OutputConsumerPath.ResourceRemapper {
 		return fileName.endsWith(".SF")
 				|| fileName.endsWith(".DSA")
 				|| fileName.endsWith(".RSA")
+				|| fileName.endsWith(".EC")
 				|| fileName.startsWith("SIG-");
 	}
 
