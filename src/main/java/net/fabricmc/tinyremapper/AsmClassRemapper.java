@@ -198,6 +198,10 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 			this.inferNameFromSameLvIndex = inferNameFromSameLvIndex;
 		}
 
+		private AsmRemapper getRemapper() {
+			return (AsmRemapper) remapper;
+		}
+
 		@Override
 		public AnnotationVisitor createAnnotationRemapper(String descriptor, AnnotationVisitor annotationVisitor) {
 			return new AsmAnnotationRemapper(descriptor, annotationVisitor, (AsmRemapper) remapper);
@@ -240,21 +244,54 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		}
 
 		@Override
-		public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
+		public void visitFieldInsn(int opcode, String owner, String name, String desc) {
 			if (checkPackageAccess) {
-				PackageAccessChecker.checkMember(this.owner, owner, name, descriptor, TrMember.MemberType.FIELD, "field instruction", (AsmRemapper) remapper);
+				PackageAccessChecker.checkMember(this.owner, owner, name, desc, TrMember.MemberType.FIELD, "field instruction", (AsmRemapper) remapper);
 			}
 
-			super.visitFieldInsn(opcode, owner, name, descriptor);
+			AsmRemapper remapper = getRemapper();
+			ClassInstance cls = remapper.getClass(owner);
+
+			if (cls != null) {
+				MemberInstance member = cls.resolveField(name, desc);
+
+				name = remapper.mapFieldName(cls, member, name, desc);
+
+				if (remapper.tr.useResolvedOwners && member != null && member.getOwner() != cls) {
+					owner = member.getOwner().getName();
+				}
+			}
+
+			mv.visitFieldInsn(opcode,
+					remapper.mapType(owner),
+					name,
+					remapper.mapDesc(desc));
 		}
 
 		@Override
-		public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
+		public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean isInterface) {
 			if (checkPackageAccess) {
-				PackageAccessChecker.checkMember(this.owner, owner, name, descriptor, TrMember.MemberType.METHOD, "method instruction", (AsmRemapper) remapper);
+				PackageAccessChecker.checkMember(this.owner, owner, name, desc, TrMember.MemberType.METHOD, "method instruction", (AsmRemapper) remapper);
 			}
 
-			super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+			AsmRemapper remapper = getRemapper();
+			ClassInstance cls = remapper.getClass(owner);
+
+			if (cls != null) {
+				MemberInstance member = cls.resolveMethod(name, desc);
+
+				name = remapper.mapMethodName(cls, member, name, desc);
+
+				if (remapper.tr.useResolvedOwners && member != null && member.getOwner() != cls) {
+					owner = member.getOwner().getName();
+				}
+			}
+
+			mv.visitMethodInsn(opcode,
+					remapper.mapType(owner),
+					name,
+					remapper.mapMethodDesc(desc),
+					isInterface);
 		}
 
 		@Override
@@ -271,7 +308,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 				bootstrapMethodArguments[i] = remapper.mapValue(bootstrapMethodArguments[i]);
 			}
 
-			// bypass remapper
+			// bypass remapper, TODO: implement useResolvedOwners
 			mv.visitInvokeDynamicInsn(name,
 					remapper.mapMethodDesc(descriptor), (Handle) remapper.mapValue(bootstrapMethodHandle),
 					bootstrapMethodArguments);
