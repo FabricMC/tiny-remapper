@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2016, 2022, FabricMC
+ * Copyright (c) 2016, 2023, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -575,18 +575,15 @@ public class TinyRemapper {
 
 		if ((reader.getAccess() & Opcodes.ACC_MODULE) != 0) return null; // special attribute for module-info.class, can't be a regular class
 
+		final String name = reader.getClassName();
+		final int mrjVersion = analyzeMrjVersion(file, name);
+
 		final ClassInstance ret = new ClassInstance(this, isInput, tags, srcPath, isInput ? data : null);
 
-		reader.accept(new ClassVisitor(Opcodes.ASM9) {
+		ClassVisitor cv = new ClassVisitor(Opcodes.ASM9) {
 			@Override
 			public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-				int mrjVersion = analyzeMrjVersion(file, name);
 				ret.init(name, version, mrjVersion, signature, superName, access, interfaces);
-
-				for (int i = analyzeVisitors.size() - 1; i >= 0; i--) {
-					cv = analyzeVisitors.get(i).insertAnalyzeVisitor(mrjVersion, name, cv);
-				}
-
 				super.visit(version, access, name, signature, superName, interfaces);
 			}
 
@@ -605,7 +602,13 @@ public class TinyRemapper {
 
 				return super.visitField(access, name, desc, signature, value);
 			}
-		}, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
+		};
+
+		for (int i = analyzeVisitors.size() - 1; i >= 0; i--) {
+			cv = analyzeVisitors.get(i).insertAnalyzeVisitor(mrjVersion, name, cv);
+		}
+
+		reader.accept(cv, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
 
 		return ret;
 	}
