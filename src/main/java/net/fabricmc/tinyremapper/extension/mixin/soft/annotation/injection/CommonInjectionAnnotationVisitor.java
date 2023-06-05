@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2021, FabricMC
+ * Copyright (c) 2021, 2023, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -28,6 +28,7 @@ import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
@@ -61,7 +62,7 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 	public void visitEnd() {
 		// The second pass is needed regardless of remap, because it may have
 		// children annotation need to remap.
-		this.accept(new CommonInjectionSecondPassAnnotationVisitor(data, delegate, remap, targets));
+		this.accept(new CommonInjectionSecondPassAnnotationVisitor(data, delegate, remap, targets, desc));
 
 		super.visitEnd();
 	}
@@ -127,14 +128,16 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 
 		private final boolean remap;
 		private final List<String> targets;
+		private final String annotationDesc;
 
-		CommonInjectionSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, boolean remap, List<String> targets) {
+		CommonInjectionSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, boolean remap, List<String> targets, String annotationDesc) {
 			super(Constant.ASM_VERSION, delegate);
 
 			this.data = Objects.requireNonNull(data);
 
 			this.targets = Objects.requireNonNull(targets);
 			this.remap = remap;
+			this.annotationDesc = Objects.requireNonNull(annotationDesc);
 		}
 
 		@Override
@@ -173,6 +176,24 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 						}
 
 						super.visit(name, value);
+					}
+				};
+			} else if (remap && name.equals(AnnotationElement.TARGET)) {	// All
+				return new AnnotationVisitor(Constant.ASM_VERSION, av) {
+					@Override
+					public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+						if (!descriptor.equals(Annotation.DESC)) {
+							throw new RuntimeException("Unexpected annotation " + descriptor);
+						}
+
+						MemberType expectedDescType;
+						if (annotationDesc.equals(Annotation.MODIFY_CONSTANT)) {
+							expectedDescType = MemberType.FIELD;
+						} else {
+							expectedDescType = MemberType.METHOD;
+						}
+						AnnotationVisitor av1 = super.visitAnnotation(name, descriptor);
+						return new DescAnnotationVisitor(targets, data, av1, expectedDescType);
 					}
 				};
 			} else if (name.equals(AnnotationElement.AT)) {	// @Inject
