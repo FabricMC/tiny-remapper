@@ -187,11 +187,13 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 						}
 
 						MemberType expectedDescType;
+
 						if (annotationDesc.equals(Annotation.MODIFY_CONSTANT)) {
 							expectedDescType = MemberType.FIELD;
 						} else {
 							expectedDescType = MemberType.METHOD;
 						}
+
 						AnnotationVisitor av1 = super.visitAnnotation(name, descriptor);
 						return new DescAnnotationVisitor(targets, data, av1, expectedDescType);
 					}

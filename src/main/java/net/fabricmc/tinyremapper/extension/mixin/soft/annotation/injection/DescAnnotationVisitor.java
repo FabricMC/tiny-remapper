@@ -37,7 +37,6 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
 
 class DescAnnotationVisitor extends AnnotationVisitor {
-
 	private final List<String> targets;
 	private final CommonData data;
 	private final MemberType expectedType;
@@ -92,9 +91,7 @@ class DescAnnotationVisitor extends AnnotationVisitor {
 
 	@Override
 	public void visitEnd() {
-
 		Objects.requireNonNull(value);
-
 		List<String> potentialOwners = targets;
 
 		if (owner != null) {
@@ -103,6 +100,7 @@ class DescAnnotationVisitor extends AnnotationVisitor {
 
 		if (expectedType == MemberType.METHOD) {
 			String desc = "(";
+
 			if (args != null) {
 				for (Type arg : args) {
 					desc += arg.getDescriptor();
@@ -110,6 +108,7 @@ class DescAnnotationVisitor extends AnnotationVisitor {
 			}
 
 			desc += ")";
+
 			if (ret != null) {
 				desc += ret.getDescriptor();
 			} else {
@@ -128,11 +127,13 @@ class DescAnnotationVisitor extends AnnotationVisitor {
 
 			for (String owner: potentialOwners) {
 				Optional<TrMethod> resolved = data.resolver.resolveMethod(owner, value, desc, ResolveUtility.FLAG_RECURSIVE | ResolveUtility.FLAG_UNIQUE);
+
 				if (!resolved.isPresent()) {
 					continue;
 				}
 
 				String remapped = data.mapper.mapName(resolved.get());
+
 				if (proposedName == null) {
 					proposedName = remapped;
 				} else if (!proposedName.equals(remapped)) {
@@ -158,11 +159,13 @@ class DescAnnotationVisitor extends AnnotationVisitor {
 
 			for (String owner: potentialOwners) {
 				Optional<TrField> resolved = data.resolver.resolveField(owner, value, desc, ResolveUtility.FLAG_RECURSIVE | ResolveUtility.FLAG_UNIQUE);
+
 				if (!resolved.isPresent()) {
 					continue;
 				}
 
 				String remapped = data.mapper.mapName(resolved.get());
+
 				if (proposedName == null) {
 					proposedName = remapped;
 				} else if (!proposedName.equals(remapped)) {
