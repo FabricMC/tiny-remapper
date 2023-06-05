@@ -62,7 +62,7 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 	public void visitEnd() {
 		// The second pass is needed regardless of remap, because it may have
 		// children annotation need to remap.
-		this.accept(new CommonInjectionSecondPassAnnotationVisitor(data, delegate, remap, targets, desc));
+		this.accept(new CommonInjectionSecondPassAnnotationVisitor(data, delegate, remap, targets));
 
 		super.visitEnd();
 	}
@@ -128,16 +128,14 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 
 		private final boolean remap;
 		private final List<String> targets;
-		private final String annotationDesc;
 
-		CommonInjectionSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, boolean remap, List<String> targets, String annotationDesc) {
+		CommonInjectionSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, boolean remap, List<String> targets) {
 			super(Constant.ASM_VERSION, delegate);
 
 			this.data = Objects.requireNonNull(data);
 
 			this.targets = Objects.requireNonNull(targets);
 			this.remap = remap;
-			this.annotationDesc = Objects.requireNonNull(annotationDesc);
 		}
 
 		@Override
@@ -186,16 +184,8 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 							throw new RuntimeException("Unexpected annotation " + descriptor);
 						}
 
-						MemberType expectedDescType;
-
-						if (annotationDesc.equals(Annotation.MODIFY_CONSTANT)) {
-							expectedDescType = MemberType.FIELD;
-						} else {
-							expectedDescType = MemberType.METHOD;
-						}
-
 						AnnotationVisitor av1 = super.visitAnnotation(name, descriptor);
-						return new DescAnnotationVisitor(targets, data, av1, expectedDescType);
+						return new DescAnnotationVisitor(targets, data, av1, MemberType.METHOD);
 					}
 				};
 			} else if (name.equals(AnnotationElement.AT)) {	// @Inject
