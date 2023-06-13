@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2021, FabricMC
+ * Copyright (c) 2021, 2023, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -28,6 +28,7 @@ import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrMember;
+import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
@@ -173,6 +174,18 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 						}
 
 						super.visit(name, value);
+					}
+				};
+			} else if (remap && name.equals(AnnotationElement.TARGET)) {	// All
+				return new AnnotationVisitor(Constant.ASM_VERSION, av) {
+					@Override
+					public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+						if (!descriptor.equals(Annotation.DESC)) {
+							throw new RuntimeException("Unexpected annotation " + descriptor);
+						}
+
+						AnnotationVisitor av1 = super.visitAnnotation(name, descriptor);
+						return new DescAnnotationVisitor(targets, data, av1, MemberType.METHOD);
 					}
 				};
 			} else if (name.equals(AnnotationElement.AT)) {	// @Inject
