@@ -27,12 +27,12 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.zip.GZIPInputStream;
 
 import net.fabricmc.mappingio.MappingReader;
 import net.fabricmc.mappingio.adapter.MappingNsCompleter;
 import net.fabricmc.mappingio.adapter.MappingSourceNsSwitch;
-import net.fabricmc.mappingio.format.MappingFormat;
 import net.fabricmc.mappingio.tree.MappingTree.ClassMapping;
 import net.fabricmc.mappingio.tree.MappingTree.FieldMapping;
 import net.fabricmc.mappingio.tree.MappingTree.MethodArgMapping;
@@ -79,30 +79,67 @@ public final class TinyUtils {
 		};
 	}
 
-	public static void read(BufferedReader reader, String from, String to, MappingAcceptor out) throws IOException {
+	public static void read(BufferedReader reader, String fromNs, String toNs, MappingAcceptor out) throws IOException {
 		MemoryMappingTree tree = new MemoryMappingTree();
 		MappingReader.read(reader, new MappingNsCompleter(
-				new MappingSourceNsSwitch(tree, from, true), Collections.emptyMap()));
+				new MappingSourceNsSwitch(tree, fromNs, true), Collections.emptyMap()));
+		String fromName;
+		String toName;
+		int classes = 0;
+		int fields = 0;
+		int methods = 0;
+		int args = 0;
+		int vars = 0;
 
 		for (ClassMapping cls : tree.getClasses()) {
-			out.acceptClass(cls.getName(from), cls.getName(to));
+			if (!nullOrEqual(fromName = cls.getName(fromNs), toName = cls.getName(toNs))) {
+				out.acceptClass(fromName, toName);
+				classes++;
+			}
 
 			for (FieldMapping fld : cls.getFields()) {
-				out.acceptField(new Member(cls.getName(from), fld.getName(from), fld.getDesc(from)), fld.getName(to));
+				if (!nullOrEqual(fromName = fld.getName(fromNs), toName = fld.getName(toNs))) {
+					out.acceptField(new Member(cls.getName(fromNs), fromName, fld.getDesc(fromNs)), toName);
+					fields++;
+				}
 			}
 
 			for (MethodMapping mth : cls.getMethods()) {
-				Member member = new Member(cls.getName(from), mth.getName(from), mth.getDesc(from));
-				out.acceptMethod(member, mth.getName(to));
+				Member member = new Member(cls.getName(fromNs), fromName = mth.getName(fromNs), mth.getDesc(fromNs));
 
-				for (MethodArgMapping arg : mth.getArgs()) {
-					out.acceptMethodArg(member, arg.getLvIndex(), arg.getName(to));
+				if (!nullOrEqual(fromName, toName = mth.getName(toNs))) {
+					out.acceptMethod(member, toName);
+					methods++;
 				}
-
+				
+				for (MethodArgMapping arg : mth.getArgs()) {
+					if (!nullOrEqual(arg.getName(fromNs), toName = arg.getName(toNs))) {
+						out.acceptMethodArg(member, arg.getLvIndex(), toName);
+						args++;
+					}
+				}
+				
 				for (MethodVarMapping var : mth.getVars()) {
-					out.acceptMethodVar(member, var.getLvIndex(), var.getStartOpIdx(), var.getLvtRowIndex(), var.getName(to));
+					if (!nullOrEqual(var.getName(fromNs), toName = var.getName(toNs))) {
+						out.acceptMethodVar(member, var.getLvIndex(), var.getStartOpIdx(), var.getLvtRowIndex(), toName);
+						vars++;
+					}
 				}
 			}
 		}
+
+		System.out.println(
+			classes + " classes, "
+			+ fields + " fields, "
+			+ methods + " methods, "
+			+ args + " args and "
+			+ vars + " vars "
+			+ "are about to be processed.");
+	}
+
+	private static boolean nullOrEqual(Object o1, Object o2) {
+		return o1 == null
+				|| o2 == null
+				|| o1.equals(o2);
 	}
 }
