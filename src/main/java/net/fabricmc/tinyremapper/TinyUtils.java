@@ -81,7 +81,7 @@ public final class TinyUtils {
 
 	public static void read(BufferedReader reader, String from, String to, MappingAcceptor out) throws IOException {
 		MemoryMappingTree tree = new MemoryMappingTree();
-		MappingReader.read(reader, MappingFormat.TINY, new MappingNsCompleter(
+		MappingReader.read(reader, new MappingNsCompleter(
 				new MappingSourceNsSwitch(tree, from, true), Collections.emptyMap()));
 
 		for (ClassMapping cls : tree.getClasses()) {
