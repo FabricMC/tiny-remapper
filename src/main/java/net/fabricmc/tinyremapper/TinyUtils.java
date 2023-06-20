@@ -27,10 +27,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collections;
-import java.util.Map;
 import java.util.zip.GZIPInputStream;
-
-import org.objectweb.asm.commons.Remapper;
 
 import net.fabricmc.mappingio.MappingReader;
 import net.fabricmc.mappingio.adapter.MappingNsCompleter;
