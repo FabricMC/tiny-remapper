@@ -31,7 +31,6 @@ import java.util.stream.Stream;
 
 import javax.lang.model.SourceVersion;
 
-import net.fabricmc.tinyremapper.api.TrMember;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -49,6 +48,8 @@ import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.ParameterNode;
+
+import net.fabricmc.tinyremapper.api.TrMember;
 
 final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	AsmClassRemapper(ClassVisitor cv, AsmRemapper remapper,
@@ -180,6 +181,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	}
 
 	private static class AsmMethodRemapper extends MethodRemapper {
+		private final TinyRemapper tr;
 		AsmMethodRemapper(MethodVisitor methodVisitor,
 				AsmRemapper remapper,
 				String owner,
@@ -198,6 +200,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 			this.renameInvalidLocals = renameInvalidLocals;
 			this.invalidLvNamePattern = invalidLvNamePattern;
 			this.inferNameFromSameLvIndex = inferNameFromSameLvIndex;
+			this.tr = remapper.tr;
 		}
 
 		@Override
@@ -261,7 +264,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 
 		@Override
 		public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
-			Handle implemented = getLambdaImplementedMethod(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
+			Handle implemented = getLambdaImplementedMethod(name, descriptor, bootstrapMethodHandle, tr.knownIndyBsm, bootstrapMethodArguments);
 
 			if (implemented != null) {
 				name = remapper.mapMethodName(implemented.getOwner(), implemented.getName(), implemented.getDesc());
@@ -279,15 +282,11 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 					bootstrapMethodArguments);
 		}
 
-		private static final Set<String> ALLOWED_INDY_BSM = Stream.of(System.getProperty("net.fabricmc.tinyremapper.knownindybsm", "").split(",")).collect(Collectors.toSet());
-
-		private static Handle getLambdaImplementedMethod(String name, String desc, Handle bsm, Object... bsmArgs) {
+		private static Handle getLambdaImplementedMethod(String name, String desc, Handle bsm, Set<String> knownIndyBsm, Object... bsmArgs) {
 			if (isJavaLambdaMetafactory(bsm)) {
 				assert desc.endsWith(";");
 				return new Handle(Opcodes.H_INVOKEINTERFACE, desc.substring(desc.lastIndexOf(')') + 2, desc.length() - 1), name, ((Type) bsmArgs[0]).getDescriptor(), true);
-			} else if (bsm.getOwner().equals("java/lang/invoke/StringConcatFactory")
-					|| bsm.getOwner().equals("java/lang/runtime/ObjectMethods")
-					|| ALLOWED_INDY_BSM.contains(bsm.getOwner())) {
+			} else if (knownIndyBsm.contains(bsm.getOwner())) {
 				return null;
 			} else {
 				System.out.printf("unknown invokedynamic bsm: %s/%s%s (tag=%d iif=%b)%n", bsm.getOwner(), bsm.getName(), bsm.getDesc(), bsm.getTag(), bsm.isInterface());

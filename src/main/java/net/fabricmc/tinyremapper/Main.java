@@ -45,6 +45,10 @@ public class Main {
 		boolean removeFrames = false;
 		Set<String> forcePropagation = Collections.emptySet();
 		File forcePropagationFile = null;
+		Set<String> knownIndyBsm = new HashSet<>();
+		knownIndyBsm.add("java/lang/invoke/StringConcatFactory");
+		knownIndyBsm.add("java/lang/runtime/ObjectMethods");
+		File knownIndyBsmFile = null;
 		boolean ignoreConflicts = false;
 		boolean checkPackageAccess = false;
 		boolean fixPackageAccess = false;
@@ -71,6 +75,8 @@ public class Main {
 				case "forcepropagation":
 					forcePropagationFile = new File(arg.substring(valueSepPos + 1));
 					break;
+				case "knownindybsm":
+					knownIndyBsmFile = new File(arg.substring(valueSepPos + 1));
 				case "propagateprivate":
 					propagatePrivate = true;
 					break;
@@ -202,12 +208,35 @@ public class Main {
 			}
 		}
 
+		if (knownIndyBsmFile != null) {
+			if (!knownIndyBsmFile.canRead()) {
+				System.out.println("Can't read knownIndyBsm file "+knownIndyBsmFile+".");
+				System.exit(1);
+			}
+
+			try (BufferedReader reader = new BufferedReader(new FileReader(knownIndyBsmFile))) {
+				String line;
+
+				while ((line = reader.readLine()) != null) {
+					line = line.trim();
+
+					if (line.isEmpty() || line.charAt(0) == '#') continue;
+
+					knownIndyBsm.add(line);
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+				System.exit(1);
+			}
+		}
+
 		long startTime = System.nanoTime();
 
 		TinyRemapper.Builder builder = TinyRemapper.newRemapper()
 				.withMappings(TinyUtils.createTinyMappingProvider(mappings, fromM, toM))
 				.ignoreFieldDesc(ignoreFieldDesc)
 				.withForcedPropagation(forcePropagation)
+				.withKnownIndyBsm(knownIndyBsm)
 				.propagatePrivate(propagatePrivate)
 				.propagateBridges(propagateBridges)
 				.removeFrames(removeFrames)
