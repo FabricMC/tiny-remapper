@@ -20,8 +20,11 @@ package net.fabricmc.tinyremapper;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -192,7 +195,7 @@ public class Main {
 				System.exit(1);
 			}
 
-			try (BufferedReader reader = new BufferedReader(new FileReader(forcePropagationFile))) {
+			try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(forcePropagationFile), StandardCharsets.UTF_8))) {
 				String line;
 
 				while ((line = reader.readLine()) != null) {
@@ -214,7 +217,7 @@ public class Main {
 				System.exit(1);
 			}
 
-			try (BufferedReader reader = new BufferedReader(new FileReader(knownIndyBsmFile))) {
+			try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(knownIndyBsmFile), StandardCharsets.UTF_8))) {
 				String line;
 
 				while ((line = reader.readLine()) != null) {
