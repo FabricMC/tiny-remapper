@@ -26,19 +26,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.Objects;
+import java.util.List;
 import java.util.zip.GZIPInputStream;
 
+import net.fabricmc.mappingio.FlatMappingVisitor;
 import net.fabricmc.mappingio.MappingReader;
-import net.fabricmc.mappingio.adapter.MappingNsCompleter;
+import net.fabricmc.mappingio.adapter.FlatAsRegularMappingVisitor;
+import net.fabricmc.mappingio.adapter.MappingDstNsReorder;
 import net.fabricmc.mappingio.adapter.MappingSourceNsSwitch;
-import net.fabricmc.mappingio.tree.MappingTree.ClassMapping;
-import net.fabricmc.mappingio.tree.MappingTree.FieldMapping;
-import net.fabricmc.mappingio.tree.MappingTree.MethodArgMapping;
-import net.fabricmc.mappingio.tree.MappingTree.MethodMapping;
-import net.fabricmc.mappingio.tree.MappingTree.MethodVarMapping;
-import net.fabricmc.mappingio.tree.MemoryMappingTree;
 import net.fabricmc.tinyremapper.IMappingProvider.MappingAcceptor;
 import net.fabricmc.tinyremapper.IMappingProvider.Member;
 
@@ -80,66 +75,79 @@ public final class TinyUtils {
 	}
 
 	public static void read(BufferedReader reader, String fromNs, String toNs, MappingAcceptor out) throws IOException {
-		MemoryMappingTree tree = new MemoryMappingTree();
-		MappingReader.read(reader, new MappingNsCompleter(
-				new MappingSourceNsSwitch(tree, fromNs, true), Collections.emptyMap()));
-		String fromName;
-		String toName;
-		int classes = 0;
-		int fields = 0;
-		int methods = 0;
-		int args = 0;
-		int vars = 0;
-
-		for (ClassMapping cls : tree.getClasses()) {
-			if (!nullOrEqual(fromName = cls.getName(fromNs), toName = cls.getName(toNs))) {
-				out.acceptClass(fromName, toName);
-				classes++;
-			}
-
-			for (FieldMapping fld : cls.getFields()) {
-				if (!nullOrEqual(fromName = fld.getName(fromNs), toName = fld.getName(toNs))) {
-					out.acceptField(new Member(cls.getName(fromNs), fromName, fld.getDesc(fromNs)), toName);
-					fields++;
-				}
-			}
-
-			for (MethodMapping mth : cls.getMethods()) {
-				Member member = new Member(cls.getName(fromNs), fromName = mth.getName(fromNs), mth.getDesc(fromNs));
-
-				if (!nullOrEqual(fromName, toName = mth.getName(toNs))) {
-					out.acceptMethod(member, toName);
-					methods++;
-				}
-				
-				for (MethodArgMapping arg : mth.getArgs()) {
-					if (!nullOrEqual(arg.getName(fromNs), toName = arg.getName(toNs))) {
-						out.acceptMethodArg(member, arg.getLvIndex(), toName);
-						args++;
-					}
-				}
-				
-				for (MethodVarMapping var : mth.getVars()) {
-					if (!nullOrEqual(var.getName(fromNs), toName = var.getName(toNs))) {
-						out.acceptMethodVar(member, var.getLvIndex(), var.getStartOpIdx(), var.getLvtRowIndex(), toName);
-						vars++;
-					}
-				}
-			}
-		}
-
-		System.out.println(
-			classes + " classes, "
-			+ fields + " fields, "
-			+ methods + " methods, "
-			+ args + " args and "
-			+ vars + " vars "
-			+ "are about to be processed.");
+		MappingReader.read(reader,
+				// Ensure fromNs is on source and toNs is on destination side
+				new MappingSourceNsSwitch(
+						// Remove all dst namespaces we're not interested in
+						new MappingDstNsReorder(
+								new FlatAsRegularMappingVisitor(new MappingAdapter(out)),
+								toNs),
+						fromNs));
 	}
 
-	private static boolean nullOrEqual(Object o1, Object o2) {
-		return o1 == null
-				|| o2 == null
-				|| o1.equals(o2);
+	private static final class MappingAdapter implements FlatMappingVisitor {
+		MappingAdapter(MappingAcceptor next) {
+			this.next = next;
+		}
+
+		@Override
+		public boolean visitClass(String srcName, String[] dstNames) throws IOException {
+			String dstName = dstNames[0];
+			if (!bothNullOrEqual(srcName, dstName)) next.acceptClass(srcName, dstName);
+			return true;
+		}
+
+		@Override
+		public boolean visitField(String srcClsName, String srcName, String srcDesc, String[] dstClsNames, String[] dstNames, String[] dstDescs) throws IOException {
+			String dstName = dstNames[0];
+			if (!bothNullOrEqual(srcName, dstName)) next.acceptField(new Member(srcClsName, srcName, srcDesc), dstName);
+			return false;
+		}
+
+		@Override
+		public boolean visitMethod(String srcClsName, String srcName, String srcDesc, String[] dstClsNames, String[] dstNames, String[] dstDescs) throws IOException {
+			String dstName = dstNames[0];
+			if (!bothNullOrEqual(srcName, dstName)) next.acceptMethod(new Member(srcClsName, srcName, srcDesc), dstName);
+			return true;
+		}
+
+		@Override
+		public boolean visitMethodArg(String srcClsName, String srcMethodName, String srcMethodDesc, int argPosition, int lvIndex,
+				String srcArgName, String[] dstClsNames, String[] dstMethodNames, String[] dstMethodDescs, String[] dstArgNames) throws IOException {
+			String dstName = dstArgNames[0];
+			if (!firstNullOrEqual(dstName, srcArgName)) next.acceptMethodArg(new Member(srcClsName, srcMethodName, srcMethodDesc), lvIndex, dstName);
+			return false;
+		}
+
+		@Override
+		public boolean visitMethodVar(String srcClsName, String srcMethodName, String srcMethodDesc, int lvtRowIndex, int lvIndex, int startOpIdx,
+				String srcVarName, String[] dstClsNames, String[] dstMethodNames, String[] dstMethodDescs, String[] dstVarNames) throws IOException {
+			String dstName = dstVarNames[0];
+			if (!firstNullOrEqual(dstName, srcVarName)) next.acceptMethodArg(new Member(srcClsName, srcMethodName, srcMethodDesc), lvIndex, dstName);
+			return false;
+		}
+
+		@Override
+		public void visitNamespaces(String srcNamespace, List<String> dstNamespaces) throws IOException { }
+		@Override
+		public void visitClassComment(String srcName, String[] dstNames, String comment) throws IOException { }
+		@Override
+		public void visitFieldComment(String srcClsName, String srcName, String srcDesc, String[] dstClsNames, String[] dstNames, String[] dstDescs, String comment) throws IOException { }
+		@Override
+		public void visitMethodComment(String srcClsName, String srcName, String srcDesc, String[] dstClsNames, String[] dstNames, String[] dstDescs, String comment) throws IOException { }
+		@Override
+		public void visitMethodArgComment(String srcClsName, String srcMethodName, String srcMethodDesc, int argPosition, int lvIndex, String srcArgName, String[] dstClsNames, String[] dstMethodNames, String[] dstMethodDescs, String[] dstArgNames, String comment) throws IOException { }
+		@Override
+		public void visitMethodVarComment(String srcClsName, String srcMethodName, String srcMethodDesc, int lvtRowIndex, int lvIndex, int startOpIdx, String srcVarName, String[] dstClsNames, String[] dstMethodNames, String[] dstMethodDescs, String[] dstVarNames, String comment) throws IOException { }
+
+		private final MappingAcceptor next;
+	}
+
+	private static boolean firstNullOrEqual(Object o1, Object o2) {
+		return o1 == null || o1.equals(o2);
+	}
+
+	private static boolean bothNullOrEqual(Object o1, Object o2) {
+		return o2 == null || firstNullOrEqual(o1, o2);
 	}
 }
