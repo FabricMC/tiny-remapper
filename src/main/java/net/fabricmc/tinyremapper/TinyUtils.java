@@ -74,7 +74,7 @@ public final class TinyUtils {
 		};
 	}
 
-	public static void read(BufferedReader reader, String fromNs, String toNs, MappingAcceptor out) throws IOException {
+	private static void read(BufferedReader reader, String fromNs, String toNs, MappingAcceptor out) throws IOException {
 		MappingReader.read(reader,
 				// Ensure fromNs is on source and toNs is on destination side
 				new MappingSourceNsSwitch(
