@@ -311,6 +311,9 @@ public class TinyRemapper {
 		this.preApplyVisitors = preApplyVisitors;
 		this.postApplyVisitors = postApplyVisitors;
 		this.extraRemapper = extraRemapper;
+
+		this.knownIndyBsm.add("java/lang/invoke/StringConcatFactory");
+		this.knownIndyBsm.add("java/lang/runtime/ObjectMethods");
 	}
 
 	public static Builder newRemapper() {

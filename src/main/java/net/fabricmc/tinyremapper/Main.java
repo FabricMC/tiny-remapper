@@ -48,8 +48,6 @@ public class Main {
 		Set<String> forcePropagation = Collections.emptySet();
 		File forcePropagationFile = null;
 		Set<String> knownIndyBsm = new HashSet<>();
-		knownIndyBsm.add("java/lang/invoke/StringConcatFactory");
-		knownIndyBsm.add("java/lang/runtime/ObjectMethods");
 		File knownIndyBsmFile = null;
 		boolean ignoreConflicts = false;
 		boolean checkPackageAccess = false;
