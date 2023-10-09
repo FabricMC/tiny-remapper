@@ -135,7 +135,8 @@ class AsmRemapper extends TrRemapper {
 	}
 
 	public String mapMethodVar(String methodOwner, String methodName, String methodDesc, int lvIndex, int startOpIdx, int asmIndex, String name) {
-		return name; // TODO: implement
+		String newName = tr.methodVarMap.get(methodOwner+"/"+MemberInstance.getMethodId(methodName, methodDesc)+lvIndex);
+		return newName != null ? newName : name;
 	}
 
 	@Override

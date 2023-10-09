@@ -663,7 +663,7 @@ public class TinyRemapper {
 				if (method.desc == null) throw new NullPointerException("null src method desc");
 				if (dstName == null) throw new NullPointerException("null dst name");
 
-				// TODO Auto-generated method stub
+				methodVarMap.put(method.owner+"/"+MemberInstance.getMethodId(method.name, method.desc)+lvIndex, dstName);
 			}
 
 			@Override
@@ -1356,6 +1356,7 @@ public class TinyRemapper {
 	final Map<String, String> classMap = new HashMap<>();
 	final Map<String, String> methodMap = new HashMap<>();
 	final Map<String, String> methodArgMap = new HashMap<>();
+	final Map<String, String> methodVarMap = new HashMap<>();
 	final Map<String, String> fieldMap = new HashMap<>();
 	final Map<MemberInstance, Set<String>> conflicts = new ConcurrentHashMap<>();
 	final Set<ClassInstance> classesToMakePublic = Collections.newSetFromMap(new ConcurrentHashMap<>());
