@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2016, 2021, FabricMC
+ * Copyright (c) 2016, 2023, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -20,8 +20,10 @@ package net.fabricmc.tinyremapper;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -45,6 +47,8 @@ public class Main {
 		boolean removeFrames = false;
 		Set<String> forcePropagation = Collections.emptySet();
 		File forcePropagationFile = null;
+		Set<String> knownIndyBsm = new HashSet<>();
+		File knownIndyBsmFile = null;
 		boolean ignoreConflicts = false;
 		boolean checkPackageAccess = false;
 		boolean fixPackageAccess = false;
@@ -71,6 +75,8 @@ public class Main {
 				case "forcepropagation":
 					forcePropagationFile = new File(arg.substring(valueSepPos + 1));
 					break;
+				case "knownindybsm":
+					knownIndyBsmFile = new File(arg.substring(valueSepPos + 1));
 				case "propagateprivate":
 					propagatePrivate = true;
 					break;
@@ -186,7 +192,7 @@ public class Main {
 				System.exit(1);
 			}
 
-			try (BufferedReader reader = new BufferedReader(new FileReader(forcePropagationFile))) {
+			try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(forcePropagationFile), StandardCharsets.UTF_8))) {
 				String line;
 
 				while ((line = reader.readLine()) != null) {
@@ -202,12 +208,35 @@ public class Main {
 			}
 		}
 
+		if (knownIndyBsmFile != null) {
+			if (!knownIndyBsmFile.canRead()) {
+				System.out.println("Can't read knownIndyBsm file "+knownIndyBsmFile+".");
+				System.exit(1);
+			}
+
+			try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(knownIndyBsmFile), StandardCharsets.UTF_8))) {
+				String line;
+
+				while ((line = reader.readLine()) != null) {
+					line = line.trim();
+
+					if (line.isEmpty() || line.charAt(0) == '#') continue;
+
+					knownIndyBsm.add(line);
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+				System.exit(1);
+			}
+		}
+
 		long startTime = System.nanoTime();
 
 		TinyRemapper.Builder builder = TinyRemapper.newRemapper()
 				.withMappings(TinyUtils.createTinyMappingProvider(mappings, fromM, toM))
 				.ignoreFieldDesc(ignoreFieldDesc)
 				.withForcedPropagation(forcePropagation)
+				.withKnownIndyBsm(knownIndyBsm)
 				.propagatePrivate(propagatePrivate)
 				.propagateBridges(propagateBridges)
 				.removeFrames(removeFrames)
