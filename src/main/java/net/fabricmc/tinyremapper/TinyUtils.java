@@ -98,14 +98,16 @@ public final class TinyUtils {
 		}
 
 		@Override
-		public boolean visitField(String srcClsName, String srcName, String srcDesc, String[] dstClsNames, String[] dstNames, String[] dstDescs) throws IOException {
+		public boolean visitField(String srcClsName, String srcName, String srcDesc,
+				String[] dstClsNames, String[] dstNames, String[] dstDescs) throws IOException {
 			String dstName = dstNames[0];
 			if (!bothNullOrEqual(srcName, dstName)) next.acceptField(new Member(srcClsName, srcName, srcDesc), dstName);
 			return false;
 		}
 
 		@Override
-		public boolean visitMethod(String srcClsName, String srcName, String srcDesc, String[] dstClsNames, String[] dstNames, String[] dstDescs) throws IOException {
+		public boolean visitMethod(String srcClsName, String srcName, String srcDesc,
+				String[] dstClsNames, String[] dstNames, String[] dstDescs) throws IOException {
 			String dstName = dstNames[0];
 			if (!bothNullOrEqual(srcName, dstName)) next.acceptMethod(new Member(srcClsName, srcName, srcDesc), dstName);
 			return true;
@@ -121,9 +123,9 @@ public final class TinyUtils {
 
 		@Override
 		public boolean visitMethodVar(String srcClsName, String srcMethodName, String srcMethodDesc, int lvtRowIndex, int lvIndex, int startOpIdx,
-				String srcVarName, String[] dstClsNames, String[] dstMethodNames, String[] dstMethodDescs, String[] dstVarNames) throws IOException {
+				int endOpIds, String srcVarName, String[] dstClsNames, String[] dstMethodNames, String[] dstMethodDescs, String[] dstVarNames) throws IOException {
 			String dstName = dstVarNames[0];
-			if (!firstNullOrEqual(dstName, srcVarName)) next.acceptMethodArg(new Member(srcClsName, srcMethodName, srcMethodDesc), lvIndex, dstName);
+			if (!firstNullOrEqual(dstName, srcVarName)) next.acceptMethodVar(new Member(srcClsName, srcMethodName, srcMethodDesc), lvIndex, startOpIdx, -1, dstName);
 			return false;
 		}
 
@@ -138,7 +140,7 @@ public final class TinyUtils {
 		@Override
 		public void visitMethodArgComment(String srcClsName, String srcMethodName, String srcMethodDesc, int argPosition, int lvIndex, String srcArgName, String[] dstClsNames, String[] dstMethodNames, String[] dstMethodDescs, String[] dstArgNames, String comment) throws IOException { }
 		@Override
-		public void visitMethodVarComment(String srcClsName, String srcMethodName, String srcMethodDesc, int lvtRowIndex, int lvIndex, int startOpIdx, String srcVarName, String[] dstClsNames, String[] dstMethodNames, String[] dstMethodDescs, String[] dstVarNames, String comment) throws IOException { }
+		public void visitMethodVarComment(String srcClsName, String srcMethodName, String srcMethodDesc, int lvtRowIndex, int lvIndex, int startOpIdx, int endOpIdx, String srcVarName, String[] dstClsNames, String[] dstMethodNames, String[] dstMethodDescs, String[] dstVarNames, String comment) throws IOException { }
 
 		private final MappingAcceptor next;
 	}
