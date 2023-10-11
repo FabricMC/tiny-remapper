@@ -81,7 +81,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 		}
 	}
 
-	public static void visitMethod(List<Consumer<CommonData>> tasks, MxMember method, List<SoftInterface> interfaces) {
+	public static void visitMethod(Collection<Consumer<CommonData>> tasks, MxMember method, List<SoftInterface> interfaces) {
 		tasks.add(data -> new SoftImplementsMappable(data, method, interfaces).result());
 	}
 

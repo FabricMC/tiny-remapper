@@ -18,6 +18,7 @@
 
 package net.fabricmc.tinyremapper.extension.mixin.hard;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -35,13 +36,13 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.annotation.OverwriteAnnota
 import net.fabricmc.tinyremapper.extension.mixin.hard.annotation.ShadowAnnotationVisitor;
 
 class HardTargetMixinMethodVisitor extends MethodVisitor {
-	private final List<Consumer<CommonData>> data;
+	private final Collection<Consumer<CommonData>> data;
 	private final MxMember method;
 
 	private final boolean remap;
 	private final List<String> targets;
 
-	HardTargetMixinMethodVisitor(List<Consumer<CommonData>> data, MethodVisitor delegate, MxMember method, boolean remap, List<String> targets) {
+	HardTargetMixinMethodVisitor(Collection<Consumer<CommonData>> data, MethodVisitor delegate, MxMember method, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 		this.data = Objects.requireNonNull(data);
 		this.method = Objects.requireNonNull(method);

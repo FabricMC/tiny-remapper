@@ -18,12 +18,12 @@
 
 package net.fabricmc.tinyremapper.extension.mixin;
 
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 
 import org.objectweb.asm.ClassVisitor;
@@ -43,7 +43,7 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.SoftTargetMixinClassVisito
  */
 public class MixinExtension implements TinyRemapper.Extension {
 	private final Logger logger;
-	private final Map<Integer, List<Consumer<CommonData>>> tasks;
+	private final Map<Integer, Collection<Consumer<CommonData>>> tasks;
 	private final Set<AnnotationTarget> targets;
 
 	public enum AnnotationTarget {
@@ -76,7 +76,7 @@ public class MixinExtension implements TinyRemapper.Extension {
 
 	public MixinExtension(Set<AnnotationTarget> targets, Logger.Level logLevel) {
 		this.logger = new Logger(logLevel);
-		this.tasks = new HashMap<>();
+		this.tasks = new ConcurrentHashMap<>();
 		this.targets = targets;
 	}
 
@@ -95,8 +95,7 @@ public class MixinExtension implements TinyRemapper.Extension {
 	 * Hard-target: Shadow, Overwrite, Accessor, Invoker, Implements.
 	 */
 	private ClassVisitor analyzeVisitor(int mrjVersion, String className, ClassVisitor next) {
-		tasks.putIfAbsent(mrjVersion, new ArrayList<>());
-		return new HardTargetMixinClassVisitor(tasks.get(mrjVersion), next);
+		return new HardTargetMixinClassVisitor(tasks.computeIfAbsent(mrjVersion, k -> new ConcurrentLinkedQueue<>()), next);
 	}
 
 	private void stateProcessor(TrEnvironment environment) {

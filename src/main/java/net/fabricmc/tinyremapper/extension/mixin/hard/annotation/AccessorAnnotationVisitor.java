@@ -42,14 +42,14 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.util.IConvertibleString;
  * do not lower the first character of the remaining part.
  */
 public class AccessorAnnotationVisitor extends AnnotationVisitor {
-	private final List<Consumer<CommonData>> tasks;
+	private final Collection<Consumer<CommonData>> tasks;
 	private final MxMember method;
 	private final List<String> targets;
 
 	private boolean remap;
 	private boolean isSoftTarget;
 
-	public AccessorAnnotationVisitor(List<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember method, boolean remap, List<String> targets) {
+	public AccessorAnnotationVisitor(Collection<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember method, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 
 		this.tasks = Objects.requireNonNull(tasks);
