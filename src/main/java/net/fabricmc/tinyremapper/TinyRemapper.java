@@ -260,6 +260,10 @@ public class TinyRemapper {
 
 	public interface AnalyzeVisitorProvider {
 		ClassVisitor insertAnalyzeVisitor(int mrjVersion, String className, ClassVisitor next);
+
+		default ClassVisitor insertAnalyzeVisitor(int mrjVersion, String className, ClassVisitor next, InputTag /* @Nullable*/ [] inputTags) {
+			return insertAnalyzeVisitor(mrjVersion, className, next);
+		}
 	}
 
 	public interface StateProcessor {
@@ -268,6 +272,10 @@ public class TinyRemapper {
 
 	public interface ApplyVisitorProvider {
 		ClassVisitor insertApplyVisitor(TrClass cls, ClassVisitor next);
+
+		default ClassVisitor insertApplyVisitor(TrClass cls, ClassVisitor next, InputTag /* @Nullable*/ [] inputTags) {
+			return insertApplyVisitor(cls, next);
+		}
 	}
 
 	private TinyRemapper(Collection<IMappingProvider> mappingProviders, boolean ignoreFieldDesc,
@@ -615,7 +623,7 @@ public class TinyRemapper {
 		};
 
 		for (int i = analyzeVisitors.size() - 1; i >= 0; i--) {
-			cv = analyzeVisitors.get(i).insertAnalyzeVisitor(mrjVersion, name, cv);
+			cv = analyzeVisitors.get(i).insertAnalyzeVisitor(mrjVersion, name, cv, tags);
 		}
 
 		reader.accept(cv, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);
@@ -1074,14 +1082,14 @@ public class TinyRemapper {
 		}
 
 		for (int i = postApplyVisitors.size() - 1; i >= 0; i--) {
-			visitor = postApplyVisitors.get(i).insertApplyVisitor(cls, visitor);
+			visitor = postApplyVisitors.get(i).insertApplyVisitor(cls, visitor, cls.getInputTags());
 		}
 
 		visitor = new AsmClassRemapper(visitor, cls.getContext().remapper, rebuildSourceFilenames,
 				checkPackageAccess, skipLocalMapping, renameInvalidLocals, invalidLvNamePattern, inferNameFromSameLvIndex);
 
 		for (int i = preApplyVisitors.size() - 1; i >= 0; i--) {
-			visitor = preApplyVisitors.get(i).insertApplyVisitor(cls, visitor);
+			visitor = preApplyVisitors.get(i).insertApplyVisitor(cls, visitor, cls.getInputTags());
 		}
 
 		reader.accept(visitor, flags);
