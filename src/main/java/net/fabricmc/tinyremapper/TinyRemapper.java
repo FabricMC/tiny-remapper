@@ -261,7 +261,7 @@ public class TinyRemapper {
 	public interface AnalyzeVisitorProvider {
 		ClassVisitor insertAnalyzeVisitor(int mrjVersion, String className, ClassVisitor next);
 
-		default ClassVisitor insertAnalyzeVisitor(int mrjVersion, String className, ClassVisitor next, InputTag /* @Nullable*/ [] inputTags) {
+		default ClassVisitor insertAnalyzeVisitor(int mrjVersion, String className, ClassVisitor next, InputTag /* @Nullable */ [] inputTags) {
 			return insertAnalyzeVisitor(mrjVersion, className, next);
 		}
 	}
@@ -273,7 +273,7 @@ public class TinyRemapper {
 	public interface ApplyVisitorProvider {
 		ClassVisitor insertApplyVisitor(TrClass cls, ClassVisitor next);
 
-		default ClassVisitor insertApplyVisitor(TrClass cls, ClassVisitor next, InputTag /* @Nullable*/ [] inputTags) {
+		default ClassVisitor insertApplyVisitor(TrClass cls, ClassVisitor next, InputTag /* @Nullable */ [] inputTags) {
 			return insertApplyVisitor(cls, next);
 		}
 	}
