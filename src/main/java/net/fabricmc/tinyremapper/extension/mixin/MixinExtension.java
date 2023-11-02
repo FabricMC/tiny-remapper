@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2021, FabricMC
+ * Copyright (c) 2021, 2023, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -45,6 +45,7 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.SoftTargetMixinClassVisito
  * A extension for remapping mixin annotation.
  *
  * <h2>Input filtering</h2>
+ *
  * <p>The mixin extension can be applied to specific input tags by providing an input tag filter in the constructor.
  * An input with nonnull input tags is only processed if it has a tag matching the filter.
  *
