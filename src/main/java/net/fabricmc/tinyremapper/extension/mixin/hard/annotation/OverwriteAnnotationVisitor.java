@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2021, FabricMC
+ * Copyright (c) 2021, 2023, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -38,13 +38,13 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.util.IdentityString;
  * an error message will show up and the behaviour is undefined.
  */
 public class OverwriteAnnotationVisitor extends AnnotationVisitor {
-	private final List<Consumer<CommonData>> tasks;
+	private final Collection<Consumer<CommonData>> tasks;
 	private final MxMember method;
 	private final List<String> targets;
 
 	private boolean remap;
 
-	public OverwriteAnnotationVisitor(List<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember method, boolean remap, List<String> targets) {
+	public OverwriteAnnotationVisitor(Collection<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember method, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 
 		this.tasks = Objects.requireNonNull(tasks);
