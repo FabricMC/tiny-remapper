@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2021, FabricMC
+ * Copyright (c) 2021, 2023, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -40,14 +40,14 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.util.PrefixString;
  * If a prefix is detected, will only attempt to match the prefix-stripped name.
  */
 public class ShadowAnnotationVisitor extends AnnotationVisitor {
-	private final List<Consumer<CommonData>> tasks;
+	private final Collection<Consumer<CommonData>> tasks;
 	private final MxMember member;
 	private final List<String> targets;
 
 	private boolean remap;
 	private String prefix;
 
-	public ShadowAnnotationVisitor(List<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember member, boolean remap, List<String> targets) {
+	public ShadowAnnotationVisitor(Collection<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember member, boolean remap, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 		this.tasks = Objects.requireNonNull(tasks);
 		this.member = Objects.requireNonNull(member);

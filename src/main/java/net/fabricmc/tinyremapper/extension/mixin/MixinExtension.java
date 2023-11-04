@@ -18,13 +18,13 @@
 
 package net.fabricmc.tinyremapper.extension.mixin;
 
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -53,7 +53,7 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.SoftTargetMixinClassVisito
  */
 public class MixinExtension implements TinyRemapper.Extension {
 	private final Logger logger;
-	private final Map<Integer, List<Consumer<CommonData>>> tasks;
+	private final Map<Integer, Collection<Consumer<CommonData>>> tasks;
 	private final Set<AnnotationTarget> targets;
 	private final /* @Nullable */ Predicate<InputTag> inputTagFilter;
 
@@ -95,7 +95,7 @@ public class MixinExtension implements TinyRemapper.Extension {
 
 	public MixinExtension(Set<AnnotationTarget> targets, Logger.Level logLevel, /* @Nullable */ Predicate<InputTag> inputTagFilter) {
 		this.logger = new Logger(logLevel);
-		this.tasks = new HashMap<>();
+		this.tasks = new ConcurrentHashMap<>();
 		this.targets = targets;
 		this.inputTagFilter = inputTagFilter;
 	}
@@ -129,8 +129,7 @@ public class MixinExtension implements TinyRemapper.Extension {
 	private final class AnalyzeVisitorProvider implements TinyRemapper.AnalyzeVisitorProvider {
 		@Override
 		public ClassVisitor insertAnalyzeVisitor(int mrjVersion, String className, ClassVisitor next) {
-			tasks.putIfAbsent(mrjVersion, new ArrayList<>());
-			return new HardTargetMixinClassVisitor(tasks.get(mrjVersion), next);
+			return new HardTargetMixinClassVisitor(tasks.computeIfAbsent(mrjVersion, k -> new ConcurrentLinkedQueue<>()), next);
 		}
 
 		@Override

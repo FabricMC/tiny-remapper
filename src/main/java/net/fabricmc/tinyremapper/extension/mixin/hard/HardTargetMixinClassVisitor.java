@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2021, FabricMC
+ * Copyright (c) 2021, 2023, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,6 +19,7 @@
 package net.fabricmc.tinyremapper.extension.mixin.hard;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -41,7 +42,7 @@ import net.fabricmc.tinyremapper.extension.mixin.hard.annotation.MixinAnnotation
 import net.fabricmc.tinyremapper.extension.mixin.hard.data.SoftInterface;
 
 public class HardTargetMixinClassVisitor extends ClassVisitor {
-	private final List<Consumer<CommonData>> tasks;
+	private final Collection<Consumer<CommonData>> tasks;
 	private MxClass _class;
 
 	// @Mixin
@@ -51,7 +52,7 @@ public class HardTargetMixinClassVisitor extends ClassVisitor {
 	// @Implements
 	private final List<SoftInterface> interfaces = new ArrayList<>();
 
-	public HardTargetMixinClassVisitor(List<Consumer<CommonData>> tasks, ClassVisitor delegate) {
+	public HardTargetMixinClassVisitor(Collection<Consumer<CommonData>> tasks, ClassVisitor delegate) {
 		super(Constant.ASM_VERSION, delegate);
 		this.tasks = Objects.requireNonNull(tasks);
 	}

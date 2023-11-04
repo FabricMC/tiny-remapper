@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2021, FabricMC
+ * Copyright (c) 2021, 2023, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -81,7 +81,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 		}
 	}
 
-	public static void visitMethod(List<Consumer<CommonData>> tasks, MxMember method, List<SoftInterface> interfaces) {
+	public static void visitMethod(Collection<Consumer<CommonData>> tasks, MxMember method, List<SoftInterface> interfaces) {
 		tasks.add(data -> new SoftImplementsMappable(data, method, interfaces).result());
 	}
 
