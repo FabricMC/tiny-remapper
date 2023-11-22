@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2021, FabricMC
+ * Copyright (c) 2021, 2023, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -34,8 +34,13 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.Injec
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyArgAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyArgsAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyConstantAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyExpressionValueAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyReceiverAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyReturnValueAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyVariableAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.RedirectAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapOperationAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapWithConditionAnnotationVisitor;
 
 class SoftTargetMixinMethodVisitor extends MethodVisitor {
 	private final CommonData data;
@@ -73,6 +78,16 @@ class SoftTargetMixinMethodVisitor extends MethodVisitor {
 			av = new ModifyVariableAnnotationVisitor(data, av, remap, targets);
 		} else if (Annotation.REDIRECT.equals(descriptor)) {
 			av = new RedirectAnnotationVisitor(data, av, remap, targets);
+		} else if (Annotation.MIXIN_EXTRAS_MODIFY_EXPRESSION_VALUE.equals(descriptor)) {
+			av = new ModifyExpressionValueAnnotationVisitor(data, av, remap, targets);
+		} else if (Annotation.MIXIN_EXTRAS_MODIFY_RECEIVER.equals(descriptor)) {
+			av = new ModifyReceiverAnnotationVisitor(data, av, remap, targets);
+		} else if (Annotation.MIXIN_EXTRAS_MODIFY_RETURN_VALUE.equals(descriptor)) {
+			av = new ModifyReturnValueAnnotationVisitor(data, av, remap, targets);
+		} else if (Annotation.MIXIN_EXTRAS_WRAP_OPERATION.equals(descriptor)) {
+			av = new WrapOperationAnnotationVisitor(data, av, remap, targets);
+		} else if (Annotation.MIXIN_EXTRAS_WRAP_WITH_CONDITION.equals(descriptor)) {
+			av = new WrapWithConditionAnnotationVisitor(data, av, remap, targets);
 		}
 
 		return av;

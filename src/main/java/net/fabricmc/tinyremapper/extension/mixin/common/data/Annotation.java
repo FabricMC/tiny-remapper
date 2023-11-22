@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2021, FabricMC
+ * Copyright (c) 2016, 2023, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -63,4 +63,10 @@ public final class Annotation {
 	public static final String MIXIN_MERGED = "Lorg/spongepowered/asm/mixin/transformer/meta/MixinMerged;";
 	public static final String MIXIN_PROXY = "Lorg/spongepowered/asm/mixin/transformer/meta/MixinProxy;";
 	public static final String MIXIN_RENAMED = "Lorg/spongepowered/asm/mixin/transformer/meta/MixinRenamed;";
+
+	public static final String MIXIN_EXTRAS_MODIFY_EXPRESSION_VALUE = "Lcom/llamalad7/mixinextras/injector/ModifyExpressionValue";
+	public static final String MIXIN_EXTRAS_MODIFY_RECEIVER = "Lcom/llamalad7/mixinextras/injector/ModifyReceiver";
+	public static final String MIXIN_EXTRAS_MODIFY_RETURN_VALUE = "Lcom/llamalad7/mixinextras/injector/ModifyReturnValue";
+	public static final String MIXIN_EXTRAS_WRAP_OPERATION = "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation";
+	public static final String MIXIN_EXTRAS_WRAP_WITH_CONDITION = "Lcom/llamalad7/mixinextras/injector/WrapWithCondition";
 }
