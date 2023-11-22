@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2021, FabricMC
+ * Copyright (c) 2021, 2023, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,16 +18,19 @@
 
 package net.fabricmc.tinyremapper.extension.mixin;
 
-import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import org.objectweb.asm.ClassVisitor;
 
+import net.fabricmc.tinyremapper.InputTag;
 import net.fabricmc.tinyremapper.TinyRemapper;
 import net.fabricmc.tinyremapper.TinyRemapper.Builder;
 import net.fabricmc.tinyremapper.api.TrClass;
@@ -40,11 +43,19 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.SoftTargetMixinClassVisito
 
 /**
  * A extension for remapping mixin annotation.
+ *
+ * <h2>Input filtering</h2>
+ *
+ * <p>The mixin extension can be applied to specific input tags by providing an input tag filter in the constructor.
+ * An input with nonnull input tags is only processed if it has a tag matching the filter.
+ *
+ * <p>If the filter is null, all inputs will be processed.
  */
 public class MixinExtension implements TinyRemapper.Extension {
 	private final Logger logger;
-	private final Map<Integer, List<Consumer<CommonData>>> tasks;
+	private final Map<Integer, Collection<Consumer<CommonData>>> tasks;
 	private final Set<AnnotationTarget> targets;
+	private final /* @Nullable */ Predicate<InputTag> inputTagFilter;
 
 	public enum AnnotationTarget {
 		/**
@@ -74,35 +85,36 @@ public class MixinExtension implements TinyRemapper.Extension {
 		this(targets, Level.WARN);
 	}
 
+	public MixinExtension(/* @Nullable */ Predicate<InputTag> inputTagFilter) {
+		this(EnumSet.allOf(AnnotationTarget.class), Level.WARN, inputTagFilter);
+	}
+
 	public MixinExtension(Set<AnnotationTarget> targets, Logger.Level logLevel) {
+		this(targets, logLevel, null);
+	}
+
+	public MixinExtension(Set<AnnotationTarget> targets, Logger.Level logLevel, /* @Nullable */ Predicate<InputTag> inputTagFilter) {
 		this.logger = new Logger(logLevel);
-		this.tasks = new HashMap<>();
+		this.tasks = new ConcurrentHashMap<>();
 		this.targets = targets;
+		this.inputTagFilter = inputTagFilter;
 	}
 
 	@Override
 	public void attach(Builder builder) {
 		if (targets.contains(AnnotationTarget.HARD)) {
-			builder.extraAnalyzeVisitor(this::analyzeVisitor).extraStateProcessor(this::stateProcessor);
+			builder.extraAnalyzeVisitor(new AnalyzeVisitorProvider()).extraStateProcessor(this::stateProcessor);
 		}
 
 		if (targets.contains(AnnotationTarget.SOFT)) {
-			builder.extraPreApplyVisitor(this::preApplyVisitor);
+			builder.extraPreApplyVisitor(new PreApplyVisitorProvider());
 		}
-	}
-
-	/**
-	 * Hard-target: Shadow, Overwrite, Accessor, Invoker, Implements.
-	 */
-	private ClassVisitor analyzeVisitor(int mrjVersion, String className, ClassVisitor next) {
-		tasks.putIfAbsent(mrjVersion, new ArrayList<>());
-		return new HardTargetMixinClassVisitor(tasks.get(mrjVersion), next);
 	}
 
 	private void stateProcessor(TrEnvironment environment) {
 		CommonData data = new CommonData(environment, logger);
 
-		for (Consumer<CommonData> task : tasks.get(environment.getMrjVersion())) {
+		for (Consumer<CommonData> task : tasks.getOrDefault(environment.getMrjVersion(), Collections.emptyList())) {
 			try {
 				task.accept(data);
 			} catch (RuntimeException e) {
@@ -112,10 +124,53 @@ public class MixinExtension implements TinyRemapper.Extension {
 	}
 
 	/**
+	 * Hard-target: Shadow, Overwrite, Accessor, Invoker, Implements.
+	 */
+	private final class AnalyzeVisitorProvider implements TinyRemapper.AnalyzeVisitorProvider {
+		@Override
+		public ClassVisitor insertAnalyzeVisitor(int mrjVersion, String className, ClassVisitor next) {
+			return new HardTargetMixinClassVisitor(tasks.computeIfAbsent(mrjVersion, k -> new ConcurrentLinkedQueue<>()), next);
+		}
+
+		@Override
+		public ClassVisitor insertAnalyzeVisitor(int mrjVersion, String className, ClassVisitor next, InputTag[] inputTags) {
+			if (inputTagFilter == null || inputTags == null) {
+				return insertAnalyzeVisitor(mrjVersion, className, next);
+			} else {
+				for (InputTag tag : inputTags) {
+					if (inputTagFilter.test(tag)) {
+						return insertAnalyzeVisitor(mrjVersion, className, next);
+					}
+				}
+
+				return next;
+			}
+		}
+	}
+
+	/**
 	 * Soft-target: Mixin, Invoker, Accessor, Inject, ModifyArg, ModifyArgs, Redirect, ModifyVariable, ModifyConstant, At, Slice.
 	 */
-	public ClassVisitor preApplyVisitor(TrClass cls, ClassVisitor next) {
-		return new SoftTargetMixinClassVisitor(new CommonData(cls.getEnvironment(), logger), next);
+	private final class PreApplyVisitorProvider implements TinyRemapper.ApplyVisitorProvider {
+		@Override
+		public ClassVisitor insertApplyVisitor(TrClass cls, ClassVisitor next) {
+			return new SoftTargetMixinClassVisitor(new CommonData(cls.getEnvironment(), logger), next);
+		}
+
+		@Override
+		public ClassVisitor insertApplyVisitor(TrClass cls, ClassVisitor next, InputTag[] inputTags) {
+			if (inputTagFilter == null || inputTags == null) {
+				return insertApplyVisitor(cls, next);
+			} else {
+				for (InputTag tag : inputTags) {
+					if (inputTagFilter.test(tag)) {
+						return insertApplyVisitor(cls, next);
+					}
+				}
+
+				return next;
+			}
+		}
 	}
 }
 
