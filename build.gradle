@@ -71,8 +71,6 @@ checkstyle {
 }
 
 spotless {
-	ratchetFrom ENV.GITHUB_REF_NAME ?: 'origin/master'
-
 	java {
 		licenseHeaderFile(rootProject.file('HEADER')).yearSeparator(', ')
 		removeUnusedImports()
