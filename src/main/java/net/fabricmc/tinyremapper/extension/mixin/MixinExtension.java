@@ -173,4 +173,3 @@ public class MixinExtension implements TinyRemapper.Extension {
 		}
 	}
 }
-

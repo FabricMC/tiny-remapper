@@ -2,12 +2,9 @@ plugins {
 	id 'java-library'
 	id 'maven-publish'
 	id 'checkstyle'
-	id 'com.diffplug.spotless' version '5.14.2'
-	id 'com.github.johnrengelman.shadow' version '6.1.0'
+	id 'com.diffplug.spotless' version '6.22.0'
+	id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
-
-sourceCompatibility = JavaVersion.VERSION_1_8
-targetCompatibility = JavaVersion.VERSION_1_8
 
 version = '0.8.11'
 
@@ -15,7 +12,10 @@ def ENV = System.getenv()
 version = version + (ENV.GITHUB_ACTIONS ? "" : "+local")
 
 group = 'net.fabricmc'
-archivesBaseName = 'tiny-remapper'
+
+base {
+	archivesName = 'tiny-remapper'
+}
 
 repositories {
 	mavenCentral()
@@ -33,6 +33,8 @@ dependencies {
 
 java {
 	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_1_8
+	targetCompatibility = JavaVersion.VERSION_1_8
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -70,10 +72,12 @@ checkstyle {
 }
 
 spotless {
-	ratchetFrom 'origin/master'
-
 	java {
 		licenseHeaderFile(rootProject.file('HEADER')).yearSeparator(', ')
+		removeUnusedImports()
+		importOrder('java', 'javax', '', 'net.minecraft', 'net.fabricmc')
+		indentWithTabs()
+		trimTrailingWhitespace()
 	}
 }
 
