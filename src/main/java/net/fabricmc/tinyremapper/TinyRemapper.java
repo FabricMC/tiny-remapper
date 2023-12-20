@@ -383,11 +383,19 @@ public class TinyRemapper {
 	}
 
 	public void readClassPath(final Path... inputs) {
-		read(inputs, false, null).join();
+		readClassPath(null, inputs);
+	}
+
+	public void readClassPath(InputTag tag, final Path... inputs) {
+		read(inputs, false, tag).join();
 	}
 
 	public CompletableFuture<?> readClassPathAsync(final Path... inputs) {
-		CompletableFuture<?> ret = read(inputs, false, null);
+		return readClassPathAsync(null, inputs);
+	}
+
+	public CompletableFuture<?> readClassPathAsync(InputTag tag, final Path... inputs) {
+		CompletableFuture<?> ret = read(inputs, false, tag);
 
 		if (!ret.isDone()) {
 			pendingReads.add(ret);
