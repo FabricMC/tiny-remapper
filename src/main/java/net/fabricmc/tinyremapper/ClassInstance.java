@@ -112,10 +112,25 @@ public final class ClassInstance implements TrClass {
 
 				if (missingTags == 0) return;
 
-				Set<InputTag> mergedTags = new HashSet<>();
-				Collections.addAll(mergedTags, oldTags);
-				Collections.addAll(mergedTags, tags);
-				newTags = mergedTags.toArray(new InputTag[0]);
+				newTags = Arrays.copyOf(oldTags, oldTags.length + missingTags);
+
+				for (InputTag newTag : tags) {
+					boolean found = false;
+
+					for (InputTag oldTag : oldTags) {
+						if (newTag == oldTag) {
+							found = true;
+							break;
+						}
+					}
+
+					if (!found) {
+						newTags[newTags.length - missingTags] = newTag;
+						missingTags--;
+					}
+				}
+
+				assert missingTags == 0;
 			}
 		} while (!inputTagsUpdater.compareAndSet(this, oldTags, newTags));
 	}
