@@ -56,6 +56,7 @@ public class MixinExtension implements TinyRemapper.Extension {
 	private final Map<Integer, Collection<Consumer<CommonData>>> tasks;
 	private final Set<AnnotationTarget> targets;
 	private final /* @Nullable */ Predicate<InputTag> inputTagFilter;
+	private final boolean processNullTags;
 
 	public enum AnnotationTarget {
 		/**
@@ -89,15 +90,24 @@ public class MixinExtension implements TinyRemapper.Extension {
 		this(EnumSet.allOf(AnnotationTarget.class), Level.WARN, inputTagFilter);
 	}
 
+	public MixinExtension(/* @Nullable */ Predicate<InputTag> inputTagFilter, boolean processNullTags) {
+		this(EnumSet.allOf(AnnotationTarget.class), Level.WARN, inputTagFilter, processNullTags);
+	}
+
 	public MixinExtension(Set<AnnotationTarget> targets, Logger.Level logLevel) {
 		this(targets, logLevel, null);
 	}
 
 	public MixinExtension(Set<AnnotationTarget> targets, Logger.Level logLevel, /* @Nullable */ Predicate<InputTag> inputTagFilter) {
+		this(targets, logLevel, inputTagFilter, true);
+	}
+
+	public MixinExtension(Set<AnnotationTarget> targets, Logger.Level logLevel, /* @Nullable */ Predicate<InputTag> inputTagFilter, boolean processNullTags) {
 		this.logger = new Logger(logLevel);
 		this.tasks = new ConcurrentHashMap<>();
 		this.targets = targets;
 		this.inputTagFilter = inputTagFilter;
+		this.processNullTags = processNullTags;
 	}
 
 	@Override
@@ -134,7 +144,9 @@ public class MixinExtension implements TinyRemapper.Extension {
 
 		@Override
 		public ClassVisitor insertAnalyzeVisitor(int mrjVersion, String className, ClassVisitor next, InputTag[] inputTags) {
-			if (inputTagFilter == null || inputTags == null) {
+			if (!processNullTags && inputTags == null) {
+				return next;
+			} else if (inputTagFilter == null || inputTags == null) {
 				return insertAnalyzeVisitor(mrjVersion, className, next);
 			} else {
 				for (InputTag tag : inputTags) {
@@ -159,7 +171,9 @@ public class MixinExtension implements TinyRemapper.Extension {
 
 		@Override
 		public ClassVisitor insertApplyVisitor(TrClass cls, ClassVisitor next, InputTag[] inputTags) {
-			if (inputTagFilter == null || inputTags == null) {
+			if (!processNullTags && inputTags == null) {
+				return next;
+			} else if (inputTagFilter == null || inputTags == null) {
 				return insertApplyVisitor(cls, next);
 			} else {
 				for (InputTag tag : inputTags) {
