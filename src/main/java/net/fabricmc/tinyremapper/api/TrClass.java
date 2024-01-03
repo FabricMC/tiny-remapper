@@ -142,4 +142,9 @@ public interface TrClass {
 	default boolean isModule() {
 		return (getAccess() & Opcodes.ACC_MODULE) != 0;
 	}
+
+	/**
+	 * Return true when this class is from an input, and not just on the classpath.
+	 */
+	boolean isInput();
 }
