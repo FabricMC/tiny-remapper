@@ -259,10 +259,22 @@ public class TinyRemapper {
 	}
 
 	public interface AnalyzeVisitorProvider {
+		/**
+		 * @deprecated use {@link #insertAnalyzeVisitor(boolean, int, String, ClassVisitor, InputTag[])} instead
+		 */
+		@Deprecated
 		ClassVisitor insertAnalyzeVisitor(int mrjVersion, String className, ClassVisitor next);
 
+		/**
+		 * @deprecated use {@link #insertAnalyzeVisitor(boolean, int, String, ClassVisitor, InputTag[])} instead
+		 */
+		@Deprecated
 		default ClassVisitor insertAnalyzeVisitor(int mrjVersion, String className, ClassVisitor next, /* @Nullable */ InputTag[] inputTags) {
 			return insertAnalyzeVisitor(mrjVersion, className, next);
+		}
+
+		default ClassVisitor insertAnalyzeVisitor(boolean isInput, int mrjVersion, String className, ClassVisitor next, /* @Nullable */ InputTag[] inputTags) {
+			return insertAnalyzeVisitor(mrjVersion, className, next, inputTags);
 		}
 	}
 
@@ -623,7 +635,7 @@ public class TinyRemapper {
 		};
 
 		for (int i = analyzeVisitors.size() - 1; i >= 0; i--) {
-			cv = analyzeVisitors.get(i).insertAnalyzeVisitor(mrjVersion, name, cv, tags);
+			cv = analyzeVisitors.get(i).insertAnalyzeVisitor(isInput, mrjVersion, name, cv, tags);
 		}
 
 		reader.accept(cv, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES | ClassReader.SKIP_CODE);

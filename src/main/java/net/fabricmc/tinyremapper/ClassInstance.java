@@ -873,6 +873,11 @@ public final class ClassInstance implements TrClass {
 	}
 
 	@Override
+	public boolean isInput() {
+		return isInput;
+	}
+
+	@Override
 	public String toString() {
 		return name;
 	}

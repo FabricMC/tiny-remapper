@@ -146,6 +146,15 @@ public class MixinExtension implements TinyRemapper.Extension {
 				return next;
 			}
 		}
+
+		@Override
+		public ClassVisitor insertAnalyzeVisitor(boolean isInput, int mrjVersion, String className, ClassVisitor next, InputTag[] inputTags) {
+			if (!isInput) {
+				return next;
+			}
+
+			return insertAnalyzeVisitor(mrjVersion, className, next, inputTags);
+		}
 	}
 
 	/**
@@ -159,7 +168,9 @@ public class MixinExtension implements TinyRemapper.Extension {
 
 		@Override
 		public ClassVisitor insertApplyVisitor(TrClass cls, ClassVisitor next, InputTag[] inputTags) {
-			if (inputTagFilter == null || inputTags == null) {
+			if (!cls.isInput()) {
+				return next;
+			} else if (inputTagFilter == null || inputTags == null) {
 				return insertApplyVisitor(cls, next);
 			} else {
 				for (InputTag tag : inputTags) {
