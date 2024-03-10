@@ -287,7 +287,7 @@ public class Main {
 		TinyRemapper.CLIExtensionProvider provider = providerMap.get(extName);
 
 		if (provider == null) {
-			System.out.println("No such extension: " + extName);
+			System.err.println("No such extension: " + extName);
 			System.exit(1);
 		}
 
