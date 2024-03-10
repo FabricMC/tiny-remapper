@@ -57,6 +57,18 @@ public class MixinExtension implements TinyRemapper.Extension {
 	private final Set<AnnotationTarget> targets;
 	private final /* @Nullable */ Predicate<InputTag> inputTagFilter;
 
+	public static final class CLIProvider implements TinyRemapper.CLIExtensionProvider {
+		@Override
+		public String name() {
+			return "mixin";
+		}
+
+		@Override
+		public TinyRemapper.Extension provideExtension() {
+			return new MixinExtension();
+		}
+	}
+
 	public enum AnnotationTarget {
 		/**
 		 * The string literal in mixin annotation. E.g. Mixin, Invoker, Accessor, Inject,

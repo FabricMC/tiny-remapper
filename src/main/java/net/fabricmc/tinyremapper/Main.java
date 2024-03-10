@@ -39,7 +39,6 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
-import net.fabricmc.tinyremapper.extension.mixin.MixinExtension;
 
 public class Main {
 	public static void main(String[] rawArgs) {
@@ -62,7 +61,6 @@ public class Main {
 		Pattern invalidLvNamePattern = null;
 		NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
 		int threads = -1;
-		boolean enableMixin = false;
 
 		Map<String, TinyRemapper.CLIExtensionProvider> providerMap = new HashMap<>();
 		List<TinyRemapper.Extension> providedExtensions = new ArrayList<>();
@@ -148,24 +146,11 @@ public class Main {
 
 					break;
 				case "mixin":
-					enableMixin = true;
+					handleExtension(providerMap, "mixin", providedExtensions);
 					break;
 				case "ext":
 				case "extension":
-					String extName = arg.substring(valueSepPos + 1);
-					TinyRemapper.CLIExtensionProvider provider = providerMap.get(extName);
-
-					if (provider == null) {
-						System.out.println("No such extension: " + extName);
-						System.exit(1);
-					}
-
-					TinyRemapper.Extension extension = provider.provideExtension();
-
-					if (extension != null) {
-						providedExtensions.add(extension);
-					}
-
+					handleExtension(providerMap, arg.substring(valueSepPos + 1), providedExtensions);
 					break;
 				default:
 					System.out.println("invalid argument: "+arg+".");
@@ -276,10 +261,6 @@ public class Main {
 				.invalidLvNamePattern(invalidLvNamePattern)
 				.threads(threads);
 
-		if (enableMixin) {
-			builder = builder.extension(new MixinExtension());
-		}
-
 		for (TinyRemapper.Extension ext : providedExtensions) {
 			ext.attach(builder);
 		}
@@ -300,5 +281,20 @@ public class Main {
 		}
 
 		System.out.printf("Finished after %.2f ms.\n", (System.nanoTime() - startTime) / 1e6);
+	}
+
+	private static void handleExtension(Map<String, TinyRemapper.CLIExtensionProvider> providerMap, String extName, List<TinyRemapper.Extension> providedExtensions) {
+		TinyRemapper.CLIExtensionProvider provider = providerMap.get(extName);
+
+		if (provider == null) {
+			System.out.println("No such extension: " + extName);
+			System.exit(1);
+		}
+
+		TinyRemapper.Extension extension = provider.provideExtension();
+
+		if (extension != null) {
+			providedExtensions.add(extension);
+		}
 	}
 }
