@@ -258,6 +258,15 @@ public class TinyRemapper {
 		void attach(TinyRemapper.Builder builder);
 	}
 
+	public interface CLIExtensionProvider {
+		boolean acceptsValue();
+
+		String name();
+
+		// nullable return and value
+		Extension provideExtension(String value);
+	}
+
 	public interface AnalyzeVisitorProvider {
 		/**
 		 * @deprecated use {@link #insertAnalyzeVisitor(boolean, int, String, ClassVisitor, InputTag[])} instead

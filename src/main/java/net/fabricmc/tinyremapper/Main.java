@@ -29,9 +29,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -60,6 +63,12 @@ public class Main {
 		NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
 		int threads = -1;
 		boolean enableMixin = false;
+
+		Map<String, TinyRemapper.CLIExtensionProvider> providerMap = new HashMap<>();
+		List<TinyRemapper.Extension> providedExtensions = new ArrayList<>();
+		ServiceLoader<TinyRemapper.CLIExtensionProvider> cliProviderLoader =
+				ServiceLoader.load(TinyRemapper.CLIExtensionProvider.class);
+		cliProviderLoader.iterator().forEachRemaining(provider -> providerMap.put(provider.name(), provider));
 
 		for (String arg : rawArgs) {
 			if (arg.startsWith("--")) {
@@ -142,8 +151,27 @@ public class Main {
 					enableMixin = true;
 					break;
 				default:
-					System.out.println("invalid argument: "+arg+".");
-					System.exit(1);
+					String argKeyLower = argKey.toLowerCase(Locale.ROOT);
+					TinyRemapper.CLIExtensionProvider provider = providerMap.get(argKeyLower);
+
+					if (provider == null) {
+						System.out.println("invalid argument: "+arg+".");
+						System.exit(1);
+					}
+
+					String value;
+
+					if (provider.acceptsValue()) {
+						value = arg.substring(valueSepPos + 1);
+					} else {
+						value = null;
+					}
+
+					TinyRemapper.Extension provided = provider.provideExtension(value);
+
+					if (provided != null) {
+						providedExtensions.add(provided);
+					}
 				}
 			} else {
 				args.add(arg);
@@ -252,6 +280,10 @@ public class Main {
 
 		if (enableMixin) {
 			builder = builder.extension(new MixinExtension());
+		}
+
+		for (TinyRemapper.Extension ext : providedExtensions) {
+			ext.attach(builder);
 		}
 
 		TinyRemapper remapper = builder.build();
