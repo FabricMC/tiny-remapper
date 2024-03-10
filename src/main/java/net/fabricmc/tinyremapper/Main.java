@@ -150,28 +150,26 @@ public class Main {
 				case "mixin":
 					enableMixin = true;
 					break;
-				default:
-					String argKeyLower = argKey.toLowerCase(Locale.ROOT);
-					TinyRemapper.CLIExtensionProvider provider = providerMap.get(argKeyLower);
+				case "ext":
+				case "extension":
+					String extName = arg.substring(valueSepPos + 1);
+					TinyRemapper.CLIExtensionProvider provider = providerMap.get(extName);
 
 					if (provider == null) {
-						System.out.println("invalid argument: "+arg+".");
+						System.out.println("No such extension: " + extName);
 						System.exit(1);
 					}
 
-					String value;
+					TinyRemapper.Extension extension = provider.provideExtension();
 
-					if (provider.acceptsValue()) {
-						value = arg.substring(valueSepPos + 1);
-					} else {
-						value = null;
+					if (extension != null) {
+						providedExtensions.add(extension);
 					}
 
-					TinyRemapper.Extension provided = provider.provideExtension(value);
-
-					if (provided != null) {
-						providedExtensions.add(provided);
-					}
+					break;
+				default:
+					System.out.println("invalid argument: "+arg+".");
+					System.exit(1);
 				}
 			} else {
 				args.add(arg);

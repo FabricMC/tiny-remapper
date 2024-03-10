@@ -259,12 +259,10 @@ public class TinyRemapper {
 	}
 
 	public interface CLIExtensionProvider {
-		boolean acceptsValue();
-
 		String name();
 
-		// nullable return and value
-		Extension provideExtension(String value);
+		// nullable return
+		Extension provideExtension();
 	}
 
 	public interface AnalyzeVisitorProvider {
