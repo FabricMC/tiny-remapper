@@ -91,8 +91,10 @@ public final class TinyUtils {
 	}
 
 	private static MappingVisitor createAdapter(String fromNs, String toNs, MappingAcceptor out) throws IOException {
-		return new MappingSourceNsSwitch( // Ensure fromNs is on source and toNs is on destination side
-				new MappingDstNsReorder( // Remove all dst namespaces we're not interested in
+		// Ensure fromNs is on source and toNs is on destination side
+		return new MappingSourceNsSwitch(
+				// Remove all dst namespaces we're not interested in
+				new MappingDstNsReorder(
 						new FlatAsRegularMappingVisitor(new MappingAdapter(out)),
 						toNs),
 				fromNs);
