@@ -31,9 +31,11 @@ import java.util.zip.GZIPInputStream;
 
 import net.fabricmc.mappingio.FlatMappingVisitor;
 import net.fabricmc.mappingio.MappingReader;
+import net.fabricmc.mappingio.MappingVisitor;
 import net.fabricmc.mappingio.adapter.FlatAsRegularMappingVisitor;
 import net.fabricmc.mappingio.adapter.MappingDstNsReorder;
 import net.fabricmc.mappingio.adapter.MappingSourceNsSwitch;
+import net.fabricmc.mappingio.tree.MappingTreeView;
 import net.fabricmc.tinyremapper.IMappingProvider.MappingAcceptor;
 import net.fabricmc.tinyremapper.IMappingProvider.Member;
 
@@ -74,15 +76,26 @@ public final class TinyUtils {
 		};
 	}
 
+	public static IMappingProvider createMappingProvider(MappingTreeView tree, String fromM, String toM) {
+		return out -> {
+			try {
+				tree.accept(createAdapter(fromM, toM, out));
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		};
+	}
+
 	private static void read(BufferedReader reader, String fromNs, String toNs, MappingAcceptor out) throws IOException {
-		MappingReader.read(reader,
-				// Ensure fromNs is on source and toNs is on destination side
-				new MappingSourceNsSwitch(
-						// Remove all dst namespaces we're not interested in
-						new MappingDstNsReorder(
-								new FlatAsRegularMappingVisitor(new MappingAdapter(out)),
-								toNs),
-						fromNs));
+		MappingReader.read(reader, createAdapter(fromNs, toNs, out));
+	}
+
+	private static MappingVisitor createAdapter(String fromNs, String toNs, MappingAcceptor out) throws IOException {
+		return new MappingSourceNsSwitch( // Ensure fromNs is on source and toNs is on destination side
+				new MappingDstNsReorder( // Remove all dst namespaces we're not interested in
+						new FlatAsRegularMappingVisitor(new MappingAdapter(out)),
+						toNs),
+				fromNs);
 	}
 
 	private static final class MappingAdapter implements FlatMappingVisitor {
