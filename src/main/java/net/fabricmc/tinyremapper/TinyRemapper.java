@@ -334,6 +334,7 @@ public class TinyRemapper {
 
 		this.knownIndyBsm.add("java/lang/invoke/StringConcatFactory");
 		this.knownIndyBsm.add("java/lang/runtime/ObjectMethods");
+		this.knownIndyBsm.add("java/lang/runtime/SwitchBootstraps");
 	}
 
 	public static Builder newRemapper() {
