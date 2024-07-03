@@ -39,6 +39,7 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.Modif
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyReturnValueAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyVariableAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.RedirectAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapMethodAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapOperationAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapWithConditionAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapWithConditionV2AnnotationVisitor;
@@ -85,6 +86,8 @@ class SoftTargetMixinMethodVisitor extends MethodVisitor {
 			av = new ModifyReceiverAnnotationVisitor(data, av, remap, targets);
 		} else if (Annotation.MIXIN_EXTRAS_MODIFY_RETURN_VALUE.equals(descriptor)) {
 			av = new ModifyReturnValueAnnotationVisitor(data, av, remap, targets);
+		} else if (Annotation.MIXIN_EXTRAS_WRAP_METHOD.equals(descriptor)) {
+			av = new WrapMethodAnnotationVisitor(data, av, remap, targets);
 		} else if (Annotation.MIXIN_EXTRAS_WRAP_OPERATION.equals(descriptor)) {
 			av = new WrapOperationAnnotationVisitor(data, av, remap, targets);
 		} else if (Annotation.MIXIN_EXTRAS_WRAP_WITH_CONDITION.equals(descriptor)) {
