@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2018, 2021, FabricMC
+ * Copyright (c) 2018, 2022, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -46,7 +46,16 @@ class AsmRemapper extends TrRemapper {
 	@Override
 	public String mapFieldName(String owner, String name, String desc) {
 		ClassInstance cls = getClass(owner);
-		if (cls == null) return name;
+
+		if (cls == null) {
+			System.out.println(String.format("Warning: actual class missing: %1$s", owner));
+
+			if (!tr.ignoreFieldDesc) {
+				return tr.fieldMap.getOrDefault(owner + "/" + name + ";;" + desc, name);
+			} else {
+				return tr.fieldMap.getOrDefault(owner + "/" + name, name);
+			}
+		}
 
 		return mapFieldName(cls, name, desc);
 	}
@@ -76,7 +85,11 @@ class AsmRemapper extends TrRemapper {
 		}
 
 		ClassInstance cls = getClass(owner);
-		if (cls == null) return name; // TODO: try to map these from just the mappings?, warn if actual class is missing
+
+		if (cls == null) {
+			System.out.println(String.format("Warning: actual class missing: %1$s", owner));
+			return tr.methodMap.getOrDefault(owner + "/" + name + desc, name);
+		}
 
 		return mapMethodName(cls, name, desc);
 	}
