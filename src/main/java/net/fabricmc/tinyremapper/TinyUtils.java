@@ -97,7 +97,8 @@ public final class TinyUtils {
 				new MappingDstNsReorder(
 						new FlatAsRegularMappingVisitor(new MappingAdapter(out)),
 						toNs),
-				fromNs);
+				fromNs,
+				true);
 	}
 
 	private static final class MappingAdapter implements FlatMappingVisitor {
@@ -108,7 +109,7 @@ public final class TinyUtils {
 		@Override
 		public boolean visitClass(String srcName, String[] dstNames) throws IOException {
 			String dstName = dstNames[0];
-			if (!bothNullOrEqual(srcName, dstName)) next.acceptClass(srcName, dstName);
+			if (!anyNullOrEqual(srcName, dstName)) next.acceptClass(srcName, dstName);
 			return true;
 		}
 
@@ -116,7 +117,7 @@ public final class TinyUtils {
 		public boolean visitField(String srcClsName, String srcName, String srcDesc,
 				String[] dstClsNames, String[] dstNames, String[] dstDescs) throws IOException {
 			String dstName = dstNames[0];
-			if (!bothNullOrEqual(srcName, dstName)) next.acceptField(new Member(srcClsName, srcName, srcDesc), dstName);
+			if (!anyNullOrEqual(srcName, dstName)) next.acceptField(new Member(srcClsName, srcName, srcDesc), dstName);
 			return false;
 		}
 
@@ -124,7 +125,7 @@ public final class TinyUtils {
 		public boolean visitMethod(String srcClsName, String srcName, String srcDesc,
 				String[] dstClsNames, String[] dstNames, String[] dstDescs) throws IOException {
 			String dstName = dstNames[0];
-			if (!bothNullOrEqual(srcName, dstName)) next.acceptMethod(new Member(srcClsName, srcName, srcDesc), dstName);
+			if (!anyNullOrEqual(srcName, dstName)) next.acceptMethod(new Member(srcClsName, srcName, srcDesc), dstName);
 			return true;
 		}
 
@@ -164,7 +165,7 @@ public final class TinyUtils {
 		return o1 == null || o1.equals(o2);
 	}
 
-	private static boolean bothNullOrEqual(Object o1, Object o2) {
+	private static boolean anyNullOrEqual(Object o1, Object o2) {
 		return o2 == null || firstNullOrEqual(o1, o2);
 	}
 }
