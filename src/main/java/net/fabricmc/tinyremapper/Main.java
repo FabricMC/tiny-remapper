@@ -57,6 +57,7 @@ public class Main {
 		boolean skipLocalVariableMapping = false;
 		boolean renameInvalidLocals = false;
 		Pattern invalidLvNamePattern = null;
+		boolean inferNameFromSameLvIndex = false;
 		NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
 		int threads = -1;
 		boolean enableMixin = false;
@@ -117,6 +118,9 @@ public class Main {
 					break;
 				case "invalidlvnamepattern":
 					invalidLvNamePattern = Pattern.compile(arg.substring(valueSepPos + 1));
+					break;
+				case "infernamefromsamelvindex":
+					inferNameFromSameLvIndex = true;
 					break;
 				case "nonclasscopymode":
 					switch (arg.substring(valueSepPos + 1).toLowerCase(Locale.ENGLISH)) {
@@ -248,6 +252,7 @@ public class Main {
 				.skipLocalVariableMapping(skipLocalVariableMapping)
 				.renameInvalidLocals(renameInvalidLocals)
 				.invalidLvNamePattern(invalidLvNamePattern)
+				.inferNameFromSameLvIndex(inferNameFromSameLvIndex)
 				.threads(threads);
 
 		if (enableMixin) {
