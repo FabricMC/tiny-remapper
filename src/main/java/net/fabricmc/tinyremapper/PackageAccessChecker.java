@@ -61,7 +61,7 @@ public final class PackageAccessChecker {
 		// target class is not public and in a different package
 		// -> invalid access detected, needs to be public
 
-		System.out.printf("Invalid access from %s in %s to package-private class %s after remapping.%n",
+		remapper.tr.getLogger().warn("Invalid access from %s in %s to package-private class %s after remapping.%n",
 				source,
 				mappedAccessor,
 				mappedTarget);
@@ -211,7 +211,7 @@ public final class PackageAccessChecker {
 			}
 		}
 
-		System.out.printf("Invalid access from %s in %s to %s after remapping.%n",
+		remapper.tr.getLogger().warn("Invalid access from %s in %s to %s after remapping.%n",
 				source,
 				mappedAccessor,
 				inaccessible);

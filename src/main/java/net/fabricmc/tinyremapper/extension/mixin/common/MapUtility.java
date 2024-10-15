@@ -23,16 +23,17 @@ import java.util.List;
 import java.util.Objects;
 
 import net.fabricmc.tinyremapper.api.TrClass;
+import net.fabricmc.tinyremapper.api.TrLogger;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrRemapper;
 
 public final class MapUtility {
 	private final TrRemapper remapper;
-	private final Logger logger;
+	private final TrLogger logger;
 
 	public static final List<String> IGNORED_NAME = Arrays.asList("<init>", "<clinit>");
 
-	public MapUtility(TrRemapper remapper, Logger logger) {
+	public MapUtility(TrRemapper remapper, TrLogger logger) {
 		this.remapper = Objects.requireNonNull(remapper);
 		this.logger = Objects.requireNonNull(logger);
 	}
