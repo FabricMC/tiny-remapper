@@ -62,7 +62,7 @@ public class Main {
 		int threads = -1;
 		boolean enableMixin = false;
 
-		final TrLogger logger = new ConsoleLogger();
+		final ConsoleLogger logger = new ConsoleLogger();
 
 		for (String arg : rawArgs) {
 			if (arg.startsWith("--")) {
@@ -143,6 +143,9 @@ public class Main {
 					break;
 				case "mixin":
 					enableMixin = true;
+					break;
+				case "loglevel":
+					logger.setLevel(TrLogger.Level.valueOf(arg.substring(valueSepPos + 1).toUpperCase(Locale.ENGLISH)));
 					break;
 				default:
 					logger.error("invalid argument: "+arg+".");

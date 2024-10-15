@@ -21,7 +21,7 @@ package net.fabricmc.tinyremapper;
 import net.fabricmc.tinyremapper.api.TrLogger;
 
 public final class ConsoleLogger implements TrLogger {
-	private final TrLogger.Level level;
+	private TrLogger.Level level;
 
 	public ConsoleLogger(TrLogger.Level level) {
 		this.level = level;
@@ -29,6 +29,10 @@ public final class ConsoleLogger implements TrLogger {
 
 	public ConsoleLogger() {
 		this(TrLogger.Level.INFO);
+	}
+
+	public void setLevel(TrLogger.Level level) {
+		this.level = level;
 	}
 
 	@Override
