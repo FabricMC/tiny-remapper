@@ -43,6 +43,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -214,6 +215,13 @@ public class TinyRemapper {
 			extension.attach(this);
 			return this;
 		}
+		
+		public Builder useForkJoinPool() {
+			ForkJoinPool pool = ForkJoinPool.commonPool();
+			this.threadCount = pool.getParallelism();
+			this.service = pool;
+			return this;
+		}
 
 		public TinyRemapper build() {
 			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount,
@@ -223,7 +231,7 @@ public class TinyRemapper {
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
 					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals, invalidLvNamePattern, inferNameFromSameLvIndex,
 					analyzeVisitors, stateProcessors, preApplyVisitors, postApplyVisitors,
-					extraRemapper);
+					extraRemapper, service);
 
 			return remapper;
 		}
@@ -252,6 +260,7 @@ public class TinyRemapper {
 		private final List<ApplyVisitorProvider> preApplyVisitors = new ArrayList<>();
 		private final List<ApplyVisitorProvider> postApplyVisitors = new ArrayList<>();
 		private Remapper extraRemapper;
+		private ExecutorService service;
 	}
 
 	public interface Extension {
@@ -305,12 +314,12 @@ public class TinyRemapper {
 			boolean renameInvalidLocals, Pattern invalidLvNamePattern, boolean inferNameFromSameLvIndex,
 			List<AnalyzeVisitorProvider> analyzeVisitors, List<StateProcessor> stateProcessors,
 			List<ApplyVisitorProvider> preApplyVisitors, List<ApplyVisitorProvider> postApplyVisitors,
-			Remapper extraRemapper) {
+			Remapper extraRemapper, ExecutorService service) {
 		this.mappingProviders = mappingProviders;
 		this.ignoreFieldDesc = ignoreFieldDesc;
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
 		this.keepInputData = keepInputData;
-		this.threadPool = Executors.newFixedThreadPool(this.threadCount);
+		this.threadPool = service == null ? Executors.newFixedThreadPool(this.threadCount) : service;
 		this.forcePropagation = forcePropagation;
 		this.knownIndyBsm = knownIndyBsm;
 		this.propagatePrivate = propagatePrivate;
@@ -342,12 +351,16 @@ public class TinyRemapper {
 	}
 
 	public void finish() {
-		threadPool.shutdown();
-
-		try {
-			threadPool.awaitTermination(20, TimeUnit.SECONDS);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
+		if(threadPool == ForkJoinPool.commonPool()) {
+			((ForkJoinPool)threadPool).awaitQuiescence(20, TimeUnit.SECONDS);
+		} else {
+			threadPool.shutdown();
+			
+			try {
+				threadPool.awaitTermination(20, TimeUnit.SECONDS);
+			} catch(InterruptedException e) {
+				e.printStackTrace();
+			}
 		}
 
 		outputBuffer = null;
