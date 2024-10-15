@@ -280,15 +280,14 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 					bootstrapMethodArguments);
 		}
 
-		private static Handle getLambdaImplementedMethod(String name, String desc, Handle bsm, Set<String> knownIndyBsm, Object... bsmArgs) {
+		private Handle getLambdaImplementedMethod(String name, String desc, Handle bsm, Set<String> knownIndyBsm, Object... bsmArgs) {
 			if (isJavaLambdaMetafactory(bsm)) {
 				assert desc.endsWith(";");
 				return new Handle(Opcodes.H_INVOKEINTERFACE, desc.substring(desc.lastIndexOf(')') + 2, desc.length() - 1), name, ((Type) bsmArgs[0]).getDescriptor(), true);
 			} else if (knownIndyBsm.contains(bsm.getOwner())) {
 				return null;
 			} else {
-				System.out.printf("unknown invokedynamic bsm: %s/%s%s (tag=%d iif=%b)%n", bsm.getOwner(), bsm.getName(), bsm.getDesc(), bsm.getTag(), bsm.isInterface());
-
+				tr.getEnvironment().getLogger().warn("unknown invokedynamic bsm: %s/%s%s (tag=%d iif=%b)", bsm.getOwner(), bsm.getName(), bsm.getDesc(), bsm.getTag(), bsm.isInterface());
 				return null;
 			}
 		}

@@ -35,8 +35,6 @@ import net.fabricmc.tinyremapper.TinyRemapper;
 import net.fabricmc.tinyremapper.TinyRemapper.Builder;
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrEnvironment;
-import net.fabricmc.tinyremapper.extension.mixin.common.Logger;
-import net.fabricmc.tinyremapper.extension.mixin.common.Logger.Level;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.hard.HardTargetMixinClassVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.SoftTargetMixinClassVisitor;
@@ -52,7 +50,6 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.SoftTargetMixinClassVisito
  * <p>If the filter is null, all inputs will be processed.
  */
 public class MixinExtension implements TinyRemapper.Extension {
-	private final Logger logger;
 	private final Map<Integer, Collection<Consumer<CommonData>>> tasks;
 	private final Set<AnnotationTarget> targets;
 	private final /* @Nullable */ Predicate<InputTag> inputTagFilter;
@@ -74,27 +71,18 @@ public class MixinExtension implements TinyRemapper.Extension {
 	 * Remap mixin annotation.
 	 */
 	public MixinExtension() {
-		this(Level.WARN);
-	}
-
-	public MixinExtension(Logger.Level logLevel) {
-		this(EnumSet.allOf(AnnotationTarget.class), logLevel);
-	}
-
-	public MixinExtension(Set<AnnotationTarget> targets) {
-		this(targets, Level.WARN);
+		this(EnumSet.allOf(AnnotationTarget.class));
 	}
 
 	public MixinExtension(/* @Nullable */ Predicate<InputTag> inputTagFilter) {
-		this(EnumSet.allOf(AnnotationTarget.class), Level.WARN, inputTagFilter);
+		this(EnumSet.allOf(AnnotationTarget.class), inputTagFilter);
 	}
 
-	public MixinExtension(Set<AnnotationTarget> targets, Logger.Level logLevel) {
-		this(targets, logLevel, null);
+	public MixinExtension(Set<AnnotationTarget> targets) {
+		this(targets, null);
 	}
 
-	public MixinExtension(Set<AnnotationTarget> targets, Logger.Level logLevel, /* @Nullable */ Predicate<InputTag> inputTagFilter) {
-		this.logger = new Logger(logLevel);
+	public MixinExtension(Set<AnnotationTarget> targets, /* @Nullable */ Predicate<InputTag> inputTagFilter) {
 		this.tasks = new ConcurrentHashMap<>();
 		this.targets = targets;
 		this.inputTagFilter = inputTagFilter;
@@ -112,13 +100,13 @@ public class MixinExtension implements TinyRemapper.Extension {
 	}
 
 	private void stateProcessor(TrEnvironment environment) {
-		CommonData data = new CommonData(environment, logger);
+		CommonData data = new CommonData(environment);
 
 		for (Consumer<CommonData> task : tasks.getOrDefault(environment.getMrjVersion(), Collections.emptyList())) {
 			try {
 				task.accept(data);
 			} catch (RuntimeException e) {
-				logger.error(e.getMessage());
+				environment.getLogger().error(e.getMessage());
 			}
 		}
 	}
@@ -163,7 +151,7 @@ public class MixinExtension implements TinyRemapper.Extension {
 	private final class PreApplyVisitorProvider implements TinyRemapper.ApplyVisitorProvider {
 		@Override
 		public ClassVisitor insertApplyVisitor(TrClass cls, ClassVisitor next) {
-			return new SoftTargetMixinClassVisitor(new CommonData(cls.getEnvironment(), logger), next);
+			return new SoftTargetMixinClassVisitor(new CommonData(cls.getEnvironment()), next);
 		}
 
 		@Override

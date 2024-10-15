@@ -138,7 +138,7 @@ class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
 		@Override
 		public MemberInfo result() {
 			if (!info.isFullyQualified()) {
-				data.logger.warn(String.format(Message.NOT_FULLY_QUALIFIED, info));
+				data.getLogger().warn(String.format(Message.NOT_FULLY_QUALIFIED, info));
 				return info;
 			}
 

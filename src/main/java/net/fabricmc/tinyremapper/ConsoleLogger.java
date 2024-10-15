@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2021, FabricMC
+ * Copyright (c) 2019, 2022, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -16,29 +16,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.fabricmc.tinyremapper.api;
+package net.fabricmc.tinyremapper;
 
-public interface TrEnvironment {
-	int getMrjVersion();
-	TrRemapper getRemapper();
-	TrLogger getLogger();
+import net.fabricmc.tinyremapper.api.TrLogger;
 
-	/**
-	 * @return the class with the passed name, or null if not found.
-	 */
-	TrClass getClass(String internalName);
+public final class ConsoleLogger implements TrLogger {
+	private final TrLogger.Level level;
 
-	default TrField getField(String owner, String name, String desc) {
-		TrClass cls = getClass(owner);
-
-		return cls != null ? cls.getField(name, desc) : null;
+	public ConsoleLogger(TrLogger.Level level) {
+		this.level = level;
 	}
 
-	default TrMethod getMethod(String owner, String name, String desc) {
-		TrClass cls = getClass(owner);
-
-		return cls != null ? cls.getMethod(name, desc) : null;
+	public ConsoleLogger() {
+		this(TrLogger.Level.INFO);
 	}
 
-	void propagate(TrMember member, String newName);
+	@Override
+	public void log(Level level, String message) {
+		if (this.level.compareTo(level) <= 0) {
+			System.out.println("[" + level + "] " + message);
+		}
+	}
 }

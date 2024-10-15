@@ -112,9 +112,9 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 					.distinct().collect(Collectors.toList());
 
 			if (collection.size() > 1) {
-				data.logger.error(String.format(Message.CONFLICT_MAPPING, info.getName(), collection));
+				data.getLogger().error(String.format(Message.CONFLICT_MAPPING, info.getName(), collection));
 			} else if (collection.isEmpty()) {
-				data.logger.warn(String.format(Message.NO_MAPPING_NON_RECURSIVE, info.getName(), targets));
+				data.getLogger().warn(String.format(Message.NO_MAPPING_NON_RECURSIVE, info.getName(), targets));
 			}
 
 			return collection.stream().findFirst()
