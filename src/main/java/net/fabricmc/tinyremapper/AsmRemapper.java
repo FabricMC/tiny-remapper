@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2018, 2021, FabricMC
+ * Copyright (c) 2018, 2023, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -135,7 +135,8 @@ class AsmRemapper extends TrRemapper {
 	}
 
 	public String mapMethodVar(String methodOwner, String methodName, String methodDesc, int lvIndex, int startOpIdx, int asmIndex, String name) {
-		return name; // TODO: implement
+		String newName = tr.methodVarMap.get(methodOwner+"/"+MemberInstance.getMethodId(methodName, methodDesc)+lvIndex);
+		return newName != null ? newName : name;
 	}
 
 	@Override
