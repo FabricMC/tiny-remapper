@@ -29,9 +29,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -58,9 +61,15 @@ public class Main {
 		boolean skipLocalVariableMapping = false;
 		boolean renameInvalidLocals = false;
 		Pattern invalidLvNamePattern = null;
+		boolean inferNameFromSameLvIndex = false;
 		NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
 		int threads = -1;
-		boolean enableMixin = false;
+
+		Map<String, TinyRemapper.CLIExtensionProvider> providerMap = new HashMap<>();
+		List<TinyRemapper.Extension> providedExtensions = new ArrayList<>();
+		ServiceLoader<TinyRemapper.CLIExtensionProvider> cliProviderLoader =
+				ServiceLoader.load(TinyRemapper.CLIExtensionProvider.class);
+		cliProviderLoader.iterator().forEachRemaining(provider -> providerMap.put(provider.name(), provider));
 
 		final ConsoleLogger logger = new ConsoleLogger();
 
@@ -121,6 +130,9 @@ public class Main {
 				case "invalidlvnamepattern":
 					invalidLvNamePattern = Pattern.compile(arg.substring(valueSepPos + 1));
 					break;
+				case "infernamefromsamelvindex":
+					inferNameFromSameLvIndex = true;
+					break;
 				case "nonclasscopymode":
 					switch (arg.substring(valueSepPos + 1).toLowerCase(Locale.ENGLISH)) {
 					case "unchanged": ncCopyMode = NonClassCopyMode.UNCHANGED; break;
@@ -142,7 +154,11 @@ public class Main {
 
 					break;
 				case "mixin":
-					enableMixin = true;
+					handleExtension(providerMap, "mixin", providedExtensions);
+					break;
+				case "ext":
+				case "extension":
+					handleExtension(providerMap, arg.substring(valueSepPos + 1), providedExtensions);
 					break;
 				case "loglevel":
 					logger.setLevel(TrLogger.Level.valueOf(arg.substring(valueSepPos + 1).toUpperCase(Locale.ENGLISH)));
@@ -254,10 +270,11 @@ public class Main {
 				.skipLocalVariableMapping(skipLocalVariableMapping)
 				.renameInvalidLocals(renameInvalidLocals)
 				.invalidLvNamePattern(invalidLvNamePattern)
+				.inferNameFromSameLvIndex(inferNameFromSameLvIndex)
 				.threads(threads);
 
-		if (enableMixin) {
-			builder = builder.extension(new MixinExtension());
+		for (TinyRemapper.Extension ext : providedExtensions) {
+			ext.attach(builder);
 		}
 
 		TinyRemapper remapper = builder.build();
@@ -276,5 +293,20 @@ public class Main {
 		}
 
 		logger.info("Finished after %.2f ms.", (System.nanoTime() - startTime) / 1e6);
+	}
+
+	private static void handleExtension(Map<String, TinyRemapper.CLIExtensionProvider> providerMap, String extName, List<TinyRemapper.Extension> providedExtensions) {
+		TinyRemapper.CLIExtensionProvider provider = providerMap.get(extName);
+
+		if (provider == null) {
+			System.err.println("No such extension: " + extName);
+			System.exit(1);
+		}
+
+		TinyRemapper.Extension extension = provider.provideExtension();
+
+		if (extension != null) {
+			providedExtensions.add(extension);
+		}
 	}
 }
