@@ -61,9 +61,9 @@ public class NamedMappable implements IMappable<String> {
 				.distinct().collect(Collectors.toList());
 
 		if (collection.size() > 1) {
-			data.getLogger().error(String.format(Message.CONFLICT_MAPPING, this.name, collection));
+			data.getLogger().error(Message.CONFLICT_MAPPING, this.name, collection);
 		} else if (collection.isEmpty()) {
-			data.getLogger().warn(String.format(Message.NO_MAPPING_RECURSIVE, this.name, targets));
+			data.getLogger().warn(Message.NO_MAPPING_RECURSIVE, this.name, targets);
 		}
 
 		return collection.stream().findFirst().orElse(name);

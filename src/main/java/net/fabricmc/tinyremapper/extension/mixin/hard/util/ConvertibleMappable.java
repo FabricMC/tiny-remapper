@@ -62,9 +62,9 @@ public abstract class ConvertibleMappable extends HardTargetMappable {
 				.collect(Collectors.toList());
 
 		if (collection.size() > 1) {
-			data.getLogger().error(String.format(Message.CONFLICT_MAPPING, self.getName(), collection));
+			data.getLogger().error(Message.CONFLICT_MAPPING, self.getName(), collection);
 		} else if (collection.isEmpty()) {
-			data.getLogger().warn(String.format(Message.NO_MAPPING_RECURSIVE, self.getName(), targets));
+			data.getLogger().warn(Message.NO_MAPPING_RECURSIVE, self.getName(), targets);
 		}
 
 		return collection.stream().findFirst();

@@ -287,7 +287,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 			} else if (knownIndyBsm.contains(bsm.getOwner())) {
 				return null;
 			} else {
-				tr.getEnvironment().getLogger().warn("unknown invokedynamic bsm: %s/%s%s (tag=%d iif=%b)", bsm.getOwner(), bsm.getName(), bsm.getDesc(), bsm.getTag(), bsm.isInterface());
+				tr.getLogger().warn("unknown invokedynamic bsm: %s/%s%s (tag=%d iif=%b)", bsm.getOwner(), bsm.getName(), bsm.getDesc(), bsm.getTag(), bsm.isInterface());
 				return null;
 			}
 		}

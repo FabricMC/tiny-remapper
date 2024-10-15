@@ -63,7 +63,7 @@ public final class ResolveUtility {
 		TrClass _class = environment.getClass(name);
 
 		if (_class == null && !StringUtility.isInternalClassName(name)) {
-			logger.error(String.format(Message.CANNOT_RESOLVE_CLASS, name));
+			logger.error(Message.CANNOT_RESOLVE_CLASS, name);
 		}
 
 		return Optional.ofNullable(_class);

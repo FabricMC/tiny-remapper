@@ -184,7 +184,7 @@ public class ImplementsAnnotationVisitor extends AnnotationVisitor {
 			List<String> collection = stream.distinct().collect(Collectors.toList());
 
 			if (collection.size() > 1) {
-				data.getLogger().error(String.format(Message.CONFLICT_MAPPING, self.getName(), collection));
+				data.getLogger().error(Message.CONFLICT_MAPPING, self.getName(), collection);
 			}
 
 			return collection.stream().findFirst();
