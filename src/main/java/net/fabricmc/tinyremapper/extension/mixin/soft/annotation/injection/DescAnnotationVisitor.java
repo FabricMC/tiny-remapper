@@ -77,11 +77,13 @@ class DescAnnotationVisitor extends AnnotationVisitor {
 				@Override
 				public void visit(String name, Object value) {
 					argArray.add(Objects.requireNonNull((Type) value));
+					super.visit(name, value);
 				}
 
 				@Override
 				public void visitEnd() {
 					args = Collections.unmodifiableList(argArray);
+					super.visitEnd();
 				}
 			};
 		} else {
