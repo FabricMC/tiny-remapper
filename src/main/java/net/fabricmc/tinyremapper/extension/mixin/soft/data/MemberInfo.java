@@ -129,8 +129,26 @@ public final class MemberInfo {
 	@Override
 	public String toString() {
 		String owner = getOwner().isEmpty() ? "" : StringUtility.classNameToDesc(getOwner());
-		String desc = getDesc().isEmpty() ? "" : (Objects.equals(getType(), MemberType.FIELD) ? ":" : "") + getDesc();
 
-		return owner + name + quantifier + desc;
+		return owner + name + quantifier + formattedDesc();
+	}
+
+	private String formattedDesc() {
+		final String desc = getDesc();
+
+		if (desc.isEmpty()) {
+			return "";
+		}
+
+		if (Objects.equals(getType(), MemberType.FIELD)) {
+			return ":" + desc;
+		}
+
+		// Wildcards match regardless of descriptor
+		if (getQuantifier().equals("*")) {
+			return "";
+		}
+
+		return desc;
 	}
 }

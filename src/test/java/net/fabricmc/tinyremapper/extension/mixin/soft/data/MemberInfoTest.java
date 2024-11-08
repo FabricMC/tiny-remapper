@@ -98,5 +98,23 @@ class MemberInfoTest {
 		assertEquals(info.getQuantifier(), "");
 		assertEquals(info.getDesc(), "([C)Ljava/lang/String;");
 		assertEquals(info.toString(), "([C)Ljava/lang/String;");
+
+		info = MemberInfo.parse("<init>*");
+		assertNotNull(info);
+		assertNull(info.getType());
+		assertEquals(info.getOwner(), "");
+		assertEquals(info.getName(), "<init>");
+		assertEquals(info.getQuantifier(), "*");
+		assertEquals(info.getDesc(), "");
+		assertEquals(info.toString(), "<init>*");
+
+		info = new MemberInfo("", "<init>", "*", "()V");
+		assertNotNull(info);
+		assertEquals(info.getType(), MemberType.METHOD);
+		assertEquals(info.getOwner(), "");
+		assertEquals(info.getName(), "<init>");
+		assertEquals(info.getQuantifier(), "*");
+		assertEquals(info.getDesc(), "()V");
+		assertEquals(info.toString(), "<init>*");
 	}
 }
