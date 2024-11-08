@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import net.fabricmc.tinyremapper.TinyRemapper.LinkedMethodPropagation;
+import net.fabricmc.tinyremapper.api.TrLogger;
 
 public class Main {
 	public static void main(String[] rawArgs) {
@@ -69,6 +70,8 @@ public class Main {
 				ServiceLoader.load(TinyRemapper.CLIExtensionProvider.class);
 		cliProviderLoader.iterator().forEachRemaining(provider -> providerMap.put(provider.name(), provider));
 
+		final ConsoleLogger logger = new ConsoleLogger();
+
 		for (String arg : rawArgs) {
 			if (arg.startsWith("--")) {
 				int valueSepPos = arg.indexOf('=');
@@ -94,7 +97,7 @@ public class Main {
 					case "enabled": propagateBridges = LinkedMethodPropagation.ENABLED; break;
 					case "compatible": propagateBridges = LinkedMethodPropagation.COMPATIBLE; break;
 					default:
-						System.out.println("invalid propagateBridges: "+arg.substring(valueSepPos + 1));
+						logger.error("invalid propagateBridges: "+arg.substring(valueSepPos + 1));
 						System.exit(1);
 					}
 
@@ -135,7 +138,7 @@ public class Main {
 					case "fixmeta": ncCopyMode = NonClassCopyMode.FIX_META_INF; break;
 					case "skipmeta": ncCopyMode = NonClassCopyMode.SKIP_META_INF; break;
 					default:
-						System.out.println("invalid nonClassCopyMode: "+arg.substring(valueSepPos + 1));
+						logger.error("invalid nonClassCopyMode: "+arg.substring(valueSepPos + 1));
 						System.exit(1);
 					}
 
@@ -144,7 +147,7 @@ public class Main {
 					threads = Integer.parseInt(arg.substring(valueSepPos + 1));
 
 					if (threads <= 0) {
-						System.out.println("Thread count must be > 0");
+						logger.error("Thread count must be > 0");
 						System.exit(1);
 					}
 
@@ -156,8 +159,11 @@ public class Main {
 				case "extension":
 					handleExtension(providerMap, arg.substring(valueSepPos + 1), providedExtensions);
 					break;
+				case "loglevel":
+					logger.setLevel(TrLogger.Level.valueOf(arg.substring(valueSepPos + 1).toUpperCase(Locale.ENGLISH)));
+					break;
 				default:
-					System.out.println("invalid argument: "+arg+".");
+					logger.error("invalid argument: "+arg+".");
 					System.exit(1);
 				}
 			} else {
@@ -166,14 +172,14 @@ public class Main {
 		}
 
 		if (args.size() < 5) {
-			System.out.println("usage: <input> <output> <mappings> <from> <to> [<classpath>]... [--reverse] [--forcePropagation=<file>] [--propagatePrivate] [--ignoreConflicts]");
+			logger.error("usage: <input> <output> <mappings> <from> <to> [<classpath>]... [--reverse] [--forcePropagation=<file>] [--propagatePrivate] [--ignoreConflicts]");
 			System.exit(1);
 		}
 
 		Path input = Paths.get(args.get(0));
 
 		if (!Files.isReadable(input)) {
-			System.out.println("Can't read input file "+input+".");
+			logger.error("Can't read input file "+input+".");
 			System.exit(1);
 		}
 
@@ -181,7 +187,7 @@ public class Main {
 		Path mappings = Paths.get(args.get(2));
 
 		if (!Files.isReadable(mappings) || Files.isDirectory(mappings)) {
-			System.out.println("Can't read mappings file "+mappings+".");
+			logger.error("Can't read mappings file "+mappings+".");
 			System.exit(1);
 		}
 
@@ -194,7 +200,7 @@ public class Main {
 			classpath[i] = Paths.get(args.get(i + 5));
 
 			if (!Files.isReadable(classpath[i])) {
-				System.out.println("Can't read classpath file "+i+": "+classpath[i]+".");
+				logger.error("Can't read classpath file "+i+": "+classpath[i]+".");
 				System.exit(1);
 			}
 		}
@@ -203,7 +209,7 @@ public class Main {
 			forcePropagation = new HashSet<>();
 
 			if (!forcePropagationFile.canRead()) {
-				System.out.println("Can't read forcePropagation file "+forcePropagationFile+".");
+				logger.error("Can't read forcePropagation file "+forcePropagationFile+".");
 				System.exit(1);
 			}
 
@@ -225,7 +231,7 @@ public class Main {
 
 		if (knownIndyBsmFile != null) {
 			if (!knownIndyBsmFile.canRead()) {
-				System.out.println("Can't read knownIndyBsm file "+knownIndyBsmFile+".");
+				logger.error("Can't read knownIndyBsm file "+knownIndyBsmFile+".");
 				System.exit(1);
 			}
 
@@ -247,7 +253,7 @@ public class Main {
 
 		long startTime = System.nanoTime();
 
-		TinyRemapper.Builder builder = TinyRemapper.newRemapper()
+		TinyRemapper.Builder builder = TinyRemapper.newRemapper(logger)
 				.withMappings(TinyUtils.createTinyMappingProvider(mappings, fromM, toM))
 				.ignoreFieldDesc(ignoreFieldDesc)
 				.withForcedPropagation(forcePropagation)
@@ -285,7 +291,7 @@ public class Main {
 			remapper.finish();
 		}
 
-		System.out.printf("Finished after %.2f ms.\n", (System.nanoTime() - startTime) / 1e6);
+		logger.info("Finished after %.2f ms.", (System.nanoTime() - startTime) / 1e6);
 	}
 
 	private static void handleExtension(Map<String, TinyRemapper.CLIExtensionProvider> providerMap, String extName, List<TinyRemapper.Extension> providedExtensions) {

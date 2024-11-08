@@ -65,12 +65,17 @@ import net.fabricmc.tinyremapper.IMappingProvider.MappingAcceptor;
 import net.fabricmc.tinyremapper.IMappingProvider.Member;
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrEnvironment;
+import net.fabricmc.tinyremapper.api.TrLogger;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 
 public class TinyRemapper {
 	public static class Builder {
-		private Builder() { }
+		private final TrLogger logger;
+
+		private Builder(TrLogger logger) {
+			this.logger = Objects.requireNonNull(logger, "logger");
+		}
 
 		public Builder withMappings(IMappingProvider provider) {
 			mappingProviders.add(provider);
@@ -215,6 +220,10 @@ public class TinyRemapper {
 			return this;
 		}
 
+		public TrLogger getLogger() {
+			return logger;
+		}
+
 		public TinyRemapper build() {
 			TinyRemapper remapper = new TinyRemapper(mappingProviders, ignoreFieldDesc, threadCount,
 					keepInputData,
@@ -223,7 +232,7 @@ public class TinyRemapper {
 					removeFrames, ignoreConflicts, resolveMissing, checkPackageAccess || fixPackageAccess, fixPackageAccess,
 					rebuildSourceFilenames, skipLocalMapping, renameInvalidLocals, invalidLvNamePattern, inferNameFromSameLvIndex,
 					analyzeVisitors, stateProcessors, preApplyVisitors, postApplyVisitors,
-					extraRemapper);
+					extraRemapper, logger);
 
 			return remapper;
 		}
@@ -312,7 +321,8 @@ public class TinyRemapper {
 			boolean renameInvalidLocals, Pattern invalidLvNamePattern, boolean inferNameFromSameLvIndex,
 			List<AnalyzeVisitorProvider> analyzeVisitors, List<StateProcessor> stateProcessors,
 			List<ApplyVisitorProvider> preApplyVisitors, List<ApplyVisitorProvider> postApplyVisitors,
-			Remapper extraRemapper) {
+			Remapper extraRemapper, TrLogger logger) {
+		this.logger = logger;
 		this.mappingProviders = mappingProviders;
 		this.ignoreFieldDesc = ignoreFieldDesc;
 		this.threadCount = threadCount > 0 ? threadCount : Math.max(Runtime.getRuntime().availableProcessors(), 2);
@@ -345,7 +355,11 @@ public class TinyRemapper {
 	}
 
 	public static Builder newRemapper() {
-		return new Builder();
+		return new Builder(new ConsoleLogger());
+	}
+
+	public static Builder newRemapper(TrLogger logger) {
+		return new Builder(logger);
 	}
 
 	public void finish() {
@@ -484,7 +498,7 @@ public class TinyRemapper {
 				}
 			} else if (cls.isInput) {
 				if (prev.isInput) {
-					System.out.printf("duplicate input class %s, from %s and %s%n", name, prev.srcPath, cls.srcPath);
+					cls.tr.getLogger().warn("duplicate input class %s, from %s and %s", name, prev.srcPath, cls.srcPath);
 					prev.addInputTags(cls.getInputTags());
 					return;
 				} else if (out.replace(name, prev, cls)) { // cas with retry-loop on failure
@@ -724,10 +738,11 @@ public class TinyRemapper {
 				}
 			}
 
-			System.out.println("non-unique class target name mappings:");
+			logger.warn("non-unique class target name mappings:");
 
 			for (String target : duplicates) {
-				System.out.print("  [");
+				StringBuilder sb = new StringBuilder();
+				sb.append("  [");
 				boolean first = true;
 
 				for (Map.Entry<String, String> e : classMap.entrySet()) {
@@ -735,14 +750,15 @@ public class TinyRemapper {
 						if (first) {
 							first = false;
 						} else {
-							System.out.print(", ");
+							sb.append(", ");
 						}
 
-						System.out.print(e.getKey());
+						sb.append(e.getKey());
 					}
 				}
 
-				System.out.printf("] -> %s%n", target);
+				sb.append(String.format("] -> %s", target));
+				getLogger().warn(sb.toString());
 			}
 
 			throw new RuntimeException("duplicate class target name mappings detected");
@@ -820,7 +836,7 @@ public class TinyRemapper {
 			if (testSet.size() != cls.getMembers().size()) {
 				if (!targetNameCheckFailed) {
 					targetNameCheckFailed = true;
-					System.out.println("Mapping target name conflicts detected:");
+					getLogger().warn("Mapping target name conflicts detected:");
 				}
 
 				Map<String, List<MemberInstance>> duplicates = new HashMap<>();
@@ -838,22 +854,23 @@ public class TinyRemapper {
 					if (members.size() < 2) continue;
 
 					MemberInstance anyMember = members.get(0);
-					System.out.printf("  %ss %s/[", anyMember.type, cls.getName());
+					StringBuilder sb = new StringBuilder(String.format("  %ss %s/[", anyMember.type, cls.getName()));
 
 					for (int i = 0; i < members.size(); i++) {
-						if (i != 0) System.out.print(", ");
+						if (i != 0) sb.append(", ");
 
 						MemberInstance member = members.get(i);
 
 						if (member.newNameOriginatingCls != null && !member.newNameOriginatingCls.equals(cls.getName())) {
-							System.out.print(member.newNameOriginatingCls);
-							System.out.print('/');
+							sb.append(member.newNameOriginatingCls);
+							sb.append('/');
 						}
 
-						System.out.print(member.name);
+						sb.append(member.name);
 					}
 
-					System.out.printf("]%s -> %s%n", MemberInstance.getId(anyMember.type, "", anyMember.desc, ignoreFieldDesc), MemberInstance.getNameFromId(anyMember.type, nameDesc, ignoreFieldDesc));
+					sb.append(String.format("]%s -> %s", MemberInstance.getId(anyMember.type, "", anyMember.desc, ignoreFieldDesc), MemberInstance.getNameFromId(anyMember.type, nameDesc, ignoreFieldDesc)));
+					getLogger().warn(sb.toString());
 				}
 			}
 
@@ -863,7 +880,7 @@ public class TinyRemapper {
 		boolean unfixableConflicts = false;
 
 		if (!conflicts.isEmpty()) {
-			System.out.println("Mapping source name conflicts detected:");
+			getLogger().warn("Mapping source name conflicts detected:");
 
 			for (Map.Entry<MemberInstance, Set<String>> entry : conflicts.entrySet()) {
 				MemberInstance member = entry.getKey();
@@ -871,7 +888,7 @@ public class TinyRemapper {
 				Set<String> names = entry.getValue();
 				names.add(member.cls.getName()+"/"+newName);
 
-				System.out.printf("  %s %s %s (%s) -> %s%n", member.cls.getName(), member.type.name(), member.name, member.desc, names);
+				getLogger().warn("  %s %s %s (%s) -> %s", member.cls.getName(), member.type.name(), member.name, member.desc, names);
 
 				if (ignoreConflicts) {
 					Map<String, String> mappings = member.type == TrMember.MemberType.METHOD ? methodMap : fieldMap;
@@ -893,14 +910,14 @@ public class TinyRemapper {
 						unfixableConflicts = true;
 					} else {
 						member.forceSetNewName(mappingName);
-						System.out.println("    fixable: replaced with "+mappingName);
+						getLogger().warn("    fixable: replaced with "+mappingName);
 					}
 				}
 			}
 		}
 
 		if (!conflicts.isEmpty() && !ignoreConflicts || unfixableConflicts || targetNameCheckFailed) {
-			if (ignoreConflicts || targetNameCheckFailed) System.out.println("There were unfixable conflicts.");
+			if (ignoreConflicts || targetNameCheckFailed) getLogger().error("There were unfixable conflicts.");
 
 			throw new RuntimeException("Unfixable conflicts");
 		}
@@ -953,7 +970,7 @@ public class TinyRemapper {
 
 				if (fixPackageAccess) {
 					if (needsFixes) {
-						System.out.printf("Fixing access for %d classes and %d members.%n", classesToMakePublic.size(), membersToMakePublic.size());
+						getLogger().warn("Fixing access for %d classes and %d members.", classesToMakePublic.size(), membersToMakePublic.size());
 					}
 
 					for (Map.Entry<ClassInstance, byte[]> entry : outputBuffer.entrySet()) {
@@ -1199,6 +1216,10 @@ public class TinyRemapper {
 		return (AsmRemapper) getEnvironment().getRemapper();
 	}
 
+	public TrLogger getLogger() {
+		return logger;
+	}
+
 	private static void waitForAll(Iterable<Future<?>> futures) {
 		try {
 			for (Future<?> future : futures) {
@@ -1325,6 +1346,11 @@ public class TinyRemapper {
 		}
 
 		@Override
+		public TrLogger getLogger() {
+			return tr.logger;
+		}
+
+		@Override
 		public ClassInstance getClass(String internalName) {
 			return classes.get(internalName);
 		}
@@ -1367,6 +1393,7 @@ public class TinyRemapper {
 	private final List<StateProcessor> stateProcessors;
 	private final List<ApplyVisitorProvider> preApplyVisitors;
 	private final List<ApplyVisitorProvider> postApplyVisitors;
+	private final TrLogger logger;
 	final Remapper extraRemapper;
 
 	final AtomicReference<Map<InputTag, InputTag[]>> singleInputTags = new AtomicReference<>(Collections.emptyMap()); // cache for tag -> { tag }

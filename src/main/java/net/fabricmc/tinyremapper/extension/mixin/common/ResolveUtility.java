@@ -27,6 +27,7 @@ import java.util.function.Supplier;
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrEnvironment;
 import net.fabricmc.tinyremapper.api.TrField;
+import net.fabricmc.tinyremapper.api.TrLogger;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.api.TrMethod;
@@ -51,18 +52,18 @@ public final class ResolveUtility {
 	public static int FLAG_NON_SYN = 0x8;
 
 	private final TrEnvironment environment;
-	private final Logger logger;
+	private final TrLogger logger;
 
-	public ResolveUtility(TrEnvironment environment, Logger logger) {
+	public ResolveUtility(TrEnvironment environment) {
 		this.environment = Objects.requireNonNull(environment);
-		this.logger = Objects.requireNonNull(logger);
+		this.logger = environment.getLogger();
 	}
 
 	public Optional<TrClass> resolveClass(String name) {
 		TrClass _class = environment.getClass(name);
 
 		if (_class == null && !StringUtility.isInternalClassName(name)) {
-			logger.error(String.format(Message.CANNOT_RESOLVE_CLASS, name));
+			logger.error(Message.CANNOT_RESOLVE_CLASS, name);
 		}
 
 		return Optional.ofNullable(_class);

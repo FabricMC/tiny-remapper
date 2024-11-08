@@ -139,7 +139,7 @@ class DescAnnotationVisitor extends AnnotationVisitor {
 				if (proposedName == null) {
 					proposedName = remapped;
 				} else if (!proposedName.equals(remapped)) {
-					data.logger.error(String.format(Message.MULTIPLE_MAPPING_CHOICES, value + desc, owner + "." + remapped + desc, proposedName + desc));
+					data.getLogger().error(Message.MULTIPLE_MAPPING_CHOICES, value + desc, owner + "." + remapped + desc, proposedName + desc);
 				}
 			}
 
@@ -150,7 +150,7 @@ class DescAnnotationVisitor extends AnnotationVisitor {
 			}
 		} else if (expectedType == MemberType.FIELD) {
 			if (ret == null) {
-				data.logger.warn(String.format(Message.NOT_FULLY_QUALIFIED, owner + "." + value));
+				data.getLogger().warn(Message.NOT_FULLY_QUALIFIED, owner + "." + value);
 				super.visit("value", value);
 				super.visitEnd();
 				return;
@@ -171,7 +171,7 @@ class DescAnnotationVisitor extends AnnotationVisitor {
 				if (proposedName == null) {
 					proposedName = remapped;
 				} else if (!proposedName.equals(remapped)) {
-					data.logger.error(String.format(Message.MULTIPLE_MAPPING_CHOICES, value + desc, owner + "." + remapped + desc, proposedName + desc));
+					data.getLogger().error(Message.MULTIPLE_MAPPING_CHOICES, value + desc, owner + "." + remapped + desc, proposedName + desc);
 				}
 			}
 
