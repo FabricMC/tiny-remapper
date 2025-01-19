@@ -44,25 +44,21 @@ public class InvokerAnnotationVisitor extends AnnotationVisitor {
 	private final MxMember method;
 	private final List<String> targets;
 
-	private boolean remap;
 	private boolean isSoftTarget;
 
-	public InvokerAnnotationVisitor(Collection<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember method, boolean remap, List<String> targets) {
+	public InvokerAnnotationVisitor(Collection<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember method, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 
 		this.tasks = Objects.requireNonNull(tasks);
 		this.method = Objects.requireNonNull(method);
 		this.targets = Objects.requireNonNull(targets);
 
-		this.remap = remap;
 		this.isSoftTarget = false;
 	}
 
 	@Override
 	public void visit(String name, Object value) {
-		if (name.equals(AnnotationElement.REMAP)) {
-			remap = Objects.requireNonNull((Boolean) value);
-		} else if (name.equals(AnnotationElement.VALUE)) {
+		if (name.equals(AnnotationElement.VALUE)) {
 			isSoftTarget = true;
 		}
 
@@ -71,7 +67,7 @@ public class InvokerAnnotationVisitor extends AnnotationVisitor {
 
 	@Override
 	public void visitEnd() {
-		if (remap && !isSoftTarget) {
+		if (!isSoftTarget) {
 			tasks.add(data -> new InvokerMappable(data, method, targets).result());
 		}
 

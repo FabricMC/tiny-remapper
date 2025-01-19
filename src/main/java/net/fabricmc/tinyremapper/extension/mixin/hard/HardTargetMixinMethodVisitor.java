@@ -39,15 +39,13 @@ class HardTargetMixinMethodVisitor extends MethodVisitor {
 	private final Collection<Consumer<CommonData>> data;
 	private final MxMember method;
 
-	private final boolean remap;
 	private final List<String> targets;
 
-	HardTargetMixinMethodVisitor(Collection<Consumer<CommonData>> data, MethodVisitor delegate, MxMember method, boolean remap, List<String> targets) {
+	HardTargetMixinMethodVisitor(Collection<Consumer<CommonData>> data, MethodVisitor delegate, MxMember method, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 		this.data = Objects.requireNonNull(data);
 		this.method = Objects.requireNonNull(method);
 
-		this.remap = remap;
 		this.targets = Objects.requireNonNull(targets);
 	}
 
@@ -56,13 +54,13 @@ class HardTargetMixinMethodVisitor extends MethodVisitor {
 		AnnotationVisitor av = super.visitAnnotation(descriptor, visible);
 
 		if (Annotation.SHADOW.equals(descriptor)) {
-			av = new ShadowAnnotationVisitor(data, av, method, remap, targets);
+			av = new ShadowAnnotationVisitor(data, av, method, targets);
 		} else if (Annotation.OVERWRITE.equals(descriptor)) {
-			av = new OverwriteAnnotationVisitor(data, av, method, remap, targets);
+			av = new OverwriteAnnotationVisitor(data, av, method, targets);
 		} else if (Annotation.ACCESSOR.equals(descriptor)) {
-			av = new AccessorAnnotationVisitor(data, av, method, remap, targets);
+			av = new AccessorAnnotationVisitor(data, av, method, targets);
 		} else if (Annotation.INVOKER.equals(descriptor)) {
-			av = new InvokerAnnotationVisitor(data, av, method, remap, targets);
+			av = new InvokerAnnotationVisitor(data, av, method, targets);
 		}
 
 		return av;

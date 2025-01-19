@@ -29,12 +29,10 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 
 public class SliceAnnotationVisitor extends AnnotationVisitor {
 	private final CommonData data;
-	private final boolean remap;
 
-	public SliceAnnotationVisitor(CommonData data, AnnotationVisitor delegate, boolean remap) {
+	public SliceAnnotationVisitor(CommonData data, AnnotationVisitor delegate) {
 		super(Constant.ASM_VERSION, delegate);
 		this.data = Objects.requireNonNull(data);
-		this.remap = remap;
 	}
 
 	@Override
@@ -46,7 +44,7 @@ public class SliceAnnotationVisitor extends AnnotationVisitor {
 				throw new RuntimeException("Unexpected annotation " + descriptor);
 			}
 
-			av = new AtAnnotationVisitor(data, av, remap);
+			av = new AtAnnotationVisitor(data, av);
 		}
 
 		return av;

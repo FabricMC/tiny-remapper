@@ -22,11 +22,10 @@ import java.util.List;
 
 import org.objectweb.asm.AnnotationVisitor;
 
-import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 
 public class WrapMethodAnnotationVisitor extends CommonInjectionAnnotationVisitor {
-	public WrapMethodAnnotationVisitor(CommonData data, AnnotationVisitor delegate, boolean remap, List<String> targets) {
-		super(Annotation.MIXIN_EXTRAS_WRAP_METHOD, data, delegate, remap, targets);
+	public WrapMethodAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets) {
+		super(data, delegate, targets);
 	}
 }

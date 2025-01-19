@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.tree.AnnotationNode;
 
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
@@ -31,21 +32,20 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
-import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.FirstPassAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
 
 /**
  * {@code @At} require fully-qualified {@link net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo} unless
  * {@code value = NEW}, in which case a special set of rule applies.
  */
-class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
+class AtAnnotationVisitor extends AnnotationNode {
 	private final CommonData data;
 	private final AnnotationVisitor delegate;
 
 	private String value;
 
-	AtAnnotationVisitor(CommonData data, AnnotationVisitor delegate, boolean remap) {
-		super(Annotation.AT, remap);
+	AtAnnotationVisitor(CommonData data, AnnotationVisitor delegate) {
+		super(Constant.ASM_VERSION, Annotation.AT);
 
 		this.data = Objects.requireNonNull(data);
 		this.delegate = Objects.requireNonNull(delegate);
@@ -62,11 +62,7 @@ class AtAnnotationVisitor extends FirstPassAnnotationVisitor {
 
 	@Override
 	public void visitEnd() {
-		if (remap) {
-			accept(new AtSecondPassAnnotationVisitor(data, delegate, value));
-		} else {
-			accept(delegate);
-		}
+		accept(new AtSecondPassAnnotationVisitor(data, delegate, value));
 
 		super.visitEnd();
 	}
