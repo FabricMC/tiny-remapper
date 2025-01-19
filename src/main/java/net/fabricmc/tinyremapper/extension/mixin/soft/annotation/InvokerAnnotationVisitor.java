@@ -23,6 +23,7 @@ import java.util.Objects;
 
 import org.objectweb.asm.AnnotationVisitor;
 
+import net.fabricmc.tinyremapper.extension.mixin.common.StringUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
@@ -39,6 +40,8 @@ public class InvokerAnnotationVisitor extends AnnotationVisitor {
 
 	private final List<String> targets;
 
+	private boolean isSoftTarget;
+
 	public InvokerAnnotationVisitor(CommonData data, AnnotationVisitor delegate, MxMember method, List<String> targets) {
 		super(Constant.ASM_VERSION, Objects.requireNonNull(delegate));
 
@@ -51,12 +54,49 @@ public class InvokerAnnotationVisitor extends AnnotationVisitor {
 	@Override
 	public void visit(String name, Object value) {
 		if (name.equals(AnnotationElement.VALUE)) {
+			isSoftTarget = true;
 			String methodName = Objects.requireNonNull((String) value);
-			String methodDesc = method.getDesc();
 
-			value = new NamedMappable(data, methodName, methodDesc, targets).result();
+			setAnnotationValue(methodName);
+			return;
 		}
 
 		super.visit(name, value);
+	}
+
+	@Override
+	public void visitEnd() {
+		if (!isSoftTarget) {
+			String inferredName = inferMethodName();
+
+			if (inferredName != null) {
+				setAnnotationValue(inferredName);
+			}
+		}
+
+		super.visitEnd();
+	}
+
+	private void setAnnotationValue(String methodName) {
+		super.visit(AnnotationElement.VALUE, new NamedMappable(data, methodName, method.getDesc(), targets).result());
+	}
+
+	private String inferMethodName() {
+		if (method.getName().startsWith("new") || method.getName().startsWith("create")) {
+			// The rest of the name isn't important, leave it as-is
+			return null;
+		}
+
+		String prefix;
+
+		if (method.getName().startsWith("call")) {
+			prefix = "call";
+		} else if (method.getName().startsWith("invoke")) {
+			prefix = "invoke";
+		} else {
+			throw new RuntimeException(String.format("%s does not start with call or invoke.", method.getName()));
+		}
+
+		return StringUtility.removeCamelPrefix(prefix, method.getName());
 	}
 }

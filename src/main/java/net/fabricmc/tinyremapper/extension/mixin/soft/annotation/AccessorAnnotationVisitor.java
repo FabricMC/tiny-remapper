@@ -25,6 +25,7 @@ import java.util.regex.Pattern;
 
 import org.objectweb.asm.AnnotationVisitor;
 
+import net.fabricmc.tinyremapper.extension.mixin.common.StringUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
@@ -38,8 +39,11 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.util.NamedMappable;
 public class AccessorAnnotationVisitor extends AnnotationVisitor {
 	private final CommonData data;
 
+	private final MxMember method;
 	private final List<String> targets;
 	private final String fieldDesc;
+
+	private boolean isSoftTarget;
 
 	private static final Pattern GETTER_PATTERN = Pattern.compile("(?<=\\(\\)).*");
 	private static final Pattern SETTER_PATTERN = Pattern.compile("(?<=\\().*(?=\\)V)");
@@ -50,6 +54,7 @@ public class AccessorAnnotationVisitor extends AnnotationVisitor {
 		this.data = Objects.requireNonNull(data);
 		Objects.requireNonNull(method);
 
+		this.method = method;
 		this.targets = Objects.requireNonNull(targets);
 
 		Matcher getterMatcher = GETTER_PATTERN.matcher(method.getDesc());
@@ -67,11 +72,41 @@ public class AccessorAnnotationVisitor extends AnnotationVisitor {
 	@Override
 	public void visit(String name, Object value) {
 		if (name.equals(AnnotationElement.VALUE)) {
+			isSoftTarget = true;
 			String fieldName = Objects.requireNonNull((String) value);
-
-			value = new NamedMappable(data, fieldName, fieldDesc, targets).result();
+			setAnnotationValue(fieldName);
+			return;
 		}
 
 		super.visit(name, value);
+	}
+
+	@Override
+	public void visitEnd() {
+		if (!isSoftTarget) {
+			setAnnotationValue(inferFieldName());
+		}
+
+		super.visitEnd();
+	}
+
+	private void setAnnotationValue(String fieldName) {
+		super.visit(AnnotationElement.VALUE, new NamedMappable(data, fieldName, fieldDesc, targets).result());
+	}
+
+	private String inferFieldName() {
+		String prefix;
+
+		if (method.getName().startsWith("get")) {
+			prefix = "get";
+		} else if (method.getName().startsWith("set")) {
+			prefix = "set";
+		} else if (method.getName().startsWith("is")) {
+			prefix = "is";
+		} else {
+			throw new RuntimeException(String.format("%s does not start with get, set or is.", method.getName()));
+		}
+
+		return StringUtility.removeCamelPrefix(prefix, method.getName());
 	}
 }
