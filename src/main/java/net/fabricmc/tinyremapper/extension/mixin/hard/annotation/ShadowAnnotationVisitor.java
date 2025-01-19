@@ -44,24 +44,20 @@ public class ShadowAnnotationVisitor extends AnnotationVisitor {
 	private final MxMember member;
 	private final List<String> targets;
 
-	private boolean remap;
 	private String prefix;
 
-	public ShadowAnnotationVisitor(Collection<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember member, boolean remap, List<String> targets) {
+	public ShadowAnnotationVisitor(Collection<Consumer<CommonData>> tasks, AnnotationVisitor delegate, MxMember member, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 		this.tasks = Objects.requireNonNull(tasks);
 		this.member = Objects.requireNonNull(member);
 
 		this.targets = Objects.requireNonNull(targets);
-		this.remap = remap;
 		this.prefix = "shadow$";
 	}
 
 	@Override
 	public void visit(String name, Object value) {
-		if (name.equals(AnnotationElement.REMAP)) {
-			remap = Objects.requireNonNull((Boolean) value);
-		} else if (name.equals(AnnotationElement.PREFIX)) {
+		if (name.equals(AnnotationElement.PREFIX)) {
 			prefix = Objects.requireNonNull((String) value);
 		}
 
@@ -70,9 +66,7 @@ public class ShadowAnnotationVisitor extends AnnotationVisitor {
 
 	@Override
 	public void visitEnd() {
-		if (remap) {
-			tasks.add(data -> new ShadowPrefixMappable(data, member, targets, prefix).result());
-		}
+		tasks.add(data -> new ShadowPrefixMappable(data, member, targets, prefix).result());
 
 		super.visitEnd();
 	}

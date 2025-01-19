@@ -31,7 +31,6 @@ import net.fabricmc.tinyremapper.api.TrLogger;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.api.TrMethod;
-import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
 
 public final class ResolveUtility {
 	/**
@@ -61,11 +60,6 @@ public final class ResolveUtility {
 
 	public Optional<TrClass> resolveClass(String name) {
 		TrClass _class = environment.getClass(name);
-
-		if (_class == null && !StringUtility.isInternalClassName(name)) {
-			logger.error(Message.CANNOT_RESOLVE_CLASS, name);
-		}
-
 		return Optional.ofNullable(_class);
 	}
 

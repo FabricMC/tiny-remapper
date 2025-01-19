@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassVisitor;
@@ -40,7 +39,6 @@ public class SoftTargetMixinClassVisitor extends ClassVisitor {
 	private MxClass _class;
 
 	// @Mixin
-	private final AtomicBoolean remap = new AtomicBoolean();
 	private final List<String> targets = new ArrayList<>();
 
 	public SoftTargetMixinClassVisitor(CommonData data, ClassVisitor delegate) {
@@ -65,7 +63,7 @@ public class SoftTargetMixinClassVisitor extends ClassVisitor {
 		AnnotationVisitor av = super.visitAnnotation(descriptor, visible);
 
 		if (Annotation.MIXIN.equals(descriptor)) {
-			av = new MixinAnnotationVisitor(data, av, remap, targets);
+			av = new MixinAnnotationVisitor(data, av, targets);
 		}
 
 		return av;
@@ -79,7 +77,7 @@ public class SoftTargetMixinClassVisitor extends ClassVisitor {
 		if (targets.isEmpty()) {
 			return mv;
 		} else {
-			return new SoftTargetMixinMethodVisitor(data, mv, method, remap.get(), Collections.unmodifiableList(targets));
+			return new SoftTargetMixinMethodVisitor(data, mv, method, Collections.unmodifiableList(targets));
 		}
 	}
 }

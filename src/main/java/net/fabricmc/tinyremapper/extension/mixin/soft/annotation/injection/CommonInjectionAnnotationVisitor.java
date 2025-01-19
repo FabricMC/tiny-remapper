@@ -37,7 +37,6 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Pair;
-import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.FirstPassAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
 
 /**
@@ -45,26 +44,92 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
  * {@code method} element has multiple matches (i.e. no desc), then the non-synthetic
  * method with the first occurrence in ASM will be remapped.
  */
-class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
+class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 	private final CommonData data;
-	private final AnnotationVisitor delegate;
 	private final List<String> targets;
 
-	CommonInjectionAnnotationVisitor(String descriptor, CommonData data, AnnotationVisitor delegate, boolean remap, List<String> targets) {
-		super(descriptor, remap);
+	CommonInjectionAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets) {
+		super(Constant.ASM_VERSION, Objects.requireNonNull(delegate));
 
 		this.data = Objects.requireNonNull(data);
-		this.delegate = Objects.requireNonNull(delegate);
 		this.targets = Objects.requireNonNull(targets);
 	}
 
 	@Override
-	public void visitEnd() {
-		// The second pass is needed regardless of remap, because it may have
-		// children annotation need to remap.
-		this.accept(new CommonInjectionSecondPassAnnotationVisitor(data, delegate, remap, targets));
+	public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+		AnnotationVisitor av = super.visitAnnotation(name, descriptor);
 
-		super.visitEnd();
+		if (name.equals(AnnotationElement.AT)) {	// @ModifyArg, @ModifyArgs, @Redirect, @ModifyVariable
+			if (!descriptor.equals(Annotation.AT)) {
+				throw new RuntimeException("Unexpected annotation " + descriptor);
+			}
+
+			av = new AtAnnotationVisitor(data, av);
+		} else if (name.equals(AnnotationElement.SLICE)) {	// @ModifyArg, @ModifyArgs, @Redirect, @ModifyVariable
+			if (!descriptor.equals(Annotation.SLICE)) {
+				throw new RuntimeException("Unexpected annotation " + descriptor);
+			}
+
+			av = new SliceAnnotationVisitor(data, av);
+		}
+
+		return av;
+	}
+
+	@Override
+	public AnnotationVisitor visitArray(String name) {
+		AnnotationVisitor av = super.visitArray(name);
+
+		if (name.equals(AnnotationElement.METHOD)) {	// All
+			return new AnnotationVisitor(Constant.ASM_VERSION, av) {
+				@Override
+				public void visit(String name, Object value) {
+					Optional<MemberInfo> info = Optional.ofNullable(MemberInfo.parse(Objects.requireNonNull((String) value).replaceAll("\\s", "")));
+
+					value = info.map(i -> new InjectMethodMappable(data, i, targets).result().toString()).orElse((String) value);
+
+					super.visit(name, value);
+				}
+			};
+		} else if (name.equals(AnnotationElement.TARGET)) {	// All
+			return new AnnotationVisitor(Constant.ASM_VERSION, av) {
+				@Override
+				public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+					if (!descriptor.equals(Annotation.DESC)) {
+						throw new RuntimeException("Unexpected annotation " + descriptor);
+					}
+
+					AnnotationVisitor av1 = super.visitAnnotation(name, descriptor);
+					return new DescAnnotationVisitor(targets, data, av1, MemberType.METHOD);
+				}
+			};
+		} else if (name.equals(AnnotationElement.AT)) {	// @Inject
+			return new AnnotationVisitor(Constant.ASM_VERSION, av) {
+				@Override
+				public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+					if (!descriptor.equals(Annotation.AT)) {
+						throw new RuntimeException("Unexpected annotation " + descriptor);
+					}
+
+					AnnotationVisitor av1 = super.visitAnnotation(name, descriptor);
+					return new AtAnnotationVisitor(data, av1);
+				}
+			};
+		} else if (name.equals(AnnotationElement.SLICE)) {	// @Inject @ModifyConstant
+			return new AnnotationVisitor(Constant.ASM_VERSION, av) {
+				@Override
+				public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+					if (!descriptor.equals(Annotation.SLICE)) {
+						throw new RuntimeException("Unexpected annotation " + descriptor);
+					}
+
+					AnnotationVisitor av1 = super.visitAnnotation(name, descriptor);
+					return new SliceAnnotationVisitor(data, av1);
+				}
+			};
+		}
+
+		return av;
 	}
 
 	private static class InjectMethodMappable implements IMappable<MemberInfo> {
@@ -120,101 +185,6 @@ class CommonInjectionAnnotationVisitor extends FirstPassAnnotationVisitor {
 			return collection.stream().findFirst()
 					.map(pair -> new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), pair.first(), info.getQuantifier(), pair.second()))
 					.orElse(info);
-		}
-	}
-
-	private static class CommonInjectionSecondPassAnnotationVisitor extends AnnotationVisitor {
-		private final CommonData data;
-
-		private final boolean remap;
-		private final List<String> targets;
-
-		CommonInjectionSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, boolean remap, List<String> targets) {
-			super(Constant.ASM_VERSION, delegate);
-
-			this.data = Objects.requireNonNull(data);
-
-			this.targets = Objects.requireNonNull(targets);
-			this.remap = remap;
-		}
-
-		@Override
-		public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-			AnnotationVisitor av = super.visitAnnotation(name, descriptor);
-
-			if (name.equals(AnnotationElement.AT)) {	// @ModifyArg, @ModifyArgs, @Redirect, @ModifyVariable
-				if (!descriptor.equals(Annotation.AT)) {
-					throw new RuntimeException("Unexpected annotation " + descriptor);
-				}
-
-				av = new AtAnnotationVisitor(data, av, remap);
-			} else if (name.equals(AnnotationElement.SLICE)) {	// @ModifyArg, @ModifyArgs, @Redirect, @ModifyVariable
-				if (!descriptor.equals(Annotation.SLICE)) {
-					throw new RuntimeException("Unexpected annotation " + descriptor);
-				}
-
-				av = new SliceAnnotationVisitor(data, av, remap);
-			}
-
-			return av;
-		}
-
-		@Override
-		public AnnotationVisitor visitArray(String name) {
-			AnnotationVisitor av = super.visitArray(name);
-
-			if (name.equals(AnnotationElement.METHOD)) {	// All
-				return new AnnotationVisitor(Constant.ASM_VERSION, av) {
-					@Override
-					public void visit(String name, Object value) {
-						if (remap) {
-							Optional<MemberInfo> info = Optional.ofNullable(MemberInfo.parse(Objects.requireNonNull((String) value).replaceAll("\\s", "")));
-
-							value = info.map(i -> new InjectMethodMappable(data, i, targets).result().toString()).orElse((String) value);
-						}
-
-						super.visit(name, value);
-					}
-				};
-			} else if (remap && name.equals(AnnotationElement.TARGET)) {	// All
-				return new AnnotationVisitor(Constant.ASM_VERSION, av) {
-					@Override
-					public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-						if (!descriptor.equals(Annotation.DESC)) {
-							throw new RuntimeException("Unexpected annotation " + descriptor);
-						}
-
-						AnnotationVisitor av1 = super.visitAnnotation(name, descriptor);
-						return new DescAnnotationVisitor(targets, data, av1, MemberType.METHOD);
-					}
-				};
-			} else if (name.equals(AnnotationElement.AT)) {	// @Inject
-				return new AnnotationVisitor(Constant.ASM_VERSION, av) {
-					@Override
-					public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-						if (!descriptor.equals(Annotation.AT)) {
-							throw new RuntimeException("Unexpected annotation " + descriptor);
-						}
-
-						AnnotationVisitor av1 = super.visitAnnotation(name, descriptor);
-						return new AtAnnotationVisitor(data, av1, remap);
-					}
-				};
-			} else if (name.equals(AnnotationElement.SLICE)) {	// @Inject @ModifyConstant
-				return new AnnotationVisitor(Constant.ASM_VERSION, av) {
-					@Override
-					public AnnotationVisitor visitAnnotation(String name, String descriptor) {
-						if (!descriptor.equals(Annotation.SLICE)) {
-							throw new RuntimeException("Unexpected annotation " + descriptor);
-						}
-
-						AnnotationVisitor av1 = super.visitAnnotation(name, descriptor);
-						return new SliceAnnotationVisitor(data, av1, remap);
-					}
-				};
-			}
-
-			return av;
 		}
 	}
 }

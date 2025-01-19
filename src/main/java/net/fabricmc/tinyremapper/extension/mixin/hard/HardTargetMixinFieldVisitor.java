@@ -36,16 +36,14 @@ class HardTargetMixinFieldVisitor extends FieldVisitor {
 	private final Collection<Consumer<CommonData>> tasks;
 	private final MxMember field;
 
-	private final boolean remap;
 	private final List<String> targets;
 
 	HardTargetMixinFieldVisitor(Collection<Consumer<CommonData>> tasks, FieldVisitor delegate, MxMember field,
-								boolean remap, List<String> targets) {
+								List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 		this.tasks = Objects.requireNonNull(tasks);
 		this.field = Objects.requireNonNull(field);
 
-		this.remap = remap;
 		this.targets = Objects.requireNonNull(targets);
 	}
 
@@ -54,7 +52,7 @@ class HardTargetMixinFieldVisitor extends FieldVisitor {
 		AnnotationVisitor av = super.visitAnnotation(descriptor, visible);
 
 		if (Annotation.SHADOW.equals(descriptor)) {
-			av = new ShadowAnnotationVisitor(tasks, av, field, remap, targets);
+			av = new ShadowAnnotationVisitor(tasks, av, field, targets);
 		}
 
 		return av;

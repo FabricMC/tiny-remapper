@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import org.objectweb.asm.AnnotationVisitor;
@@ -46,7 +45,6 @@ public class HardTargetMixinClassVisitor extends ClassVisitor {
 	private MxClass _class;
 
 	// @Mixin
-	private final AtomicBoolean remap = new AtomicBoolean();
 	private final List<String> targets = new ArrayList<>();
 
 	// @Implements
@@ -74,7 +72,7 @@ public class HardTargetMixinClassVisitor extends ClassVisitor {
 		AnnotationVisitor av = super.visitAnnotation(descriptor, visible);
 
 		if (Annotation.MIXIN.equals(descriptor)) {
-			av = new MixinAnnotationVisitor(av, remap, targets);
+			av = new MixinAnnotationVisitor(av, targets);
 		} else if (Annotation.IMPLEMENTS.equals(descriptor)) {
 			av = new ImplementsAnnotationVisitor(av, interfaces);
 		}
@@ -90,7 +88,7 @@ public class HardTargetMixinClassVisitor extends ClassVisitor {
 		if (targets.isEmpty()) {
 			return fv;
 		} else {
-			return new HardTargetMixinFieldVisitor(tasks, fv, field, remap.get(), Collections.unmodifiableList(targets));
+			return new HardTargetMixinFieldVisitor(tasks, fv, field, Collections.unmodifiableList(targets));
 		}
 	}
 
@@ -106,7 +104,7 @@ public class HardTargetMixinClassVisitor extends ClassVisitor {
 		if (targets.isEmpty()) {
 			return mv;
 		} else {
-			return new HardTargetMixinMethodVisitor(tasks, mv, method, remap.get(), Collections.unmodifiableList(targets));
+			return new HardTargetMixinMethodVisitor(tasks, mv, method, Collections.unmodifiableList(targets));
 		}
 	}
 }
