@@ -62,36 +62,37 @@ class SoftTargetMixinMethodVisitor extends MethodVisitor {
 	public AnnotationVisitor visitAnnotation(String descriptor, boolean visible) {
 		AnnotationVisitor av = super.visitAnnotation(descriptor, visible);
 
-		if (Annotation.ACCESSOR.equals(descriptor)) {
-			av = new AccessorAnnotationVisitor(data, av, method, targets);
-		} else if (Annotation.INVOKER.equals(descriptor)) {
-			av = new InvokerAnnotationVisitor(data, av, method, targets);
-		} else if (Annotation.INJECT.equals(descriptor)) {
-			av = new InjectAnnotationVisitor(data, av, targets);
-		} else if (Annotation.MODIFY_ARG.equals(descriptor)) {
-			av = new ModifyArgAnnotationVisitor(data, av, targets);
-		} else if (Annotation.MODIFY_ARGS.equals(descriptor)) {
-			av = new ModifyArgsAnnotationVisitor(data, av, targets);
-		} else if (Annotation.MODIFY_CONSTANT.equals(descriptor)) {
-			av = new ModifyConstantAnnotationVisitor(data, av, targets);
-		} else if (Annotation.MODIFY_VARIABLE.equals(descriptor)) {
-			av = new ModifyVariableAnnotationVisitor(data, av, targets);
-		} else if (Annotation.REDIRECT.equals(descriptor)) {
-			av = new RedirectAnnotationVisitor(data, av, targets);
-		} else if (Annotation.MIXIN_EXTRAS_MODIFY_EXPRESSION_VALUE.equals(descriptor)) {
-			av = new ModifyExpressionValueAnnotationVisitor(data, av, targets);
-		} else if (Annotation.MIXIN_EXTRAS_MODIFY_RECEIVER.equals(descriptor)) {
-			av = new ModifyReceiverAnnotationVisitor(data, av, targets);
-		} else if (Annotation.MIXIN_EXTRAS_MODIFY_RETURN_VALUE.equals(descriptor)) {
-			av = new ModifyReturnValueAnnotationVisitor(data, av, targets);
-		} else if (Annotation.MIXIN_EXTRAS_WRAP_METHOD.equals(descriptor)) {
-			av = new WrapMethodAnnotationVisitor(data, av, targets);
-		} else if (Annotation.MIXIN_EXTRAS_WRAP_OPERATION.equals(descriptor)) {
-			av = new WrapOperationAnnotationVisitor(data, av, targets);
-		} else if (Annotation.MIXIN_EXTRAS_WRAP_WITH_CONDITION.equals(descriptor)) {
-			av = new WrapWithConditionAnnotationVisitor(data, av, targets);
-		} else if (Annotation.MIXIN_EXTRAS_WRAP_WITH_CONDITION_V2.equals(descriptor)) {
-			av = new WrapWithConditionV2AnnotationVisitor(data, av, targets);
+		switch (descriptor) {
+		case Annotation.ACCESSOR:
+			return new AccessorAnnotationVisitor(data, av, method, targets);
+		case Annotation.INVOKER:
+			return new InvokerAnnotationVisitor(data, av, method, targets);
+		case Annotation.INJECT:
+			return new InjectAnnotationVisitor(data, av, targets);
+		case Annotation.MODIFY_ARG:
+			return new ModifyArgAnnotationVisitor(data, av, targets);
+		case Annotation.MODIFY_ARGS:
+			return new ModifyArgsAnnotationVisitor(data, av, targets);
+		case Annotation.MODIFY_CONSTANT:
+			return new ModifyConstantAnnotationVisitor(data, av, targets);
+		case Annotation.MODIFY_VARIABLE:
+			return new ModifyVariableAnnotationVisitor(data, av, targets);
+		case Annotation.REDIRECT:
+			return new RedirectAnnotationVisitor(data, av, targets);
+		case Annotation.MIXIN_EXTRAS_MODIFY_EXPRESSION_VALUE:
+			return new ModifyExpressionValueAnnotationVisitor(data, av, targets);
+		case Annotation.MIXIN_EXTRAS_MODIFY_RECEIVER:
+			return new ModifyReceiverAnnotationVisitor(data, av, targets);
+		case Annotation.MIXIN_EXTRAS_MODIFY_RETURN_VALUE:
+			return new ModifyReturnValueAnnotationVisitor(data, av, targets);
+		case Annotation.MIXIN_EXTRAS_WRAP_METHOD:
+			return new WrapMethodAnnotationVisitor(data, av, targets);
+		case Annotation.MIXIN_EXTRAS_WRAP_OPERATION:
+			return new WrapOperationAnnotationVisitor(data, av, targets);
+		case Annotation.MIXIN_EXTRAS_WRAP_WITH_CONDITION:
+			return new WrapWithConditionAnnotationVisitor(data, av, targets);
+		case Annotation.MIXIN_EXTRAS_WRAP_WITH_CONDITION_V2:
+			return new WrapWithConditionV2AnnotationVisitor(data, av, targets);
 		}
 
 		return av;
