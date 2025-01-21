@@ -71,4 +71,6 @@ public final class Annotation {
 	public static final String MIXIN_EXTRAS_WRAP_OPERATION = "Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;";
 	public static final String MIXIN_EXTRAS_WRAP_WITH_CONDITION = "Lcom/llamalad7/mixinextras/injector/WrapWithCondition;";
 	public static final String MIXIN_EXTRAS_WRAP_WITH_CONDITION_V2 = "Lcom/llamalad7/mixinextras/injector/v2/WrapWithCondition;";
+	public static final String MIXIN_EXTRAS_DEFINITIONS = "Lcom/llamalad7/mixinextras/expression/Definitions;";
+	public static final String MIXIN_EXTRAS_DEFINITION = "Lcom/llamalad7/mixinextras/expression/Definition;";
 }

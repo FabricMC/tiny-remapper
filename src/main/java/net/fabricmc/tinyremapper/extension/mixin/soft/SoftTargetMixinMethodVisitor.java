@@ -30,6 +30,8 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.AccessorAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.InvokerAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.DefinitionAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.DefinitionsAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.InjectAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyArgAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.ModifyArgsAnnotationVisitor;
@@ -93,6 +95,10 @@ class SoftTargetMixinMethodVisitor extends MethodVisitor {
 			return new WrapWithConditionAnnotationVisitor(data, av, targets);
 		case Annotation.MIXIN_EXTRAS_WRAP_WITH_CONDITION_V2:
 			return new WrapWithConditionV2AnnotationVisitor(data, av, targets);
+		case Annotation.MIXIN_EXTRAS_DEFINITIONS:
+			return new DefinitionsAnnotationVisitor(data, av);
+		case Annotation.MIXIN_EXTRAS_DEFINITION:
+			return new DefinitionAnnotationVisitor(data, av);
 		}
 
 		return av;
