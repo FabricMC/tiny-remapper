@@ -58,6 +58,10 @@ public abstract class ConvertibleMappable extends HardTargetMappable {
 
 	@Override
 	protected Optional<String> getMappedName() {
+		if (targets.isEmpty()) {
+			return Optional.empty();
+		}
+
 		List<String> collection = mapMultiTarget(getName(), getDesc())
 				.collect(Collectors.toList());
 
