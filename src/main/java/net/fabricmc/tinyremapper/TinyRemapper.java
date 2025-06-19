@@ -894,7 +894,8 @@ public class TinyRemapper {
 					Map<String, String> mappings = member.type == TrMember.MemberType.METHOD ? methodMap : fieldMap;
 					String mappingName = mappings.get(member.cls.getName()+"/"+member.getId());
 
-					if (mappingName == null) { // no direct mapping match, try parents
+					// Attempt to find a mapping name for the member
+					if (mappingName == null) {
 						Queue<ClassInstance> queue = new ArrayDeque<>(member.cls.parents);
 						ClassInstance cls;
 
@@ -903,6 +904,14 @@ public class TinyRemapper {
 							if (mappingName != null) break;
 
 							queue.addAll(cls.parents);
+						}
+					}
+
+					if (mappingName == null) {
+						String fullName = member.cls.getName() + "/" + member.getNewMappedName();
+
+						if (entry.getValue().contains(fullName)) {
+							mappingName = fullName;
 						}
 					}
 
