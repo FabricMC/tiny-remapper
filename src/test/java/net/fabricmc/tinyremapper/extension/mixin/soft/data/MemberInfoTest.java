@@ -108,6 +108,15 @@ class MemberInfoTest {
 		assertEquals(info.getDesc(), "");
 		assertEquals(info.toString(), "<init>*");
 
+		info = new MemberInfo("", "<init>", "*", "()V");
+		assertNotNull(info);
+		assertEquals(info.getType(), MemberType.METHOD);
+		assertEquals(info.getOwner(), "");
+		assertEquals(info.getName(), "<init>");
+		assertEquals(info.getQuantifier(), "*");
+		assertEquals(info.getDesc(), "()V");
+		assertEquals(info.toString(), "<init>*()V");
+
 		// https://github.com/FabricMC/tiny-remapper/issues/137
 		info = MemberInfo.parse("<init>*");
 		assertNotNull(info);
