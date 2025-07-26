@@ -144,11 +144,6 @@ public final class MemberInfo {
 			return ":" + desc;
 		}
 
-		// Wildcards match regardless of descriptor
-		if (getQuantifier().equals("*")) {
-			return "";
-		}
-
 		return desc;
 	}
 }
