@@ -22,7 +22,7 @@ package net.fabricmc.tinyremapper;
 public interface IMappingProvider {
 	void load(MappingAcceptor out);
 
-	public interface MappingAcceptor {
+	interface MappingAcceptor {
 		void acceptClass(String srcName, String dstName);
 		void acceptMethod(Member method, String dstName);
 		void acceptMethodArg(Member method, int lvIndex, String dstName);

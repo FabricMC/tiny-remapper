@@ -29,7 +29,7 @@ public enum NonClassCopyMode {
 
 	public final List<OutputConsumerPath.ResourceRemapper> remappers;
 
-	NonClassCopyMode(OutputConsumerPath.ResourceRemapper...remappers) {
+	NonClassCopyMode(OutputConsumerPath.ResourceRemapper... remappers) {
 		this.remappers = Collections.unmodifiableList(Arrays.asList(remappers));
 	}
 }
