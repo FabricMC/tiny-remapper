@@ -98,7 +98,7 @@ public final class TinyUtils {
 						new FlatAsRegularMappingVisitor(new MappingAdapter(out)),
 						toNs),
 				fromNs,
-				true);
+				false); // infers mappings for non-obfuscated names from the src ns
 	}
 
 	private static final class MappingAdapter implements FlatMappingVisitor {
