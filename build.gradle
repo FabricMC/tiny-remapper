@@ -29,6 +29,9 @@ dependencies {
 	implementation "net.fabricmc:mapping-io:0.7.1"
 
 	testImplementation 'org.junit.jupiter:junit-jupiter:5.6.2'
+	testCompileOnly ('net.fabricmc:sponge-mixin:0.16.2+mixin.0.8.7') {
+		transitive = false
+	}
 }
 
 java {

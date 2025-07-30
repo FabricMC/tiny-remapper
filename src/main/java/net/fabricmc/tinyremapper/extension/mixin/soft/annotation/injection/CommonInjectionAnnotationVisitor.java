@@ -165,6 +165,14 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 
 		@Override
 		public MemberInfo result() {
+			// Special case to remap the desc of wildcards without a name, such as `*()Lcom/example/ClassName;`
+			if (info.getOwner().isEmpty()
+					&& info.getName().isEmpty()
+					&& info.getQuantifier().equals("*")
+					&& !info.getDesc().isEmpty()) {
+				return new MemberInfo(info.getOwner(), info.getName(), info.getQuantifier(), data.mapper.asTrRemapper().mapDesc(info.getDesc()));
+			}
+
 			if (targets.isEmpty() || info.getName().isEmpty()) {
 				return info;
 			}
