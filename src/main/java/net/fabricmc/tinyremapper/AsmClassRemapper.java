@@ -167,7 +167,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	private boolean sourceNameVisited;
 	private MethodNode methodNode;
 
-	private static class AsmFieldRemapper extends FieldRemapper {
+	static class AsmFieldRemapper extends FieldRemapper {
 		AsmFieldRemapper(FieldVisitor fieldVisitor, AsmRemapper remapper) {
 			super(fieldVisitor, remapper);
 		}
@@ -178,8 +178,29 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		}
 	}
 
-	private static class AsmMethodRemapper extends MethodRemapper {
+	static class AsmMethodRemapper extends MethodRemapper {
 		private final TinyRemapper tr;
+		AsmMethodRemapper(MethodVisitor methodVisitor,
+				AsmRemapper remapper,
+				String owner,
+				int access,
+				String name,
+				String desc,
+				boolean skipLocalMapping,
+				boolean renameInvalidLocals,
+				Pattern invalidLvNamePattern,
+				boolean inferNameFromSameLvIndex) {
+			this(methodVisitor,
+					remapper,
+					owner,
+					!skipLocalMapping || renameInvalidLocals ? new MethodNode(Opcodes.ASM9, access, name, desc, null, null) : null,
+					false,
+					skipLocalMapping,
+					renameInvalidLocals,
+					invalidLvNamePattern,
+					inferNameFromSameLvIndex);
+		}
+
 		AsmMethodRemapper(MethodVisitor methodVisitor,
 				AsmRemapper remapper,
 				String owner,
@@ -699,7 +720,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 		private final boolean inferNameFromSameLvIndex;
 	}
 
-	private static class AsmRecordComponentRemapper extends RecordComponentRemapper {
+	static class AsmRecordComponentRemapper extends RecordComponentRemapper {
 		AsmRecordComponentRemapper(RecordComponentVisitor recordComponentVisitor, AsmRemapper remapper) {
 			super(recordComponentVisitor, remapper);
 		}
@@ -714,7 +735,7 @@ final class AsmClassRemapper extends VisitTrackingClassRemapper {
 	 * Since sfPlayer want to infer the method descriptor when possible, we need to implement all remapping logic by
 	 * ourselves.
 	 */
-	private static class AsmAnnotationRemapper extends AnnotationVisitor {
+	static class AsmAnnotationRemapper extends AnnotationVisitor {
 		protected final String descriptor;
 		protected final AsmRemapper remapper;
 
