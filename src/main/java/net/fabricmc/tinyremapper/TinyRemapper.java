@@ -52,12 +52,14 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.ZipError;
 
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.RecordComponentVisitor;
 import org.objectweb.asm.commons.Remapper;
 import org.objectweb.asm.util.CheckClassAdapter;
 
@@ -1136,6 +1138,69 @@ public class TinyRemapper {
 		if (!keepInputData) cls.data = null;
 
 		return writer.toByteArray();
+	}
+
+	/**
+	 * Creates a class visitor which remaps the visited class before passing it to the downstream visitor.
+	 *
+	 * <p><strong>This class visitor will only remap, any registered pre- and post-visitors will not be returned by
+	 * this method! Since the class is only analyzed in isolation, package access fixes will also not be applied.</strong>
+	 *
+	 * <p>This method will use the default multi-release jar (MRJ) context, i.e. no context from classes in
+	 * {@code META-INF/versions/*}.
+	 *
+	 * @param delegate The downstream visitor called with the remapped class.
+	 * @return The remapping class visitor.
+	 */
+	public ClassVisitor createClassRemapperVisitor(ClassVisitor delegate) {
+		return new AsmClassRemapper(delegate, defaultState.remapper, rebuildSourceFilenames,
+				false, skipLocalMapping, renameInvalidLocals, invalidLvNamePattern, inferNameFromSameLvIndex);
+	}
+
+	/**
+	 * Creates a field visitor which remaps the visited field before passing it to the downstream visitor.
+	 *
+	 * @param delegate The downstream visitor called with the remapped field.
+	 * @return The remapping field visitor.
+	 */
+	public FieldVisitor createFieldRemapperVisitor(FieldVisitor delegate) {
+		return new AsmClassRemapper.AsmFieldRemapper(delegate, defaultState.remapper);
+	}
+
+	/**
+	 * Creates a method visitor which remaps the visited method before passing it to the downstream visitor.
+	 *
+	 * @param delegate The downstream visitor called with the remapped method.
+	 * @param owner The internal name of the class owning the method.
+	 * @param access The access flags of the method.
+	 * @param name The name of the method being visited.
+	 * @param desc The descriptor of the method being visited.
+	 * @return The remapping method visitor.
+	 */
+	public MethodVisitor createMethodRemapperVisitor(MethodVisitor delegate, String owner, int access, String name, String desc) {
+		return new AsmClassRemapper.AsmMethodRemapper(delegate, defaultState.remapper, owner, access, name, desc,
+				skipLocalMapping, renameInvalidLocals, invalidLvNamePattern, inferNameFromSameLvIndex);
+	}
+
+	/**
+	 * Creates a record component visitor which remaps the visited record component before passing it to the downstream visitor.
+	 *
+	 * @param delegate The downstream visitor called with the remapped record component.
+	 * @return The remapping record component visitor.
+	 */
+	public RecordComponentVisitor createRecordComponentRemapperVisitor(RecordComponentVisitor delegate) {
+		return new AsmClassRemapper.AsmRecordComponentRemapper(delegate, defaultState.remapper);
+	}
+
+	/**
+	 * Creates an annotation visitor which remaps the visited annotation before passing it to the downstream visitor.
+	 *
+	 * @param delegate The downstream visitor that receives the remapped annotation.
+	 * @param desc The descriptor of the annotation.
+	 * @return The remapping annotation visitor.
+	 */
+	public AnnotationVisitor createAnnotationRemapperVisitor(AnnotationVisitor delegate, String desc) {
+		return new AsmClassRemapper.AsmAnnotationRemapper(desc, delegate, defaultState.remapper);
 	}
 
 	private byte[] fixClass(ClassInstance cls, byte[] data) {
