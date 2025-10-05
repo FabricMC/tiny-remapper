@@ -433,6 +433,22 @@ public class TinyRemapper {
 
 		return ret;
 	}
+	
+	public void readClassPathFile(Path file) {
+		readSingleClass(false, null, file);
+	}
+	
+	public void readClasspathFile(InputTag tag, Path file) {
+		readSingleClass(false, tag, file);
+	}
+	
+	public void readInputFile(Path file) {
+		readSingleClass(true, null, file);
+	}
+	
+	public void readInputFile(InputTag tag, Path file) {
+		readSingleClass(true, tag, file);
+	}
 
 	private CompletableFuture<List<ClassInstance>> read(Path[] inputs, boolean isInput, InputTag tag) {
 		InputTag[] tags = singleInputTags.get().get(tag);
@@ -479,6 +495,30 @@ public class TinyRemapper {
 
 			assert dirty;
 		});
+	}
+	
+	private void readSingleClass(boolean isInput, InputTag tag, Path file) {
+		try {
+			InputTag[] tags = singleInputTags.get().get(tag);
+			List<FileSystemReference> references = new ArrayList<>();
+			List<ClassInstance> instance = readFile(file, isInput, tags, file.getRoot(), references);
+			for(FileSystemReference reference : references) {
+				reference.close();
+			}
+			
+			if (!dirty) {
+				dirty = true;
+				for (MrjState state : mrjStates.values()) {
+					state.dirty = true;
+				}
+			}
+			
+			for(ClassInstance inst : instance) {
+				addClass(inst, readClasses, true);
+			}
+		} catch (IOException | URISyntaxException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	private static void addClass(ClassInstance cls, Map<String, ClassInstance> out, boolean isVersionAware) {
