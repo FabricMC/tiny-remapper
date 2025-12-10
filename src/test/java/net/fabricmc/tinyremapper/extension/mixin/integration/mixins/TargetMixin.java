@@ -18,7 +18,7 @@
 
 package net.fabricmc.tinyremapper.extension.mixin.integration.mixins;
 
-import java.lang.annotation.Target;
+import net.fabricmc.tinyremapper.extension.mixin.integration.targets.Target;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
