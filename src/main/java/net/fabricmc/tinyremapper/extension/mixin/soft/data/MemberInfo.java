@@ -144,6 +144,12 @@ public final class MemberInfo {
 			return ":" + desc;
 		}
 
+		// Wildcards with a name match regardless of descriptor (e.g. `<init>*`)
+		// But wildcards without a name use the descriptor for matching (e.g. `*()Ljava/lang/String;`)
+		if (getQuantifier().equals("*") && !getName().isEmpty()) {
+			return "";
+		}
+
 		return desc;
 	}
 }
