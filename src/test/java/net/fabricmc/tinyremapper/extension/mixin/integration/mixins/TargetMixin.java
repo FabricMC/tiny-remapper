@@ -18,13 +18,13 @@
 
 package net.fabricmc.tinyremapper.extension.mixin.integration.mixins;
 
-import net.fabricmc.tinyremapper.extension.mixin.integration.targets.Target;
-
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import net.fabricmc.tinyremapper.extension.mixin.integration.targets.Target;
 
 @Mixin(Target.class)
 public abstract class TargetMixin {
