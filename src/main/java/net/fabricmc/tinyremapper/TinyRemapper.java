@@ -529,17 +529,14 @@ public class TinyRemapper {
 			final boolean saveData, final List<FileSystemReference> fsToClose) throws IOException {
 		List<CompletableFuture<List<ClassInstance>>> ret = new ArrayList<>();
 
-		Files.walkFileTree(file, new SimpleFileVisitor<Path>() {
-			@Override
-			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-				String name = file.getFileName().toString();
+		if (Files.isDirectory(file)) {
+			Files.walkFileTree(file, new SimpleFileVisitor<Path>() {
+				@Override
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+					String name = file.getFileName().toString();
 
-				if (name.endsWith(".jar")
-						|| name.endsWith(".zip")
-						|| name.endsWith(".class")) {
-					ret.add(CompletableFuture.supplyAsync(new Supplier<List<ClassInstance>>() {
-						@Override
-						public List<ClassInstance> get() {
+					if (name.endsWith(".class")) {
+						ret.add(CompletableFuture.supplyAsync(() -> {
 							try {
 								return readFile(file, isInput, tags, srcPath, fsToClose);
 							} catch (URISyntaxException e) {
@@ -547,13 +544,24 @@ public class TinyRemapper {
 							} catch (IOException | ZipError e) {
 								throw new RuntimeException("Error reading file "+file, e);
 							}
-						}
-					}, threadPool));
-				}
+						}, threadPool));
+					}
 
-				return FileVisitResult.CONTINUE;
-			}
-		});
+					return FileVisitResult.CONTINUE;
+				}
+			});
+		} else {
+			ret.add(CompletableFuture.supplyAsync(() -> {
+				try {
+					return readFile(file, isInput, tags, srcPath, fsToClose);
+				} catch (URISyntaxException e) {
+					throw new RuntimeException(e);
+				} catch (IOException | ZipError e) {
+					throw new RuntimeException("Error reading file "+file, e);
+				}
+			}));
+		}
+
 
 		return ret;
 	}
