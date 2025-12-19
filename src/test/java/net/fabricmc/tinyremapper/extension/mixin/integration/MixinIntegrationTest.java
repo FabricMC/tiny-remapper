@@ -37,25 +37,53 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceClassVisitor;
 
+import net.fabricmc.tinyremapper.IMappingProvider;
 import net.fabricmc.tinyremapper.OutputConsumerPath;
 import net.fabricmc.tinyremapper.TinyRemapper;
 import net.fabricmc.tinyremapper.extension.mixin.MixinExtension;
-import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.TargetMixin;
-import net.fabricmc.tinyremapper.extension.mixin.integration.targets.Target;
+import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.NonObfuscatedOverrideMixin;
+import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.WildcardTargetMixin;
+import net.fabricmc.tinyremapper.extension.mixin.integration.targets.NonObfuscatedOverrideTarget;
+import net.fabricmc.tinyremapper.extension.mixin.integration.targets.WildcardTarget;
 
 public class MixinIntegrationTest {
 	@TempDir
-	static Path folder;
+	Path folder;
 
 	@Test
 	public void remapWildcardName() throws IOException {
-		Path classpath = createJar(Target.class);
-		Path input = createJar(TargetMixin.class);
+		String remapped = remap(WildcardTarget.class, WildcardTargetMixin.class, out ->
+				out.acceptClass("java/lang/String", "com/example/NotString"));
+
+		// Check constructor inject did not gain a desc
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"<init>*\"}"));
+		// Check that wildcard desc is remapped without a name
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"*()Lcom/example/NotString;\"}"));
+	}
+
+	@Test
+	public void remapInvokeNonObfuscatedOverride() throws IOException {
+		String remapped = remap(NonObfuscatedOverrideTarget.class, NonObfuscatedOverrideMixin.class, out -> {
+			String fqn = "net/fabricmc/tinyremapper/extension/mixin/integration/targets/NonObfuscatedOverrideTarget";
+			out.acceptClass(fqn, "com/example/Obfuscated");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "callAdd", "(Ljava/lang/Object;)V"), "obfuscatedCallAdd");
+		});
+
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"obfuscatedCallAdd\""));
+		// Method is implemented in the target class
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/At;(value=\"INVOKE\", target=\"Lcom/example/Obfuscated;add(Ljava/lang/Object;)Z\""));
+		// Method is NOT implemented in the target class and instead comes from unobfuscated super class
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/At;(value=\"INVOKE\", target=\"Lcom/example/Obfuscated;addAll(Ljava/util/Collection;)Z\""));
+	}
+
+	private String remap(Class<?> target, Class<?> mixin, IMappingProvider mappings) throws IOException {
+		Path classpath = createJar(target);
+		Path input = createJar(mixin);
 		Path output = folder.resolve("output.jar");
 
 		TinyRemapper tinyRemapper = TinyRemapper.newRemapper()
 				.extension(new MixinExtension())
-				.withMappings(out -> out.acceptClass("java/lang/String", "com/example/NotString"))
+				.withMappings(mappings)
 				.build();
 
 		try (OutputConsumerPath outputConsumer = new OutputConsumerPath.Builder(output).build()) {
@@ -65,11 +93,7 @@ public class MixinIntegrationTest {
 			tinyRemapper.apply(outputConsumer);
 		}
 
-		String remapped = textify(output, TargetMixin.class);
-		// Check constructor inject did not gain a desc
-		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"<init>*\"}"));
-		// Check that wildcard desc is remapped without a name
-		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"*()Lcom/example/NotString;\"}"));
+		return textify(output, mixin);
 	}
 
 	// Create a zip file in the temp dir containing only the passed class file.
