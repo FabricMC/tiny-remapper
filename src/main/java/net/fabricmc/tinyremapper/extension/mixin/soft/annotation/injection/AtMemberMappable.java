@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import net.fabricmc.tinyremapper.api.TrMember;
+import net.fabricmc.tinyremapper.api.TrRemapper;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
@@ -44,16 +45,20 @@ class AtMemberMappable implements IMappable<MemberInfo> {
 			return info;
 		}
 
+		TrRemapper trRemapper = data.mapper.asTrRemapper();
 		Optional<TrMember> resolved = data.resolver.resolveMember(info.getOwner(), info.getName(), info.getDesc(), ResolveUtility.FLAG_UNIQUE | ResolveUtility.FLAG_RECURSIVE);
 
 		if (resolved.isPresent()) {
-			String newOwner = data.mapper.asTrRemapper().map(info.getOwner());
+			String newOwner = trRemapper.map(info.getOwner());
 			String newName = data.mapper.mapName(resolved.get());
 			String newDesc = data.mapper.mapDesc(resolved.get());
 
 			return new MemberInfo(newOwner, newName, info.getQuantifier(), newDesc);
-		} else {
-			return info;
 		}
+
+		// Workaround for https://github.com/FabricMC/tiny-remapper/issues/155
+		String newOwner = trRemapper.map(info.getOwner());
+		String newDesc = info.getType() == TrMember.MemberType.FIELD ? trRemapper.mapDesc(info.getDesc()) : trRemapper.mapMethodDesc(info.getDesc());
+		return new MemberInfo(newOwner, info.getName(), info.getQuantifier(), newDesc);
 	}
 }

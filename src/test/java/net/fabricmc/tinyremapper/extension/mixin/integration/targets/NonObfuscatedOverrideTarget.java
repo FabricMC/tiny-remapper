@@ -18,15 +18,16 @@
 
 package net.fabricmc.tinyremapper.extension.mixin.integration.targets;
 
-public class Target {
-	public Target(String name) {
+import java.util.ArrayList;
+
+public class NonObfuscatedOverrideTarget<T> extends ArrayList<T> {
+	@Override
+	public boolean add(T t) {
+		return super.add(t);
 	}
 
-	public String getName() {
-		return "";
-	}
-
-	public String getRealName() {
-		return "";
+	public void callAdd(T t) {
+		this.add(t);
+		this.addAll(new ArrayList<>());
 	}
 }

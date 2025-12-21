@@ -16,23 +16,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.fabricmc.tinyremapper.extension.mixin.integration.mixins;
+package net.fabricmc.tinyremapper.extension.mixin.integration.targets;
 
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-
-import net.fabricmc.tinyremapper.extension.mixin.integration.targets.Target;
-
-@Mixin(Target.class)
-public abstract class TargetMixin {
-	@Inject(method = "<init>*", at = @At(value = "RETURN"))
-	private void constructorHook(final CallbackInfo ci) {
+public class WildcardTarget {
+	public WildcardTarget(String name) {
 	}
 
-	@Inject(method = "*()Ljava/lang/String;", at = @At("HEAD"), cancellable = true)
-	private void injectName(CallbackInfoReturnable<String> ci) {
+	public String getName() {
+		return "";
+	}
+
+	public String getRealName() {
+		return "";
 	}
 }
