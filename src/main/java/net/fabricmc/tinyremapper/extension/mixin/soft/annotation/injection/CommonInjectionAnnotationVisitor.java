@@ -191,7 +191,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			}
 
 			return collection.stream().findFirst()
-					.map(pair -> new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), pair.first(), info.getQuantifier(), info.getDesc().isEmpty() ? "" : pair.second()))
+					.map(pair -> new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), pair.first(), info.getQuantifier(), info.getQuantifier().equals("*") ? "" : pair.second()))
 					.orElse(info);
 		}
 	}
