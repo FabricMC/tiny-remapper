@@ -71,7 +71,7 @@ public class MixinIntegrationTest {
 			out.acceptMethod(new IMappingProvider.Member(fqn, "callAdd", "(Ljava/lang/Object;)V"), "obfuscatedCallAdd");
 		});
 
-		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"obfuscatedCallAdd(Ljava/lang/Object;)V\""));
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"obfuscatedCallAdd\""));
 		// Method is implemented in the target class
 		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/At;(value=\"INVOKE\", target=\"Lcom/example/Obfuscated;add(Ljava/lang/Object;)Z\""));
 		// Method is NOT implemented in the target class and instead comes from unobfuscated super class

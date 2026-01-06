@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.api.TrClass;
+import net.fabricmc.tinyremapper.api.TrMethod;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
@@ -181,7 +182,17 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					.map(target -> resolvePartial(target, info.getName(), info.getDesc()))
 					.filter(Optional::isPresent)
 					.map(Optional::get)
-					.map(m -> Pair.of(data.mapper.mapName(m), data.mapper.mapDesc(m)))
+					.map(m -> {
+						String mappedName = data.mapper.mapName(m);
+						boolean shouldPassDesc = false; // only pass descriptor on ambiguous targets
+						for (TrMethod other : m.getOwner().getMethods()) {
+							if (other == m) continue;
+							if (data.mapper.mapName(other).equals(mappedName)) {
+								shouldPassDesc = true;
+							}
+						}
+						return Pair.of(mappedName, shouldPassDesc ? data.mapper.mapDesc(m) : "");
+					})
 					.distinct().collect(Collectors.toList());
 
 			if (collection.size() > 1) {
@@ -191,7 +202,9 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			}
 
 			return collection.stream().findFirst()
-					.map(pair -> new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), pair.first(), info.getQuantifier(), info.getQuantifier().equals("*") ? "" : pair.second()))
+					.map(pair -> {
+						return new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), pair.first(), info.getQuantifier(), info.getQuantifier().equals("*") ? "" : pair.second());
+					})
 					.orElse(info);
 		}
 	}
