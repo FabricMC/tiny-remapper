@@ -27,9 +27,9 @@ import java.util.stream.Collectors;
 import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.api.TrClass;
-import net.fabricmc.tinyremapper.api.TrMethod;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
+import net.fabricmc.tinyremapper.api.TrMethod;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
@@ -184,13 +184,16 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					.map(Optional::get)
 					.map(m -> {
 						String mappedName = data.mapper.mapName(m);
-						boolean shouldPassDesc = false; // only pass descriptor on ambiguous targets
-						for (TrMethod other : m.getOwner().getMethods()) {
+						boolean shouldPassDesc = false;
+
+						for (TrMethod other : m.getOwner().getMethods()) { // look for ambiguous targets
 							if (other == m) continue;
+
 							if (data.mapper.mapName(other).equals(mappedName)) {
 								shouldPassDesc = true;
 							}
 						}
+
 						return Pair.of(mappedName, shouldPassDesc ? data.mapper.mapDesc(m) : "");
 					})
 					.distinct().collect(Collectors.toList());
