@@ -41,8 +41,10 @@ import net.fabricmc.tinyremapper.IMappingProvider;
 import net.fabricmc.tinyremapper.OutputConsumerPath;
 import net.fabricmc.tinyremapper.TinyRemapper;
 import net.fabricmc.tinyremapper.extension.mixin.MixinExtension;
+import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.AmbiguousRemappedNameMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.NonObfuscatedOverrideMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.WildcardTargetMixin;
+import net.fabricmc.tinyremapper.extension.mixin.integration.targets.AmbiguousRemappedNameTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.NonObfuscatedOverrideTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.WildcardTarget;
 
@@ -74,6 +76,19 @@ public class MixinIntegrationTest {
 		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/At;(value=\"INVOKE\", target=\"Lcom/example/Obfuscated;add(Ljava/lang/Object;)Z\""));
 		// Method is NOT implemented in the target class and instead comes from unobfuscated super class
 		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/At;(value=\"INVOKE\", target=\"Lcom/example/Obfuscated;addAll(Ljava/util/Collection;)Z\""));
+	}
+
+	@Test
+	public void remapAmbiuousRemappedName() throws IOException {
+		String remapped = remap(AmbiguousRemappedNameTarget.class, AmbiguousRemappedNameMixin.class, out -> {
+			String fqn = "net/fabricmc/tinyremapper/extension/mixin/integration/targets/AmbiguousRemappedNameTarget";
+			out.acceptClass(fqn, "com/example/Remapped");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "addString", "(Ljava/lang/String;)V"), "add");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "addList", "(Ljava/util/List;)V"), "add");
+		});
+
+		// full signature is used to disambiguate names
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"add(Ljava/lang/String;)V\""));
 	}
 
 	private String remap(Class<?> target, Class<?> mixin, IMappingProvider mappings) throws IOException {
