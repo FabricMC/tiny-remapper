@@ -48,4 +48,6 @@ public interface TrMethod extends TrMember {
 	default boolean isVirtual() {
 		return getType().equals(MemberType.METHOD) && (getAccess() & (Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE)) == 0;
 	}
+
+	TrLocal[] getLocals();
 }

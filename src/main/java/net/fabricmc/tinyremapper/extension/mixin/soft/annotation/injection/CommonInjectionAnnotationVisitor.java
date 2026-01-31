@@ -46,8 +46,8 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
  * method with the first occurrence in ASM will be remapped.
  */
 class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
-	private final CommonData data;
-	private final List<String> targets;
+	protected final CommonData data;
+	protected final List<String> targets;
 
 	CommonInjectionAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets) {
 		super(Constant.ASM_VERSION, Objects.requireNonNull(delegate));

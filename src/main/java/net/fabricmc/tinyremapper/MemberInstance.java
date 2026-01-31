@@ -25,6 +25,7 @@ import org.objectweb.asm.Opcodes;
 import net.fabricmc.tinyremapper.TinyRemapper.MrjState;
 import net.fabricmc.tinyremapper.api.TrClass;
 import net.fabricmc.tinyremapper.api.TrField;
+import net.fabricmc.tinyremapper.api.TrLocal;
 import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMethod;
 
@@ -66,6 +67,11 @@ public final class MemberInstance implements TrField, TrMethod {
 	@Override
 	public int getIndex() {
 		return index;
+	}
+
+	@Override
+	public TrLocal[] getLocals() {
+		return this.locals.clone();
 	}
 
 	public MrjState getContext() {
@@ -113,6 +119,10 @@ public final class MemberInstance implements TrField, TrMethod {
 		newName = name;
 	}
 
+	public void setLocals(TrLocal[] locals) {
+		this.locals = locals.clone();
+	}
+
 	@Override
 	public String toString() {
 		return String.format("%s/%s%s", cls.getName(), name, desc);
@@ -151,6 +161,7 @@ public final class MemberInstance implements TrField, TrMethod {
 	final String desc;
 	final int access;
 	final int index;
+	TrLocal[] locals;
 	private volatile String newName;
 	private volatile String newBridgedName;
 	String newNameOriginatingCls;
