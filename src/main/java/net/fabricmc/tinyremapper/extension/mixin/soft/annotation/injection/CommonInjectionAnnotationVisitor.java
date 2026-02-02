@@ -65,13 +65,13 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 				throw new RuntimeException("Unexpected annotation " + descriptor);
 			}
 
-			av = new AtAnnotationVisitor(data, av);
+			av = new AtAnnotationVisitor(data, av, targets);
 		} else if (name.equals(AnnotationElement.SLICE)) {	// @ModifyArg, @ModifyArgs, @Redirect, @ModifyVariable
 			if (!descriptor.equals(Annotation.SLICE)) {
 				throw new RuntimeException("Unexpected annotation " + descriptor);
 			}
 
-			av = new SliceAnnotationVisitor(data, av);
+			av = new SliceAnnotationVisitor(data, av, targets);
 		}
 
 		return av;
@@ -113,7 +113,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					}
 
 					AnnotationVisitor av1 = super.visitAnnotation(name, descriptor);
-					return new AtAnnotationVisitor(data, av1);
+					return new AtAnnotationVisitor(data, av1, targets);
 				}
 			};
 		} else if (name.equals(AnnotationElement.SLICE)) {	// @Inject @ModifyConstant
@@ -125,7 +125,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					}
 
 					AnnotationVisitor av1 = super.visitAnnotation(name, descriptor);
-					return new SliceAnnotationVisitor(data, av1);
+					return new SliceAnnotationVisitor(data, av1, targets);
 				}
 			};
 		}

@@ -18,11 +18,13 @@
 
 package net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection;
 
+import java.util.List;
 import java.util.Objects;
 
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.tree.AnnotationNode;
 
+import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
@@ -37,14 +39,16 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
 class AtAnnotationVisitor extends AnnotationNode {
 	private final CommonData data;
 	private final AnnotationVisitor delegate;
+	private final List<String> targets;
 
 	private String value;
 
-	AtAnnotationVisitor(CommonData data, AnnotationVisitor delegate) {
+	AtAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets) {
 		super(Constant.ASM_VERSION, Annotation.AT);
 
 		this.data = Objects.requireNonNull(data);
 		this.delegate = Objects.requireNonNull(delegate);
+		this.targets = Objects.requireNonNull(targets);
 	}
 
 	@Override
@@ -58,7 +62,7 @@ class AtAnnotationVisitor extends AnnotationNode {
 
 	@Override
 	public void visitEnd() {
-		accept(new AtSecondPassAnnotationVisitor(data, delegate, value));
+		accept(new AtSecondPassAnnotationVisitor(data, delegate, value, targets));
 
 		super.visitEnd();
 	}
@@ -66,12 +70,14 @@ class AtAnnotationVisitor extends AnnotationNode {
 	private static class AtSecondPassAnnotationVisitor extends AnnotationVisitor {
 		private final CommonData data;
 		private final String value;
+		private final List<String> targets;
 
-		AtSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, String value) {
+		AtSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, String value, List<String> targets) {
 			super(Constant.ASM_VERSION, delegate);
 
 			this.data = Objects.requireNonNull(data);
 			this.value = Objects.requireNonNull(value);
+			this.targets = Objects.requireNonNull(targets);
 		}
 
 		@Override
@@ -89,6 +95,21 @@ class AtAnnotationVisitor extends AnnotationNode {
 			}
 
 			super.visit(name, value);
+		}
+
+		@Override
+		public AnnotationVisitor visitAnnotation(String name, String descriptor) {
+			AnnotationVisitor av = super.visitAnnotation(name, descriptor);
+
+			if (name.equals(AnnotationElement.DESC)) {
+				if (!descriptor.equals(Annotation.DESC)) {
+					throw new RuntimeException("Unexpected annotation " + descriptor);
+				}
+
+				av = new DescAnnotationVisitor(targets, data, av, TrMember.MemberType.METHOD);
+			}
+
+			return av;
 		}
 
 		@Override

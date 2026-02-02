@@ -43,10 +43,12 @@ import net.fabricmc.tinyremapper.TinyRemapper;
 import net.fabricmc.tinyremapper.extension.mixin.MixinExtension;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.AmbiguousRemappedNameMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.LvtRemapTargetMixin;
+import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.DescAtMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.NonObfuscatedOverrideMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.WildcardTargetMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.AmbiguousRemappedNameTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.LvtRemapTarget;
+import net.fabricmc.tinyremapper.extension.mixin.integration.targets.DescAtTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.NonObfuscatedOverrideTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.WildcardTarget;
 
@@ -107,6 +109,18 @@ public class MixinIntegrationTest {
 		});
 
 		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/ModifyVariable;(method={\"targetRemapped\"}, at=@Lorg/spongepowered/asm/mixin/injection/At;(value=\"HEAD\"), name={\"remappedStr3\"})"));
+	}
+
+	@Test
+	public void remapDescAt() throws IOException {
+		String remapped = remap(DescAtTarget.class, DescAtMixin.class, out -> {
+			String fqn = "net/fabricmc/tinyremapper/extension/mixin/integration/targets/DescAtTarget";
+			out.acceptClass(fqn, "com/example/Remapped");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "mainTarget", "(I)V"), "mainTargetRemapped");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "atTarget", "(Ljava/lang/String;)I"), "at");
+		});
+
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Desc;(args={java.lang.String.class}, ret=int.class, value=\"at\""));
 	}
 
 	private String remap(Class<?> target, Class<?> mixin, IMappingProvider mappings) throws IOException {

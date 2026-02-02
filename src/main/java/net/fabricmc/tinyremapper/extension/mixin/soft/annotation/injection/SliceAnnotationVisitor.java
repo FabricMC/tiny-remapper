@@ -18,6 +18,7 @@
 
 package net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection;
 
+import java.util.List;
 import java.util.Objects;
 
 import org.objectweb.asm.AnnotationVisitor;
@@ -29,10 +30,12 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 
 public class SliceAnnotationVisitor extends AnnotationVisitor {
 	private final CommonData data;
+	private final List<String> targets;
 
-	public SliceAnnotationVisitor(CommonData data, AnnotationVisitor delegate) {
+	public SliceAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
 		this.data = Objects.requireNonNull(data);
+		this.targets = Objects.requireNonNull(targets);
 	}
 
 	@Override
@@ -44,7 +47,7 @@ public class SliceAnnotationVisitor extends AnnotationVisitor {
 				throw new RuntimeException("Unexpected annotation " + descriptor);
 			}
 
-			av = new AtAnnotationVisitor(data, av);
+			av = new AtAnnotationVisitor(data, av, targets);
 		}
 
 		return av;
