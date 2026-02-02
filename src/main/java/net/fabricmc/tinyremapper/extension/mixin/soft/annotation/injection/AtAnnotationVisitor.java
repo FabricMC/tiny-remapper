@@ -106,7 +106,7 @@ class AtAnnotationVisitor extends AnnotationNode {
 					throw new RuntimeException("Unexpected annotation " + descriptor);
 				}
 
-				av = new DescAnnotationVisitor(targets, data, av, TrMember.MemberType.METHOD);
+				av = new DescAnnotationVisitor(targets, data, av, this.value.equals("FIELD") ? TrMember.MemberType.FIELD : TrMember.MemberType.METHOD);
 			}
 
 			return av;
