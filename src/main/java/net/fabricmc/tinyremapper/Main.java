@@ -61,6 +61,7 @@ public class Main {
 		boolean renameInvalidLocals = false;
 		Pattern invalidLvNamePattern = null;
 		boolean inferNameFromSameLvIndex = false;
+		boolean disableLocalVariableTracking = false;
 		NonClassCopyMode ncCopyMode = NonClassCopyMode.FIX_META_INF;
 		int threads = -1;
 
@@ -131,6 +132,9 @@ public class Main {
 					break;
 				case "infernamefromsamelvindex":
 					inferNameFromSameLvIndex = true;
+					break;
+				case "disablelocalvariabletracking":
+					disableLocalVariableTracking = true;
 					break;
 				case "nonclasscopymode":
 					switch (arg.substring(valueSepPos + 1).toLowerCase(Locale.ENGLISH)) {
@@ -270,6 +274,7 @@ public class Main {
 				.renameInvalidLocals(renameInvalidLocals)
 				.invalidLvNamePattern(invalidLvNamePattern)
 				.inferNameFromSameLvIndex(inferNameFromSameLvIndex)
+				.disableLocalVariableTracking(disableLocalVariableTracking)
 				.threads(threads);
 
 		for (TinyRemapper.Extension ext : providedExtensions) {
