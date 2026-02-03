@@ -42,13 +42,13 @@ import net.fabricmc.tinyremapper.OutputConsumerPath;
 import net.fabricmc.tinyremapper.TinyRemapper;
 import net.fabricmc.tinyremapper.extension.mixin.MixinExtension;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.AmbiguousRemappedNameMixin;
-import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.LvtRemapTargetMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.DescAtMixin;
+import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.LvtRemapTargetMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.NonObfuscatedOverrideMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.WildcardTargetMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.AmbiguousRemappedNameTarget;
-import net.fabricmc.tinyremapper.extension.mixin.integration.targets.LvtRemapTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.DescAtTarget;
+import net.fabricmc.tinyremapper.extension.mixin.integration.targets.LvtRemapTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.NonObfuscatedOverrideTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.WildcardTarget;
 
