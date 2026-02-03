@@ -187,7 +187,7 @@ public class TinyRemapper {
 		}
 
 		/**
-		 * Whether to disable the tracking of local variable names, used in ModifyVariable local name remapping
+		 * Whether to disable the tracking of local variable names, used in ModifyVariable local name remapping.
 		 */
 		public Builder disableLocalVariableTracking(boolean value) {
 			this.disableLocalVariableTracking = value;
