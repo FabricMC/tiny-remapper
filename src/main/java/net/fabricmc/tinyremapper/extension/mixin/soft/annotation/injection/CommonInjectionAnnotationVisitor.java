@@ -108,8 +108,8 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 						throw new RuntimeException("InjectMethodMappable should never resolve to zero entries");
 					}
 
-					for (MemberInfo memberInfos : resolved) {
-						super.visit(name, memberInfos.toString());
+					for (MemberInfo remappedInfo : resolved) {
+						super.visit(name, remappedInfo.toString());
 					}
 				}
 			};
