@@ -18,20 +18,24 @@
 
 package net.fabricmc.tinyremapper.extension.mixin.integration.mixins;
 
+import net.fabricmc.tinyremapper.extension.mixin.integration.targets.SeparateRemappedNameTarget;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import net.fabricmc.tinyremapper.extension.mixin.integration.targets.AmbiguousRemappedNameTarget;
-
-@Mixin(AmbiguousRemappedNameTarget.class)
-public class AmbiguousRemappedNameMixin {
+@Mixin(SeparateRemappedNameTarget.class)
+public class SeparateRemappedNameMixin {
 	@Inject(method = "addString", at = @At("HEAD"))
-	private void injectAddString(String string, CallbackInfo ci) {
+	private void injectAddStringFirst(String string, CallbackInfo ci) {
+	}
+
+	@Inject(method = "addString(Ljava/lang/String;I)V", at = @At("HEAD"))
+	private void injectAddStringSecond(String string, int value, CallbackInfo ci) {
 	}
 
 	@Inject(method = "addString*", at = @At("HEAD"))
-	private void injectAddStringWildcard(String string, CallbackInfo ci) {
+	private void injectAddStringBoth(CallbackInfo ci) {
 	}
 }

@@ -35,4 +35,8 @@ public abstract class WildcardTargetMixin {
 	@Inject(method = "*()Ljava/lang/String;", at = @At("HEAD"), cancellable = true)
 	private void injectName(CallbackInfoReturnable<String> ci) {
 	}
+
+	@Inject(method = "targetA*", at = @At("HEAD"))
+	private void injectTargetA(CallbackInfo ci) {
+	}
 }

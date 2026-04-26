@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2025, FabricMC
+ * Copyright (c) 2026, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,30 +18,9 @@
 
 package net.fabricmc.tinyremapper.extension.mixin.integration.targets;
 
-public class WildcardTarget {
-	public WildcardTarget(String name) {
+public class SeparateRemappedNameTarget {
+	public void addString(String string) {
 	}
-
-	public WildcardTarget(String name, int other) {
-	}
-
-	public String getName() {
-		return "";
-	}
-
-	public String getRealName() {
-		return "";
-	}
-
-	// Both targetA and targetB will be remapped to 'sameName'
-	public void targetA(Object o) {
-	}
-
-	public String targetA() {
-		return null;
-	}
-
-	public Object targetB() {
-		return null;
+	public void addString(String string, int value) {
 	}
 }

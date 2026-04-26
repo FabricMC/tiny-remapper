@@ -18,10 +18,17 @@
 
 package net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.objectweb.asm.AnnotationVisitor;
@@ -85,11 +92,23 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			return new AnnotationVisitor(Constant.ASM_VERSION, av) {
 				@Override
 				public void visit(String name, Object value) {
-					Optional<MemberInfo> info = Optional.ofNullable(MemberInfo.parse(Objects.requireNonNull((String) value).replaceAll("\\s", "")));
+					String string = Objects.requireNonNull((String) value);
 
-					value = info.map(i -> new InjectMethodMappable(data, i, targets).result().toString()).orElse((String) value);
+					MemberInfo info = MemberInfo.parse(string.replaceAll("\\s", ""));
 
-					super.visit(name, value);
+					if (info == null) {
+						super.visit(name, value);
+						return;
+					}
+
+					MemberInfo[] resolved = new InjectMethodMappable(data, info, targets).result();
+					if (resolved.length == 0) {
+						throw new RuntimeException("InjectMethodMappable should never resolve to zero entries");
+					}
+
+					for (MemberInfo memberInfos : resolved) {
+						super.visit(name, memberInfos.toString());
+					}
 				}
 			};
 		} else if (name.equals(AnnotationElement.TARGET)) {	// All
@@ -133,7 +152,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		return av;
 	}
 
-	private static class InjectMethodMappable implements IMappable<MemberInfo> {
+	private static class InjectMethodMappable implements IMappable<MemberInfo[]> {
 		private final CommonData data;
 		private final MemberInfo info;
 		private final List<TrClass> targets;
@@ -161,52 +180,144 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			name = name.isEmpty() ? null : name;
 			desc = desc.isEmpty() ? null : desc;
 
-			return data.resolver.resolveMethod(owner, name, desc, ResolveUtility.FLAG_FIRST | ResolveUtility.FLAG_NON_SYN).map(m -> m);
+			return data.resolver.resolveMethod(owner, name, desc, ResolveUtility.FLAG_FIRST).map(m -> m);
 		}
 
-		@Override
-		public MemberInfo result() {
+		private Collection<TrMethod> resolvePartials(TrClass owner, String name, String desc) {
+			Objects.requireNonNull(owner);
+
+			name = name.isEmpty() ? null : name;
+			desc = desc.isEmpty() ? null : desc;
+
+			return owner.resolveMethods(name, desc, false, null, null);
+		}
+
+		private MemberInfo[] wildcardResult() {
 			// Special case to remap the desc of wildcards without a name, such as `*()Lcom/example/ClassName;`
-			if (info.getOwner().isEmpty()
-					&& info.getName().isEmpty()
-					&& info.getQuantifier().equals("*")
-					&& !info.getDesc().isEmpty()) {
-				return new MemberInfo(info.getOwner(), info.getName(), info.getQuantifier(), data.mapper.asTrRemapper().mapDesc(info.getDesc()));
+			if (info.getName().isEmpty() && !info.getDesc().isEmpty()) {
+				return new MemberInfo[] {
+					new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), info.getName(), "*", data.mapper.asTrRemapper().mapDesc(info.getDesc()))
+				};
 			}
 
+			if (targets.isEmpty() || info.getName().isEmpty()) {
+				return new MemberInfo[] { info };
+			}
+
+			List<Pair<String, String>> collection = targets.stream()
+			   .flatMap(target -> resolvePartials(target, info.getName(), info.getDesc()).stream())
+			   .map(m -> Pair.of(data.mapper.mapName(m), data.mapper.mapDesc(m)))
+			   .distinct()
+			   .collect(Collectors.toList());
+
+			if (collection.isEmpty()) {
+				data.getLogger().warn(Message.NO_MAPPING_NON_RECURSIVE, info.getName(), targets);
+				return new MemberInfo[] { info };
+			}
+
+			Map<String, Set<String>> descriptorsForName = new TreeMap<>();
+			for (Pair<String, String> pair : collection) {
+				descriptorsForName.computeIfAbsent(pair.first(), k -> new TreeSet<>()).add(pair.second());
+			}
+
+			List<MemberInfo> finalMembers = new ArrayList<>();
+
+			if (info.getDesc().isEmpty()) {
+				// If the descriptor was omitted in the input, we want to omit the descriptor in the output as well
+				// However, we can only do this if all the methods in the source namespace
+				// are exactly matched in the target namespace
+
+				for (Map.Entry<String, Set<String>> entry : descriptorsForName.entrySet()) {
+					String mappedName = entry.getKey();
+					Set<String> mappedDescriptors = entry.getValue();
+
+					Set<String> allDescriptorsInTargets = new HashSet<>();
+
+					for (TrClass target : targets) {
+						for (TrMethod method : target.getMethods()) {
+							String otherName = data.mapper.mapName(method);
+							if (otherName.equals(mappedName)) {
+								allDescriptorsInTargets.add(data.mapper.mapDesc(method));
+							}
+						}
+					}
+
+					if (allDescriptorsInTargets.equals(mappedDescriptors)) {
+						finalMembers.add(new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), mappedName, "*", ""));
+					} else {
+						for (String mappedDesc : mappedDescriptors) {
+							finalMembers.add(new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), mappedName, "*", mappedDesc));
+						}
+					}
+				}
+			} else {
+				for (Map.Entry<String, Set<String>> entry : descriptorsForName.entrySet()) {
+					String mappedName = entry.getKey();
+					Set<String> mappedDescriptors = entry.getValue();
+
+					for (String mappedDesc : mappedDescriptors) {
+						finalMembers.add(new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), mappedName, "*", mappedDesc));
+					}
+				}
+			}
+
+			return finalMembers.toArray(new MemberInfo[0]);
+		}
+
+		private MemberInfo singleResult() {
 			if (targets.isEmpty() || info.getName().isEmpty()) {
 				return info;
 			}
 
 			List<Pair<String, String>> collection = targets.stream()
-					.map(target -> resolvePartial(target, info.getName(), info.getDesc()))
-					.filter(Optional::isPresent)
-					.map(Optional::get)
-					.map(m -> {
-						String mappedName = data.mapper.mapName(m);
-						boolean shouldPassDesc = false;
-
-						for (TrMethod other : m.getOwner().getMethods()) { // look for ambiguous targets
-							if (other == m) continue;
-
-							if (data.mapper.mapName(other).equals(mappedName)) {
-								shouldPassDesc = true;
-							}
-						}
-
-						return Pair.of(mappedName, shouldPassDesc ? data.mapper.mapDesc(m) : "");
-					})
-					.distinct().collect(Collectors.toList());
+			   .map(target -> resolvePartial(target, info.getName(), info.getDesc()))
+			   .filter(Optional::isPresent)
+			   .map(Optional::get)
+			   .map(m -> Pair.of(data.mapper.mapName(m), data.mapper.mapDesc(m)))
+			   .distinct()
+			   .collect(Collectors.toList());
 
 			if (collection.size() > 1) {
 				data.getLogger().error(Message.CONFLICT_MAPPING, info.getName(), collection);
 			} else if (collection.isEmpty()) {
 				data.getLogger().warn(Message.NO_MAPPING_NON_RECURSIVE, info.getName(), targets);
+				return info;
 			}
 
-			return collection.stream().findFirst()
-					.map(pair -> new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), pair.first(), info.getQuantifier(), info.getQuantifier().equals("*") ? "" : pair.second()))
-					.orElse(info);
+			Pair<String, String> pair = collection.get(0);
+			String mappedName = pair.first();
+
+			boolean useDescriptor = !info.getDesc().isEmpty() || isNameAmbiguous(mappedName, pair.second());
+			String desc = useDescriptor ? pair.second() : "";
+
+			return new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), mappedName, info.getQuantifier(), desc);
+		}
+
+		private boolean isNameAmbiguous(String mappedName, String mappedDesc) {
+			// Try to find a method with the same name, but a different descriptor
+
+			for (TrClass target : targets) {
+				for (TrMethod method : target.getMethods()) {
+					String otherName = data.mapper.mapName(method);
+					if (otherName.equals(mappedName)) { // Same name
+						String otherDesc = data.mapper.mapDesc(method);
+						if (!otherDesc.equals(mappedDesc)) { // Different descriptor
+							return true;
+						}
+					}
+				}
+			}
+
+			return false;
+		}
+
+		@Override
+		public MemberInfo[] result() {
+			if (info.getQuantifier().equals("*")) {
+				return this.wildcardResult();
+			} else {
+				return new MemberInfo[] { singleResult() };
+			}
 		}
 	}
 }
