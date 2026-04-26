@@ -75,8 +75,8 @@ public class MixinIntegrationTest {
 		// *()Ljava/lang/String; -> *()Lcom/example/NotString;
 		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"*()Lcom/example/NotString;\"}"));
 		// Check that wildcards are expanded with descriptor to avoid incorrect targets (targetB)
-		// targetA* -> {"sameName*()Lcom/example/NotString;", "sameName*(Ljava/lang/Object;)V"}
-		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"sameName*()Lcom/example/NotString;\", \"sameName*(Ljava/lang/Object;)V\"}"));
+		// targetA* -> {"sameName()Lcom/example/NotString;", "sameName(Ljava/lang/Object;)V"}
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"sameName()Lcom/example/NotString;\", \"sameName(Ljava/lang/Object;)V\"}"));
 	}
 
 	@Test
@@ -106,9 +106,6 @@ public class MixinIntegrationTest {
 		// full signature is used to disambiguate names
 		// addString -> add(Ljava/lang/String;)V
 		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"add(Ljava/lang/String;)V\""));
-		// ensure full signature is used for wildcard as well
-		// addString* -> add*(Ljava/lang/String;)V
-		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"add*(Ljava/lang/String;)V\"}"));
 	}
 
 	@Test

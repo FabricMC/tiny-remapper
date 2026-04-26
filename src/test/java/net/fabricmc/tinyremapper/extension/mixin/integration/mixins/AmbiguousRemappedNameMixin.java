@@ -30,8 +30,4 @@ public class AmbiguousRemappedNameMixin {
 	@Inject(method = "addString", at = @At("HEAD"))
 	private void injectAddString(String string, CallbackInfo ci) {
 	}
-
-	@Inject(method = "addString*", at = @At("HEAD"))
-	private void injectAddStringWildcard(String string, CallbackInfo ci) {
-	}
 }

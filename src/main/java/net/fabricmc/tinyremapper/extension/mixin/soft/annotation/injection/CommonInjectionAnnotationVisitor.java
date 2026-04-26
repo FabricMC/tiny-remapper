@@ -255,7 +255,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 						finalMembers.add(new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), mappedName, "*", ""));
 					} else {
 						for (String mappedDesc : mappedDescriptors) {
-							finalMembers.add(new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), mappedName, "*", mappedDesc));
+							finalMembers.add(new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), mappedName, "", mappedDesc));
 						}
 					}
 				}
@@ -265,7 +265,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					Set<String> mappedDescriptors = entry.getValue();
 
 					for (String mappedDesc : mappedDescriptors) {
-						finalMembers.add(new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), mappedName, "*", mappedDesc));
+						finalMembers.add(new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), mappedName, "", mappedDesc));
 					}
 				}
 			}
