@@ -196,6 +196,19 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 
 		@Override
 		public MemberInfo[] result() {
+			if (targets.isEmpty() || info.getName().isEmpty()) {
+				// Simple case when we can't find the specific method by name
+
+				String desc = info.getDesc();
+				if (!desc.isEmpty()) {
+					desc = data.mapper.asTrRemapper().mapDesc(desc);
+				}
+
+				return new MemberInfo[] {
+					new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), info.getName(), info.getQuantifier(), desc)
+				};
+			}
+
 			if (info.getQuantifier().equals("*")) {
 				return this.wildcardResult();
 			} else {
@@ -204,17 +217,6 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		}
 
 		private MemberInfo[] wildcardResult() {
-			// Special case to remap the desc of wildcards without a name, such as `*()Lcom/example/ClassName;`
-			if (info.getName().isEmpty() && !info.getDesc().isEmpty()) {
-				return new MemberInfo[] {
-					new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), info.getName(), "*", data.mapper.asTrRemapper().mapDesc(info.getDesc()))
-				};
-			}
-
-			if (targets.isEmpty() || info.getName().isEmpty()) {
-				return new MemberInfo[] { info };
-			}
-
 			List<Pair<String, String>> collection = targets.stream()
 			   .flatMap(target -> resolvePartials(target, info.getName(), info.getDesc()).stream())
 			   .map(m -> Pair.of(data.mapper.mapName(m), data.mapper.mapDesc(m)))
@@ -276,10 +278,6 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		}
 
 		private MemberInfo singleResult() {
-			if (targets.isEmpty() || info.getName().isEmpty()) {
-				return info;
-			}
-
 			List<Pair<String, String>> collection = targets.stream()
 			   .map(target -> resolvePartial(target, info.getName(), info.getDesc()))
 			   .filter(Optional::isPresent)
