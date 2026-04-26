@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -224,7 +226,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 				return new MemberInfo[] { info };
 			}
 
-			Map<String, Set<String>> descriptorsForName = new TreeMap<>();
+			SortedMap<String, SortedSet<String>> descriptorsForName = new TreeMap<>();
 			for (Pair<String, String> pair : collection) {
 				descriptorsForName.computeIfAbsent(pair.first(), k -> new TreeSet<>()).add(pair.second());
 			}
@@ -236,7 +238,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 				// However, we can only do this if all the methods in the source namespace
 				// are exactly matched in the target namespace
 
-				for (Map.Entry<String, Set<String>> entry : descriptorsForName.entrySet()) {
+				for (Map.Entry<String, SortedSet<String>> entry : descriptorsForName.entrySet()) {
 					String mappedName = entry.getKey();
 					Set<String> mappedDescriptors = entry.getValue();
 
@@ -260,7 +262,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					}
 				}
 			} else {
-				for (Map.Entry<String, Set<String>> entry : descriptorsForName.entrySet()) {
+				for (Map.Entry<String, SortedSet<String>> entry : descriptorsForName.entrySet()) {
 					String mappedName = entry.getKey();
 					Set<String> mappedDescriptors = entry.getValue();
 
