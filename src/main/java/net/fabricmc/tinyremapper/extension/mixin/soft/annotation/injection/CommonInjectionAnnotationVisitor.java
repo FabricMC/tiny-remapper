@@ -103,8 +103,8 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 						return;
 					}
 
-					MemberInfo[] resolved = new InjectMethodMappable(data, info, targets).result();
-					if (resolved.length == 0) {
+					List<MemberInfo> resolved = new InjectMethodMappable(data, info, targets).result();
+					if (resolved.isEmpty()) {
 						throw new RuntimeException("InjectMethodMappable should never resolve to zero entries");
 					}
 
@@ -154,7 +154,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		return av;
 	}
 
-	private static class InjectMethodMappable implements IMappable<MemberInfo[]> {
+	private static class InjectMethodMappable implements IMappable<List<MemberInfo>> {
 		private final CommonData data;
 		private final MemberInfo info;
 		private final List<TrClass> targets;
@@ -195,7 +195,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		}
 
 		@Override
-		public MemberInfo[] result() {
+		public List<MemberInfo> result() {
 			if (targets.isEmpty() || info.getName().isEmpty()) {
 				// Simple case when we can't find the specific method by name
 
@@ -204,19 +204,17 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					desc = data.mapper.asTrRemapper().mapDesc(desc);
 				}
 
-				return new MemberInfo[] {
-					new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), info.getName(), info.getQuantifier(), desc)
-				};
+				return Collections.singletonList(new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), info.getName(), info.getQuantifier(), desc));
 			}
 
 			if (info.getQuantifier().equals("*")) {
 				return this.wildcardResult();
 			} else {
-				return new MemberInfo[] { singleResult() };
+				return Collections.singletonList(singleResult());
 			}
 		}
 
-		private MemberInfo[] wildcardResult() {
+		private List<MemberInfo> wildcardResult() {
 			List<Pair<String, String>> collection = targets.stream()
 			   .flatMap(target -> resolvePartials(target, info.getName(), info.getDesc()).stream())
 			   .map(m -> Pair.of(data.mapper.mapName(m), data.mapper.mapDesc(m)))
@@ -225,7 +223,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 
 			if (collection.isEmpty()) {
 				data.getLogger().warn(Message.NO_MAPPING_NON_RECURSIVE, info.getName(), targets);
-				return new MemberInfo[] { info };
+				return Collections.singletonList(info);
 			}
 
 			SortedMap<String, SortedSet<String>> descriptorsForName = new TreeMap<>();
@@ -274,7 +272,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 				}
 			}
 
-			return finalMembers.toArray(new MemberInfo[0]);
+			return finalMembers;
 		}
 
 		private MemberInfo singleResult() {
