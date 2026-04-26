@@ -21,6 +21,7 @@ package net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +41,6 @@ import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.api.TrMethod;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
-import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
@@ -176,27 +176,30 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			}
 		}
 
-		private Optional<TrMember> resolvePartial(TrClass owner, String name, String desc) {
+		private List<TrMethod> resolvePartials(TrClass owner, String name, String desc) {
 			Objects.requireNonNull(owner);
 
 			name = name.isEmpty() ? null : name;
 			desc = desc.isEmpty() ? null : desc;
 
-			return data.resolver.resolveMethod(owner, name, desc, ResolveUtility.FLAG_FIRST).map(m -> m);
-		}
-
-		private Collection<TrMethod> resolvePartials(TrClass owner, String name, String desc) {
-			Objects.requireNonNull(owner);
-
-			name = name.isEmpty() ? null : name;
-			desc = desc.isEmpty() ? null : desc;
-
-			return owner.resolveMethods(name, desc, false, null, null);
+			Collection<TrMethod> col = owner.resolveMethods(name, desc, false, null, null);
+			if (col instanceof List) {
+				return (List<TrMethod>) col;
+			} else {
+				return new ArrayList<>(col);
+			}
 		}
 
 		@Override
 		public List<MemberInfo> result() {
-			if (targets.isEmpty() || info.getName().isEmpty()) {
+			String mappedOwner = info.getOwner();
+			if (!mappedOwner.isEmpty()) {
+				mappedOwner = data.mapper.asTrRemapper().map(mappedOwner);
+			}
+
+			int methodsPerTarget = quantifierStringToMax(info.getQuantifier());
+
+			if (targets.isEmpty() || info.getName().isEmpty() || methodsPerTarget <= 0) {
 				// Simple case when we can't find the specific method by name
 
 				String desc = info.getDesc();
@@ -204,118 +207,143 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					desc = data.mapper.asTrRemapper().mapDesc(desc);
 				}
 
-				return Collections.singletonList(new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), info.getName(), info.getQuantifier(), desc));
+				return Collections.singletonList(new MemberInfo(mappedOwner, info.getName(), info.getQuantifier(), desc));
 			}
 
-			if (info.getQuantifier().equals("*")) {
-				return this.wildcardResult();
-			} else {
-				return Collections.singletonList(singleResult());
+			// Step 1. Collect all methods we want to target
+
+			Map<Pair<String, String>, Set<TrClass>> fullMethodToTarget = new HashMap<>();
+			SortedMap<String, SortedSet<String>> namesToDesc = new TreeMap<>();
+
+			for (TrClass target : targets) {
+				List<TrMethod> methods = resolvePartials(target, info.getName(), info.getDesc());
+
+				int matchedCount = Math.min(methods.size(), methodsPerTarget);
+				for (int i = 0; i < matchedCount; i++) {
+					TrMember method = methods.get(i);
+
+					String mappedName = data.mapper.mapName(method);
+					String mappedDesc = data.mapper.mapDesc(method);
+
+					fullMethodToTarget.computeIfAbsent(Pair.of(mappedName, mappedDesc), k -> new HashSet<>()).add(target);
+					namesToDesc.computeIfAbsent(mappedName, k -> new TreeSet<>()).add(mappedDesc);
+				}
 			}
-		}
 
-		private List<MemberInfo> wildcardResult() {
-			List<Pair<String, String>> collection = targets.stream()
-			   .flatMap(target -> resolvePartials(target, info.getName(), info.getDesc()).stream())
-			   .map(m -> Pair.of(data.mapper.mapName(m), data.mapper.mapDesc(m)))
-			   .distinct()
-			   .collect(Collectors.toList());
-
-			if (collection.isEmpty()) {
-				data.getLogger().warn(Message.NO_MAPPING_NON_RECURSIVE, info.getName(), targets);
+			if (fullMethodToTarget.isEmpty()) {
+				data.getLogger().warn(Message.NO_MAPPING_NON_RECURSIVE, info.toString(), targets);
 				return Collections.singletonList(info);
 			}
 
-			SortedMap<String, SortedSet<String>> descriptorsForName = new TreeMap<>();
-			for (Pair<String, String> pair : collection) {
-				descriptorsForName.computeIfAbsent(pair.first(), k -> new TreeSet<>()).add(pair.second());
-			}
+			// Step 2. Try adding methods
+			// We need to avoid injecting into methods which weren't injected into in the source namespace
+			// The canInject() functions check to make sure we aren't targeting something unwanted
 
-			List<MemberInfo> finalMembers = new ArrayList<>();
+			List<MemberInfo> list = new ArrayList<>();
 
-			if (info.getDesc().isEmpty()) {
-				// If the descriptor was omitted in the input, we want to omit the descriptor in the output as well
-				// However, we can only do this if all the methods in the source namespace
-				// are exactly matched in the target namespace
+			boolean wantDesc = !info.getDesc().isEmpty();
 
-				for (Map.Entry<String, SortedSet<String>> entry : descriptorsForName.entrySet()) {
-					String mappedName = entry.getKey();
-					Set<String> mappedDescriptors = entry.getValue();
+			for (Map.Entry<String, SortedSet<String>> entry : namesToDesc.entrySet()) {
+				String mappedName = entry.getKey();
+				SortedSet<String> mappedDescriptors = entry.getValue();
 
-					Set<String> allDescriptorsInTargets = new HashSet<>();
-
-					for (TrClass target : targets) {
-						for (TrMethod method : target.getMethods()) {
-							String otherName = data.mapper.mapName(method);
-							if (otherName.equals(mappedName)) {
-								allDescriptorsInTargets.add(data.mapper.mapDesc(method));
-							}
-						}
-					}
-
-					if (allDescriptorsInTargets.equals(mappedDescriptors)) {
-						finalMembers.add(new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), mappedName, "*", ""));
-					} else {
-						for (String mappedDesc : mappedDescriptors) {
-							finalMembers.add(new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), mappedName, "", mappedDesc));
-						}
-					}
-				}
-			} else {
-				for (Map.Entry<String, SortedSet<String>> entry : descriptorsForName.entrySet()) {
-					String mappedName = entry.getKey();
-					Set<String> mappedDescriptors = entry.getValue();
-
+				if (!wantDesc && canInject(mappedName, fullMethodToTarget)) { // Try to apply method name without descriptor if possible
+					list.add(new MemberInfo(mappedOwner, mappedName, info.getQuantifier(), ""));
+				} else {
 					for (String mappedDesc : mappedDescriptors) {
-						finalMembers.add(new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), mappedName, "", mappedDesc));
+						if (canInject(mappedName, mappedDesc, fullMethodToTarget)) {
+							String quantifier = info.getQuantifier();
+							if (quantifier.equals("*") || quantifier.startsWith("{0,")) {
+								quantifier = "";
+							}
+							list.add(new MemberInfo(mappedOwner, mappedName, quantifier, mappedDesc));
+						} else {
+							data.getLogger().error(Message.MISSING_INJECT, info.toString(), mappedName, mappedDesc);
+						}
 					}
 				}
 			}
 
-			return finalMembers;
-		}
-
-		private MemberInfo singleResult() {
-			List<Pair<String, String>> collection = targets.stream()
-			   .map(target -> resolvePartial(target, info.getName(), info.getDesc()))
-			   .filter(Optional::isPresent)
-			   .map(Optional::get)
-			   .map(m -> Pair.of(data.mapper.mapName(m), data.mapper.mapDesc(m)))
-			   .distinct()
-			   .collect(Collectors.toList());
-
-			if (collection.size() > 1) {
-				data.getLogger().error(Message.CONFLICT_MAPPING, info.getName(), collection);
-			} else if (collection.isEmpty()) {
-				data.getLogger().warn(Message.NO_MAPPING_NON_RECURSIVE, info.getName(), targets);
-				return info;
+			if (list.isEmpty()) {
+				return Collections.singletonList(info);
 			}
 
-			Pair<String, String> pair = collection.get(0);
-			String mappedName = pair.first();
-
-			boolean useDescriptor = !info.getDesc().isEmpty() || isNameAmbiguous(mappedName, pair.second());
-			String desc = useDescriptor ? pair.second() : "";
-
-			return new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), mappedName, info.getQuantifier(), desc);
+			return list;
 		}
 
-		private boolean isNameAmbiguous(String mappedName, String mappedDesc) {
-			// Try to find a method with the same name, but a different descriptor
-
+		private boolean canInject(String mappedName, Map<Pair<String, String>, Set<TrClass>> fullMethodToTarget) {
 			for (TrClass target : targets) {
 				for (TrMethod method : target.getMethods()) {
 					String otherName = data.mapper.mapName(method);
-					if (otherName.equals(mappedName)) { // Same name
-						String otherDesc = data.mapper.mapDesc(method);
-						if (!otherDesc.equals(mappedDesc)) { // Different descriptor
-							return true;
-						}
+					if (!otherName.equals(mappedName)) {
+						continue;
+					}
+
+					String otherDesc = data.mapper.mapDesc(method);
+					Pair<String, String> pair = Pair.of(otherName, otherDesc);
+					Set<TrClass> validClasses = fullMethodToTarget.get(pair);
+					if (validClasses == null || !validClasses.contains(target)) {
+						return false;
 					}
 				}
 			}
 
-			return false;
+			return true;
+		}
+
+		private boolean canInject(String mappedName, String mappedDesc, Map<Pair<String, String>, Set<TrClass>> fullMethodToTarget) {
+			Pair<String, String> pair = Pair.of(mappedName, mappedDesc);
+			Set<TrClass> validClasses = fullMethodToTarget.get(pair);
+			if (validClasses == null || validClasses.isEmpty()) {
+				return false;
+			}
+
+			for (TrClass target : targets) {
+				TrMethod method = target.getMethod(mappedName, mappedDesc);
+				if (method != null && !validClasses.contains(target)) {
+					return false;
+				}
+			}
+
+			return true;
 		}
 	}
+
+	// Code based on Mixin Quantifier parsing code
+	// Copyright (c) SpongePowered <https://www.spongepowered.org>
+	// Copyright (c) contributors
+	// https://github.com/FabricMC/Mixin/blob/e4edb3afad347f7561acf6a9dd4a64f2aa479658/src/main/java/org/spongepowered/asm/util/Quantifier.java
+	private static int quantifierStringToMax(String quantifier) {
+		if (quantifier == null || quantifier.isEmpty()) {
+			return 1;
+		}
+		if (quantifier.equals("*") || quantifier.equals("+")) {
+			return Integer.MAX_VALUE;
+		}
+		if (!quantifier.startsWith("{") || !quantifier.endsWith("}") || quantifier.length() < 3) {
+			return 0;
+		}
+
+		String inner = quantifier.substring(1, quantifier.length() - 1).trim();
+		if (inner.isEmpty()) {
+			return 0;
+		}
+
+		String strMax = inner;
+
+		int comma = inner.indexOf(',');
+		if (comma > -1) {
+			strMax = inner.substring(comma + 1).trim();
+		}
+
+		try {
+			return !strMax.isEmpty() ? Integer.parseInt(strMax) : Integer.MAX_VALUE;
+		} catch (NumberFormatException ex) {
+			return 0;
+		}
+
+	}
+
+
+
 }

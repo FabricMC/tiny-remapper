@@ -25,4 +25,5 @@ public final class Message {
 	public static final String NO_MAPPING_NON_RECURSIVE = "Cannot remap %s because it does not exist in any of the targets %s";
 	public static final String NO_MAPPING_RECURSIVE = "Cannot remap %s because it does not exist in any of the targets %s or their parents.";
 	public static final String NOT_FULLY_QUALIFIED = "%s is not fully qualified.";
+	public static final String MISSING_INJECT = "Unable to fully remap %s, the method %s%s could not be targeted without conflicts";
 }

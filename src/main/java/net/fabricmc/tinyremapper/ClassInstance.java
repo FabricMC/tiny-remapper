@@ -28,6 +28,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -907,7 +908,7 @@ public final class ClassInstance implements TrClass {
 	final Path srcPath;
 	byte[] data;
 	private ClassInstance mrjOrigin;
-	private final Map<String, MemberInstance> members = new HashMap<>(); // methods and fields are distinct due to their different desc separators
+	private final Map<String, MemberInstance> members = new LinkedHashMap<>(); // methods and fields are distinct due to their different desc separators
 	private final ConcurrentMap<String, MemberInstance> resolvedMembers = new ConcurrentHashMap<>();
 	final Set<ClassInstance> parents = new HashSet<>();
 	final Set<ClassInstance> children = new HashSet<>();
