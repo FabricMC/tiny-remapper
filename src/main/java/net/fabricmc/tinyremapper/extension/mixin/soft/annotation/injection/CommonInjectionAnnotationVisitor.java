@@ -192,6 +192,15 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			return owner.resolveMethods(name, desc, false, null, null);
 		}
 
+		@Override
+		public MemberInfo[] result() {
+			if (info.getQuantifier().equals("*")) {
+				return this.wildcardResult();
+			} else {
+				return new MemberInfo[] { singleResult() };
+			}
+		}
+
 		private MemberInfo[] wildcardResult() {
 			// Special case to remap the desc of wildcards without a name, such as `*()Lcom/example/ClassName;`
 			if (info.getName().isEmpty() && !info.getDesc().isEmpty()) {
@@ -309,15 +318,6 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			}
 
 			return false;
-		}
-
-		@Override
-		public MemberInfo[] result() {
-			if (info.getQuantifier().equals("*")) {
-				return this.wildcardResult();
-			} else {
-				return new MemberInfo[] { singleResult() };
-			}
 		}
 	}
 }
