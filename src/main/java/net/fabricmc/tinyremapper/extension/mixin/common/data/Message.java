@@ -26,4 +26,6 @@ public final class Message {
 	public static final String NO_MAPPING_RECURSIVE = "Cannot remap %s because it does not exist in any of the targets %s or their parents.";
 	public static final String NOT_FULLY_QUALIFIED = "%s is not fully qualified.";
 	public static final String MISSING_INJECT = "Unable to fully remap %s, the method %s%s could not be targeted without conflicts";
+	public static final String UNABLE_TO_PARSE_QUANTIFIER = "Unable to parse quantifier %s, remap behaviour may be incorrect";
+	public static final String UNSUPPORTED_QUANTIFIER_MIN = "Quantifier min was provided, but due to conflicts %s after remap had to use descriptor";
 }

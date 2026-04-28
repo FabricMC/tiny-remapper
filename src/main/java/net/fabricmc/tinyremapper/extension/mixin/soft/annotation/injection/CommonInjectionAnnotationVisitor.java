@@ -197,7 +197,9 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 				mappedOwner = data.mapper.asTrRemapper().map(mappedOwner);
 			}
 
-			int methodsPerTarget = quantifierStringToMax(info.getQuantifier());
+			Pair<Integer, Integer> parsedQuantifier = parseQuantifier(data, info.getQuantifier());
+			int quantifierMin = parsedQuantifier.first();
+			int methodsPerTarget = parsedQuantifier.second();
 
 			if (targets.isEmpty() || info.getName().isEmpty() || methodsPerTarget <= 0) {
 				// Simple case when we can't find the specific method by name
@@ -254,6 +256,9 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 						if (canInject(mappedName, mappedDesc, fullMethodToTarget)) {
 							String quantifier = info.getQuantifier();
 							if (!explicitDesc) {
+								if (quantifierMin > 0) {
+									data.getLogger().error(Message.UNSUPPORTED_QUANTIFIER_MIN, info.toString());
+								}
 								quantifier = "";
 							}
 							list.add(new MemberInfo(mappedOwner, mappedName, quantifier, mappedDesc));
@@ -336,33 +341,43 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 	// Copyright (c) SpongePowered <https://www.spongepowered.org>
 	// Copyright (c) contributors
 	// https://github.com/FabricMC/Mixin/blob/e4edb3afad347f7561acf6a9dd4a64f2aa479658/src/main/java/org/spongepowered/asm/util/Quantifier.java
-	private static int quantifierStringToMax(String quantifier) {
+	private static Pair<Integer, Integer> parseQuantifier(CommonData data, String quantifier) {
 		if (quantifier == null || quantifier.isEmpty()) {
-			return 1;
+			return Pair.of(0, 1);
 		}
-		if (quantifier.equals("*") || quantifier.equals("+")) {
-			return Integer.MAX_VALUE;
+		if (quantifier.equals("*")) {
+			return Pair.of(0, Integer.MAX_VALUE);
+		}
+		if (quantifier.equals("+")) {
+			return Pair.of(1, Integer.MAX_VALUE);
 		}
 		if (!quantifier.startsWith("{") || !quantifier.endsWith("}") || quantifier.length() < 3) {
-			return 0;
+			data.getLogger().error(Message.UNABLE_TO_PARSE_QUANTIFIER, quantifier);
+			return Pair.of(0, 0);
 		}
 
 		String inner = quantifier.substring(1, quantifier.length() - 1).trim();
 		if (inner.isEmpty()) {
-			return 0;
+			data.getLogger().error(Message.UNABLE_TO_PARSE_QUANTIFIER, quantifier);
+			return Pair.of(0, 0);
 		}
 
+		String strMin = inner;
 		String strMax = inner;
 
 		int comma = inner.indexOf(',');
 		if (comma > -1) {
+			strMin = inner.substring(0, comma).trim();
 			strMax = inner.substring(comma + 1).trim();
 		}
 
 		try {
-			return !strMax.isEmpty() ? Integer.parseInt(strMax) : Integer.MAX_VALUE;
+			int min = !strMin.isEmpty() ? Integer.parseInt(strMin) : 0;
+			int max = !strMax.isEmpty() ? Integer.parseInt(strMax) : Integer.MAX_VALUE;
+			return Pair.of(min, Math.max(min, max));
 		} catch (NumberFormatException ex) {
-			return 0;
+			data.getLogger().error(Message.UNABLE_TO_PARSE_QUANTIFIER, quantifier);
+			return Pair.of(0, 0);
 		}
 
 	}
