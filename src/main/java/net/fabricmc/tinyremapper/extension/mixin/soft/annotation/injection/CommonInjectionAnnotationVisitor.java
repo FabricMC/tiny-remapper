@@ -249,7 +249,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 				String mappedName = entry.getKey();
 				SortedSet<String> mappedDescriptors = entry.getValue();
 
-				if (!explicitDesc && canInject(mappedName, methodsPerTarget, mappedDescriptors, fullMethodToTarget)) { // Try to apply method name without descriptor if possible
+				if (!explicitDesc && canInject(mappedName, methodsPerTarget, fullMethodToTarget)) { // Try to apply method name without descriptor if possible
 					list.add(new MemberInfo(mappedOwner, mappedName, info.getQuantifier(), ""));
 				} else {
 					for (String mappedDesc : mappedDescriptors) {
@@ -276,15 +276,13 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			return list;
 		}
 
-		private boolean canInject(String mappedName, int methodsPerTarget, Set<String> neededDescriptors, Map<Pair<String, String>, Set<TrClass>> fullMethodToTarget) {
+		private boolean canInject(String mappedName, int methodsPerTarget, Map<Pair<String, String>, Set<TrClass>> fullMethodToTarget) {
 			if (methodsPerTarget <= 0) {
 				throw new IllegalArgumentException();
 			}
 
 			for (TrClass target : targets) {
 				int toCheck = methodsPerTarget;
-
-				Set<String> missingDescriptors = new HashSet<>(neededDescriptors);
 
 				for (TrMethod method : target.getMethods()) {
 					String otherName = data.mapper.mapName(method);
@@ -293,9 +291,6 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					}
 
 					String otherDesc = data.mapper.mapDesc(method);
-					if (toCheck > 0) {
-						missingDescriptors.remove(otherDesc);
-					}
 
 					Pair<String, String> pair = Pair.of(otherName, otherDesc);
 					Set<TrClass> validClasses = fullMethodToTarget.get(pair);
@@ -309,18 +304,6 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					toCheck -= 1;
 					if (toCheck <= 0 && methodsPerTarget > 1) {
 						break;
-					}
-				}
-
-				// This check is needed because we might be mapping a -> b,
-				// but another method b exists in the target class at an earlier position
-				// In this case, we can't use b without a descriptor because it'll target
-				// the earlier method instead of the method we want
-				for (String missingDesc : missingDescriptors) {
-					Pair<String, String> pair = Pair.of(mappedName, missingDesc);
-					Set<TrClass> validClasses = fullMethodToTarget.get(pair);
-					if (validClasses != null && validClasses.contains(target)) {
-						return false;
 					}
 				}
 			}
