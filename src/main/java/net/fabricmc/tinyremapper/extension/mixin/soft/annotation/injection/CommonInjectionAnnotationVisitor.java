@@ -277,6 +277,10 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		}
 
 		private boolean canInject(String mappedName, int methodsPerTarget, Set<String> neededDescriptors, Map<Pair<String, String>, Set<TrClass>> fullMethodToTarget) {
+			if (methodsPerTarget <= 0) {
+				throw new IllegalArgumentException();
+			}
+
 			for (TrClass target : targets) {
 				int toCheck = methodsPerTarget;
 
@@ -286,13 +290,6 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					String otherName = data.mapper.mapName(method);
 					if (!otherName.equals(mappedName)) {
 						continue;
-					}
-
-					// We only break if methodsPerTarget > 1 in order to disambiguate even when unnecessary due to implicit limit of 1
-					// e.g. If targeting method foo in [foo, bar -> baz, baz], we want to disambiguate the baz even though we would be
-					// targeting the correct method due to the max limit
-					if (toCheck <= 0 && methodsPerTarget > 1) {
-						break;
 					}
 
 					String otherDesc = data.mapper.mapDesc(method);
@@ -306,7 +303,13 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 						return false;
 					}
 
+					// We only break if methodsPerTarget > 1 in order to disambiguate even when unnecessary due to implicit limit of 1
+					// e.g. If targeting method foo in [foo, bar -> baz, baz], we want to disambiguate the baz even though we would be
+					// targeting the correct method due to the max limit
 					toCheck -= 1;
+					if (toCheck <= 0 && methodsPerTarget > 1) {
+						break;
+					}
 				}
 
 				// This check is needed because we might be mapping a -> b,
