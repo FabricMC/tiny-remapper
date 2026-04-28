@@ -288,19 +288,25 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 						continue;
 					}
 
-					if (toCheck <= 0) {
+					// We only break if methodsPerTarget > 1 in order to disambiguate even when unnecessary due to implicit limit of 1
+					// e.g. If targeting method foo in [foo, bar -> baz, baz], we want to disambiguate the baz even though we would be
+					// targeting the correct method due to the max limit
+					if (toCheck <= 0 && methodsPerTarget > 1) {
 						break;
 					}
-					toCheck -= 1;
 
 					String otherDesc = data.mapper.mapDesc(method);
-					missingDescriptors.remove(otherDesc);
+					if (toCheck > 0) {
+						missingDescriptors.remove(otherDesc);
+					}
 
 					Pair<String, String> pair = Pair.of(otherName, otherDesc);
 					Set<TrClass> validClasses = fullMethodToTarget.get(pair);
 					if (validClasses == null || !validClasses.contains(target)) {
 						return false;
 					}
+
+					toCheck -= 1;
 				}
 
 				// This check is needed because we might be mapping a -> b,
