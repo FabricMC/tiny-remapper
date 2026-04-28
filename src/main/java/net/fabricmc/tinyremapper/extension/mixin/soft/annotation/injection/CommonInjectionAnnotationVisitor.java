@@ -288,10 +288,10 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 						continue;
 					}
 
-					toCheck -= 1;
 					if (toCheck <= 0) {
 						break;
 					}
+					toCheck -= 1;
 
 					String otherDesc = data.mapper.mapDesc(method);
 					missingDescriptors.remove(otherDesc);
