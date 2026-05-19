@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016, 2018, Player, asie
- * Copyright (c) 2025, FabricMC
+ * Copyright (c) 2026, FabricMC
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -22,21 +22,20 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import net.fabricmc.tinyremapper.extension.mixin.integration.targets.WildcardTarget;
+import net.fabricmc.tinyremapper.extension.mixin.integration.targets.SeparateRemappedNameTarget;
 
-@Mixin(WildcardTarget.class)
-public abstract class WildcardTargetMixin {
-	@Inject(method = "<init>*", at = @At(value = "RETURN"))
-	private void constructorHook(final CallbackInfo ci) {
+@Mixin(SeparateRemappedNameTarget.class)
+public class SeparateRemappedNameMixin {
+	@Inject(method = "addString", at = @At("HEAD"))
+	private void injectAddStringFirst(String string, CallbackInfo ci) {
 	}
 
-	@Inject(method = "*()Ljava/lang/String;", at = @At("HEAD"), cancellable = true)
-	private void injectName(CallbackInfoReturnable<String> ci) {
+	@Inject(method = "addString(Ljava/lang/String;I)V", at = @At("HEAD"))
+	private void injectAddStringSecond(String string, int value, CallbackInfo ci) {
 	}
 
-	@Inject(method = "targetA*", at = @At("HEAD"))
-	private void injectTargetA(CallbackInfo ci) {
+	@Inject(method = "addString*", at = @At("HEAD"))
+	private void injectAddStringBoth(CallbackInfo ci) {
 	}
 }
