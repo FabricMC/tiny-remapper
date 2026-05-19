@@ -96,7 +96,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			return new AnnotationVisitor(Constant.ASM_VERSION, av) {
 				@Override
 				public void visit(String name, Object value) {
-					String string = Objects.requireNonNull((String) value).replaceAll("\\s", "");
+					String string = Objects.requireNonNull((String) value);
 
 					// ending slash -> regex target
 					if (string.endsWith("/")) {
@@ -113,7 +113,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 						return;
 					}
 
-					MemberInfo info = MemberInfo.parse(string);
+					MemberInfo info = MemberInfo.parse(string.replaceAll("\\s", ""));
 
 					if (info == null) {
 						super.visit(name, value);
