@@ -19,6 +19,7 @@
 package net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -39,6 +40,7 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Pair;
 import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
+import net.fabricmc.tinyremapper.extension.mixin.soft.util.RegexMatcher;
 
 /**
  * If the {@code method} element does not contain a name, then do not remap it; If the
@@ -85,7 +87,45 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			return new AnnotationVisitor(Constant.ASM_VERSION, av) {
 				@Override
 				public void visit(String name, Object value) {
-					Optional<MemberInfo> info = Optional.ofNullable(MemberInfo.parse(Objects.requireNonNull((String) value).replaceAll("\\s", "")));
+					String string = Objects.requireNonNull((String) value).replaceAll("\\s", "");
+
+					// ending slash -> regex target
+					if (string.endsWith("/")) {
+						RegexMatcher matcher;
+
+						try {
+							matcher = RegexMatcher.parse(string);
+						} catch (RegexMatcher.ParsingException e) {
+							data.getLogger().warn("Error parsing mixin regex", e);
+							super.visit(name, value);
+							return;
+						}
+
+						List<? extends TrMethod> matchedMethods = Objects.requireNonNull(targets).stream()
+								.map(data.resolver::resolveClass)
+								.filter(Optional::isPresent)
+								.map(Optional::get)
+								.flatMap(trClass -> trClass.getMethods().stream())
+								.filter(trMethod -> matcher.matches(trMethod.getOwner().getName(), trMethod.getName(), trMethod.getDesc()))
+								.sorted(
+										Comparator
+												.<TrMethod, String>comparing(trMethod -> trMethod.getOwner().getName())
+												.thenComparing(TrMember::getName)
+												.thenComparing(TrMember::getDesc)
+								)
+								.collect(Collectors.toList());
+
+						for (TrMethod matchedMethod : matchedMethods) {
+							String mappedOwner = data.mapper.mapName(matchedMethod.getOwner());
+							String mappedName = data.mapper.mapName(matchedMethod);
+							String mappedDesc = data.mapper.mapDesc(matchedMethod);
+							super.visit(name, String.format("L%s;%s%s", mappedOwner, mappedName, mappedDesc));
+						}
+
+						return;
+					}
+
+					Optional<MemberInfo> info = Optional.ofNullable(MemberInfo.parse(string));
 
 					value = info.map(i -> new InjectMethodMappable(data, i, targets).result().toString()).orElse((String) value);
 
