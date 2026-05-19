@@ -104,6 +104,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					}
 
 					List<MemberInfo> resolved = new InjectMethodMappable(data, info, targets).result();
+
 					if (resolved.isEmpty()) {
 						throw new RuntimeException("InjectMethodMappable should never resolve to zero entries");
 					}
@@ -183,6 +184,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			desc = desc.isEmpty() ? null : desc;
 
 			Collection<TrMethod> col = owner.resolveMethods(name, desc, false, null, null);
+
 			if (col instanceof List) {
 				return (List<TrMethod>) col;
 			} else {
@@ -193,6 +195,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		@Override
 		public List<MemberInfo> result() {
 			String mappedOwner = info.getOwner();
+
 			if (!mappedOwner.isEmpty()) {
 				mappedOwner = data.mapper.asTrRemapper().map(mappedOwner);
 			}
@@ -205,6 +208,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 				// Simple case when we can't find the specific method by name
 
 				String desc = info.getDesc();
+
 				if (!desc.isEmpty()) {
 					desc = data.mapper.asTrRemapper().mapDesc(desc);
 				}
@@ -221,6 +225,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 				List<TrMethod> methods = resolvePartials(target, info.getName(), info.getDesc());
 
 				int matchedCount = Math.min(methods.size(), methodsPerTarget);
+
 				for (int i = 0; i < matchedCount; i++) {
 					TrMember method = methods.get(i);
 
@@ -255,12 +260,15 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					for (String mappedDesc : mappedDescriptors) {
 						if (canInject(mappedName, mappedDesc, fullMethodToTarget)) {
 							String quantifier = info.getQuantifier();
+
 							if (!explicitDesc) {
 								if (quantifierMin > 0) {
 									data.getLogger().error(Message.UNSUPPORTED_QUANTIFIER_MIN, info.toString());
 								}
+
 								quantifier = "";
 							}
+
 							list.add(new MemberInfo(mappedOwner, mappedName, quantifier, mappedDesc));
 						} else {
 							data.getLogger().error(Message.MISSING_INJECT, info.toString(), mappedName, mappedDesc);
@@ -286,6 +294,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 
 				for (TrMethod method : target.getMethods()) {
 					String otherName = data.mapper.mapName(method);
+
 					if (!otherName.equals(mappedName)) {
 						continue;
 					}
@@ -294,6 +303,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 
 					Pair<String, String> pair = Pair.of(otherName, otherDesc);
 					Set<TrClass> validClasses = fullMethodToTarget.get(pair);
+
 					if (validClasses == null || !validClasses.contains(target)) {
 						return false;
 					}
@@ -302,6 +312,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					// e.g. If targeting method foo in [foo, bar -> baz, baz], we want to disambiguate the baz even though we would be
 					// targeting the correct method due to the max limit
 					toCheck -= 1;
+
 					if (toCheck <= 0 && methodsPerTarget > 1) {
 						break;
 					}
@@ -314,12 +325,14 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		private boolean canInject(String mappedName, String mappedDesc, Map<Pair<String, String>, Set<TrClass>> fullMethodToTarget) {
 			Pair<String, String> pair = Pair.of(mappedName, mappedDesc);
 			Set<TrClass> validClasses = fullMethodToTarget.get(pair);
+
 			if (validClasses == null || validClasses.isEmpty()) {
 				return false;
 			}
 
 			for (TrClass target : targets) {
 				TrMethod method = target.getMethod(mappedName, mappedDesc);
+
 				if (method != null && !validClasses.contains(target)) {
 					return false;
 				}
@@ -337,18 +350,22 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		if (quantifier == null || quantifier.isEmpty()) {
 			return Pair.of(0, 1);
 		}
+
 		if (quantifier.equals("*")) {
 			return Pair.of(0, Integer.MAX_VALUE);
 		}
+
 		if (quantifier.equals("+")) {
 			return Pair.of(1, Integer.MAX_VALUE);
 		}
+
 		if (!quantifier.startsWith("{") || !quantifier.endsWith("}") || quantifier.length() < 3) {
 			data.getLogger().error(Message.UNABLE_TO_PARSE_QUANTIFIER, quantifier);
 			return Pair.of(0, 0);
 		}
 
 		String inner = quantifier.substring(1, quantifier.length() - 1).trim();
+
 		if (inner.isEmpty()) {
 			data.getLogger().error(Message.UNABLE_TO_PARSE_QUANTIFIER, quantifier);
 			return Pair.of(0, 0);
@@ -358,6 +375,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		String strMax = inner;
 
 		int comma = inner.indexOf(',');
+
 		if (comma > -1) {
 			strMin = inner.substring(0, comma).trim();
 			strMax = inner.substring(comma + 1).trim();
@@ -371,9 +389,5 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			data.getLogger().error(Message.UNABLE_TO_PARSE_QUANTIFIER, quantifier);
 			return Pair.of(0, 0);
 		}
-
 	}
-
-
-
 }

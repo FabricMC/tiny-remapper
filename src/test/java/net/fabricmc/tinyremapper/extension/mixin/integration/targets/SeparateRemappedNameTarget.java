@@ -21,6 +21,7 @@ package net.fabricmc.tinyremapper.extension.mixin.integration.targets;
 public class SeparateRemappedNameTarget {
 	public void addString(String string) {
 	}
+
 	public void addString(String string, int value) {
 	}
 }
