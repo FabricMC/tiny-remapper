@@ -45,11 +45,13 @@ import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.AmbiguousRem
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.DescAtMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.LvtRemapTargetMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.NonObfuscatedOverrideMixin;
+import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.SeparateRemappedNameMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.WildcardTargetMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.AmbiguousRemappedNameTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.DescAtTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.LvtRemapTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.NonObfuscatedOverrideTarget;
+import net.fabricmc.tinyremapper.extension.mixin.integration.targets.SeparateRemappedNameTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.WildcardTarget;
 
 public class MixinIntegrationTest {
@@ -58,13 +60,23 @@ public class MixinIntegrationTest {
 
 	@Test
 	public void remapWildcardName() throws IOException {
-		String remapped = remap(WildcardTarget.class, WildcardTargetMixin.class, out ->
-				out.acceptClass("java/lang/String", "com/example/NotString"));
+		String remapped = remap(WildcardTarget.class, WildcardTargetMixin.class, out -> {
+			String fqn = "net/fabricmc/tinyremapper/extension/mixin/integration/targets/WildcardTarget";
+			out.acceptClass("java/lang/String", "com/example/NotString");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "targetA", "(Ljava/lang/Object;)V"), "sameName");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "targetA", "()Ljava/lang/String;"), "sameName");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "targetB", "()Ljava/lang/Object;"), "sameName");
+		});
 
 		// Check constructor inject did not gain a desc
+		// <init>* -> <init>*
 		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"<init>*\"}"));
 		// Check that wildcard desc is remapped without a name
+		// *()Ljava/lang/String; -> *()Lcom/example/NotString;
 		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"*()Lcom/example/NotString;\"}"));
+		// Check that wildcards are expanded with descriptor to avoid incorrect targets (targetB)
+		// targetA* -> {"sameName()Lcom/example/NotString;", "sameName(Ljava/lang/Object;)V"}
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"sameName()Lcom/example/NotString;\", \"sameName(Ljava/lang/Object;)V\"}"));
 	}
 
 	@Test
@@ -83,7 +95,7 @@ public class MixinIntegrationTest {
 	}
 
 	@Test
-	public void remapAmbiuousRemappedName() throws IOException {
+	public void remapAmbiguousRemappedName() throws IOException {
 		String remapped = remap(AmbiguousRemappedNameTarget.class, AmbiguousRemappedNameMixin.class, out -> {
 			String fqn = "net/fabricmc/tinyremapper/extension/mixin/integration/targets/AmbiguousRemappedNameTarget";
 			out.acceptClass(fqn, "com/example/Remapped");
@@ -92,7 +104,27 @@ public class MixinIntegrationTest {
 		});
 
 		// full signature is used to disambiguate names
+		// addString -> add(Ljava/lang/String;)V
 		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"add(Ljava/lang/String;)V\""));
+	}
+
+	@Test
+	public void remapSeparateRemappedName() throws IOException {
+		String remapped = remap(SeparateRemappedNameTarget.class, SeparateRemappedNameMixin.class, out -> {
+			String fqn = "net/fabricmc/tinyremapper/extension/mixin/integration/targets/SeparateRemappedNameTarget";
+			out.acceptMethod(new IMappingProvider.Member(fqn, "addString", "(Ljava/lang/String;)V"), "add1");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "addString", "(Ljava/lang/String;I)V"), "add2");
+		});
+
+		// Ensure that descriptor isn't added and first method is targeted
+		// addString -> add1
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"add1\"}"));
+		// Ensure that descriptor is kept and second method is targeted
+		// addString(Ljava/lang/String;I)V -> add2(Ljava/lang/String;I)V
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"add2(Ljava/lang/String;I)V\"}"));
+		// Ensure that both methods are targeted by wildcard
+		// addString* -> {"add1*", "add2*"}
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Inject;(method={\"add1*\", \"add2*\"}"));
 	}
 
 	@Test

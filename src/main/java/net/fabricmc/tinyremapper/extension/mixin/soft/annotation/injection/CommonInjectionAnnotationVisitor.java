@@ -18,10 +18,20 @@
 
 package net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.SortedSet;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.objectweb.asm.AnnotationVisitor;
@@ -31,7 +41,6 @@ import net.fabricmc.tinyremapper.api.TrMember;
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.api.TrMethod;
 import net.fabricmc.tinyremapper.extension.mixin.common.IMappable;
-import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
@@ -85,11 +94,24 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			return new AnnotationVisitor(Constant.ASM_VERSION, av) {
 				@Override
 				public void visit(String name, Object value) {
-					Optional<MemberInfo> info = Optional.ofNullable(MemberInfo.parse(Objects.requireNonNull((String) value).replaceAll("\\s", "")));
+					String string = Objects.requireNonNull((String) value);
 
-					value = info.map(i -> new InjectMethodMappable(data, i, targets).result().toString()).orElse((String) value);
+					MemberInfo info = MemberInfo.parse(string.replaceAll("\\s", ""));
 
-					super.visit(name, value);
+					if (info == null) {
+						super.visit(name, value);
+						return;
+					}
+
+					List<MemberInfo> resolved = new InjectMethodMappable(data, info, targets).result();
+
+					if (resolved.isEmpty()) {
+						throw new RuntimeException("InjectMethodMappable should never resolve to zero entries");
+					}
+
+					for (MemberInfo remappedInfo : resolved) {
+						super.visit(name, remappedInfo.toString());
+					}
 				}
 			};
 		} else if (name.equals(AnnotationElement.TARGET)) {	// All
@@ -133,7 +155,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		return av;
 	}
 
-	private static class InjectMethodMappable implements IMappable<MemberInfo> {
+	private static class InjectMethodMappable implements IMappable<List<MemberInfo>> {
 		private final CommonData data;
 		private final MemberInfo info;
 		private final List<TrClass> targets;
@@ -155,58 +177,217 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			}
 		}
 
-		private Optional<TrMember> resolvePartial(TrClass owner, String name, String desc) {
+		private List<TrMethod> resolvePartials(TrClass owner, String name, String desc) {
 			Objects.requireNonNull(owner);
 
 			name = name.isEmpty() ? null : name;
 			desc = desc.isEmpty() ? null : desc;
 
-			return data.resolver.resolveMethod(owner, name, desc, ResolveUtility.FLAG_FIRST | ResolveUtility.FLAG_NON_SYN).map(m -> m);
+			Collection<TrMethod> col = owner.resolveMethods(name, desc, false, null, null);
+
+			if (col instanceof List) {
+				return (List<TrMethod>) col;
+			} else {
+				return new ArrayList<>(col);
+			}
 		}
 
 		@Override
-		public MemberInfo result() {
-			// Special case to remap the desc of wildcards without a name, such as `*()Lcom/example/ClassName;`
-			if (info.getOwner().isEmpty()
-					&& info.getName().isEmpty()
-					&& info.getQuantifier().equals("*")
-					&& !info.getDesc().isEmpty()) {
-				return new MemberInfo(info.getOwner(), info.getName(), info.getQuantifier(), data.mapper.asTrRemapper().mapDesc(info.getDesc()));
+		public List<MemberInfo> result() {
+			String mappedOwner = info.getOwner();
+
+			if (!mappedOwner.isEmpty()) {
+				mappedOwner = data.mapper.asTrRemapper().map(mappedOwner);
 			}
 
-			if (targets.isEmpty() || info.getName().isEmpty()) {
-				return info;
+			Pair<Integer, Integer> parsedQuantifier = parseQuantifier(data, info.getQuantifier());
+			int quantifierMin = parsedQuantifier.first();
+			int methodsPerTarget = parsedQuantifier.second();
+
+			if (targets.isEmpty() || info.getName().isEmpty() || methodsPerTarget <= 0) {
+				// Simple case when we can't find the specific method by name
+
+				String desc = info.getDesc();
+
+				if (!desc.isEmpty()) {
+					desc = data.mapper.asTrRemapper().mapDesc(desc);
+				}
+
+				return Collections.singletonList(new MemberInfo(mappedOwner, info.getName(), info.getQuantifier(), desc));
 			}
 
-			List<Pair<String, String>> collection = targets.stream()
-					.map(target -> resolvePartial(target, info.getName(), info.getDesc()))
-					.filter(Optional::isPresent)
-					.map(Optional::get)
-					.map(m -> {
-						String mappedName = data.mapper.mapName(m);
-						boolean shouldPassDesc = false;
+			// Step 1. Collect all methods we want to target
 
-						for (TrMethod other : m.getOwner().getMethods()) { // look for ambiguous targets
-							if (other == m) continue;
+			Map<Pair<String, String>, Set<TrClass>> fullMethodToTarget = new HashMap<>();
+			SortedMap<String, SortedSet<String>> namesToDesc = new TreeMap<>();
 
-							if (data.mapper.mapName(other).equals(mappedName)) {
-								shouldPassDesc = true;
+			for (TrClass target : targets) {
+				List<TrMethod> methods = resolvePartials(target, info.getName(), info.getDesc());
+
+				int matchedCount = Math.min(methods.size(), methodsPerTarget);
+
+				for (int i = 0; i < matchedCount; i++) {
+					TrMember method = methods.get(i);
+
+					String mappedName = data.mapper.mapName(method);
+					String mappedDesc = data.mapper.mapDesc(method);
+
+					fullMethodToTarget.computeIfAbsent(Pair.of(mappedName, mappedDesc), k -> new HashSet<>()).add(target);
+					namesToDesc.computeIfAbsent(mappedName, k -> new TreeSet<>()).add(mappedDesc);
+				}
+			}
+
+			if (fullMethodToTarget.isEmpty()) {
+				data.getLogger().warn(Message.NO_MAPPING_NON_RECURSIVE, info.toString(), targets);
+				return Collections.singletonList(info);
+			}
+
+			// Step 2. Try adding methods
+			// We need to avoid injecting into methods which weren't injected into in the source namespace
+			// The canInject() functions check to make sure we aren't targeting something unwanted
+
+			List<MemberInfo> list = new ArrayList<>();
+
+			boolean explicitDesc = !info.getDesc().isEmpty();
+
+			for (Map.Entry<String, SortedSet<String>> entry : namesToDesc.entrySet()) {
+				String mappedName = entry.getKey();
+				SortedSet<String> mappedDescriptors = entry.getValue();
+
+				if (!explicitDesc && canInject(mappedName, methodsPerTarget, fullMethodToTarget)) { // Try to apply method name without descriptor if possible
+					list.add(new MemberInfo(mappedOwner, mappedName, info.getQuantifier(), ""));
+				} else {
+					for (String mappedDesc : mappedDescriptors) {
+						if (canInject(mappedName, mappedDesc, fullMethodToTarget)) {
+							String quantifier = info.getQuantifier();
+
+							if (!explicitDesc) {
+								if (quantifierMin > 0) {
+									data.getLogger().error(Message.UNSUPPORTED_QUANTIFIER_MIN, info.toString());
+								}
+
+								quantifier = "";
 							}
+
+							list.add(new MemberInfo(mappedOwner, mappedName, quantifier, mappedDesc));
+						} else {
+							data.getLogger().error(Message.MISSING_INJECT, info.toString(), mappedName, mappedDesc);
 						}
-
-						return Pair.of(mappedName, shouldPassDesc ? data.mapper.mapDesc(m) : "");
-					})
-					.distinct().collect(Collectors.toList());
-
-			if (collection.size() > 1) {
-				data.getLogger().error(Message.CONFLICT_MAPPING, info.getName(), collection);
-			} else if (collection.isEmpty()) {
-				data.getLogger().warn(Message.NO_MAPPING_NON_RECURSIVE, info.getName(), targets);
+					}
+				}
 			}
 
-			return collection.stream().findFirst()
-					.map(pair -> new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), pair.first(), info.getQuantifier(), info.getQuantifier().equals("*") ? "" : pair.second()))
-					.orElse(info);
+			if (list.isEmpty()) {
+				return Collections.singletonList(info);
+			}
+
+			return list;
+		}
+
+		private boolean canInject(String mappedName, int methodsPerTarget, Map<Pair<String, String>, Set<TrClass>> fullMethodToTarget) {
+			if (methodsPerTarget <= 0) {
+				throw new IllegalArgumentException();
+			}
+
+			for (TrClass target : targets) {
+				int toCheck = methodsPerTarget;
+
+				for (TrMethod method : target.getMethods()) {
+					String otherName = data.mapper.mapName(method);
+
+					if (!otherName.equals(mappedName)) {
+						continue;
+					}
+
+					String otherDesc = data.mapper.mapDesc(method);
+
+					Pair<String, String> pair = Pair.of(otherName, otherDesc);
+					Set<TrClass> validClasses = fullMethodToTarget.get(pair);
+
+					if (validClasses == null || !validClasses.contains(target)) {
+						return false;
+					}
+
+					// We only break if methodsPerTarget > 1 in order to disambiguate even when unnecessary due to implicit limit of 1
+					// e.g. If targeting method foo in [foo, bar -> baz, baz], we want to disambiguate the baz even though we would be
+					// targeting the correct method due to the max limit
+					toCheck -= 1;
+
+					if (toCheck <= 0 && methodsPerTarget > 1) {
+						break;
+					}
+				}
+			}
+
+			return true;
+		}
+
+		private boolean canInject(String mappedName, String mappedDesc, Map<Pair<String, String>, Set<TrClass>> fullMethodToTarget) {
+			Pair<String, String> pair = Pair.of(mappedName, mappedDesc);
+			Set<TrClass> validClasses = fullMethodToTarget.get(pair);
+
+			if (validClasses == null || validClasses.isEmpty()) {
+				return false;
+			}
+
+			for (TrClass target : targets) {
+				TrMethod method = target.getMethod(mappedName, mappedDesc);
+
+				if (method != null && !validClasses.contains(target)) {
+					return false;
+				}
+			}
+
+			return true;
+		}
+	}
+
+	// Code based on Mixin Quantifier parsing code
+	// Copyright (c) SpongePowered <https://www.spongepowered.org>
+	// Copyright (c) contributors
+	// https://github.com/FabricMC/Mixin/blob/e4edb3afad347f7561acf6a9dd4a64f2aa479658/src/main/java/org/spongepowered/asm/util/Quantifier.java
+	private static Pair<Integer, Integer> parseQuantifier(CommonData data, String quantifier) {
+		if (quantifier == null || quantifier.isEmpty()) {
+			return Pair.of(0, 1);
+		}
+
+		if (quantifier.equals("*")) {
+			return Pair.of(0, Integer.MAX_VALUE);
+		}
+
+		if (quantifier.equals("+")) {
+			return Pair.of(1, Integer.MAX_VALUE);
+		}
+
+		if (!quantifier.startsWith("{") || !quantifier.endsWith("}") || quantifier.length() < 3) {
+			data.getLogger().error(Message.UNABLE_TO_PARSE_QUANTIFIER, quantifier);
+			return Pair.of(0, 0);
+		}
+
+		String inner = quantifier.substring(1, quantifier.length() - 1).trim();
+
+		if (inner.isEmpty()) {
+			data.getLogger().error(Message.UNABLE_TO_PARSE_QUANTIFIER, quantifier);
+			return Pair.of(0, 0);
+		}
+
+		String strMin = inner;
+		String strMax = inner;
+
+		int comma = inner.indexOf(',');
+
+		if (comma > -1) {
+			strMin = inner.substring(0, comma).trim();
+			strMax = inner.substring(comma + 1).trim();
+		}
+
+		try {
+			int min = !strMin.isEmpty() ? Integer.parseInt(strMin) : 0;
+			int max = !strMax.isEmpty() ? Integer.parseInt(strMax) : Integer.MAX_VALUE;
+			return Pair.of(min, Math.max(min, max));
+		} catch (NumberFormatException ex) {
+			data.getLogger().error(Message.UNABLE_TO_PARSE_QUANTIFIER, quantifier);
+			return Pair.of(0, 0);
 		}
 	}
 }
