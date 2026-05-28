@@ -45,12 +45,14 @@ import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.AmbiguousRem
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.DescAtMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.LvtRemapTargetMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.NonObfuscatedOverrideMixin;
+import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.RegexMethodTargetMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.SeparateRemappedNameMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.WildcardTargetMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.AmbiguousRemappedNameTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.DescAtTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.LvtRemapTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.NonObfuscatedOverrideTarget;
+import net.fabricmc.tinyremapper.extension.mixin.integration.targets.RegexMethodTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.SeparateRemappedNameTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.WildcardTarget;
 
@@ -153,6 +155,22 @@ public class MixinIntegrationTest {
 		});
 
 		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/Desc;(args={java.lang.String.class}, ret=int.class, value=\"at\""));
+	}
+
+	@Test
+	public void remapRegexMethodTarget() throws IOException {
+		String remapped = remap(RegexMethodTarget.class, RegexMethodTargetMixin.class, out -> {
+			String fqn = "net/fabricmc/tinyremapper/extension/mixin/integration/targets/RegexMethodTarget";
+			out.acceptClass(fqn, "com/example/Remapped");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "target0", "()Ljava/lang/String;"), "t0");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "target0", "(Ljava/lang/String;)Ljava/lang/String;"), "t00");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "target1", "()Ljava/lang/String;"), "t1");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "target2", "(Ljava/util/List;)Ljava/lang/String;"), "t2");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "target3", "(Ljava/lang/String;)V"), "t3");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "thing4", "()Ljava/lang/String;"), "thing");
+		});
+
+		assertTrue(remapped.contains("method={\"Lcom/example/Remapped;t0()Ljava/lang/String;\", \"Lcom/example/Remapped;t00(Ljava/lang/String;)Ljava/lang/String;\", \"Lcom/example/Remapped;t1()Ljava/lang/String;\", \"Lcom/example/Remapped;t2(Ljava/util/List;)Ljava/lang/String;\"}"));
 	}
 
 	private String remap(Class<?> target, Class<?> mixin, IMappingProvider mappings) throws IOException {

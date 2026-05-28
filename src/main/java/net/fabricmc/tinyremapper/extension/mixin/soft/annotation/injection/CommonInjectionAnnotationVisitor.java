@@ -21,6 +21,7 @@ package net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -48,6 +49,7 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Pair;
 import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
+import net.fabricmc.tinyremapper.extension.mixin.soft.util.RegexMatcher;
 
 /**
  * If the {@code method} element does not contain a name, then do not remap it; If the
@@ -95,6 +97,21 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 				@Override
 				public void visit(String name, Object value) {
 					String string = Objects.requireNonNull((String) value);
+
+					// ending slash -> regex target
+					if (string.endsWith("/")) {
+						List<String> resolved = resolveAndRemapMixinRegex(string);
+
+						if (resolved == null) {
+							super.visit(name, value);
+						} else {
+							for (String remappedSelector : resolved) {
+								super.visit(name, remappedSelector);
+							}
+						}
+
+						return;
+					}
 
 					MemberInfo info = MemberInfo.parse(string.replaceAll("\\s", ""));
 
@@ -153,6 +170,42 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		}
 
 		return av;
+	}
+
+	private List<String> resolveAndRemapMixinRegex(String input) {
+		RegexMatcher matcher;
+
+		try {
+			matcher = RegexMatcher.parse(input);
+		} catch (RegexMatcher.ParsingException e) {
+			data.getLogger().warn("Error parsing mixin regex %s: %s", input, e.toString());
+			return null;
+		}
+
+		List<? extends TrMethod> matchedMethods = Objects.requireNonNull(targets).stream()
+				.map(data.resolver::resolveClass)
+				.filter(Optional::isPresent)
+				.map(Optional::get)
+				.flatMap(trClass -> trClass.getMethods().stream())
+				.filter(trMethod -> matcher.matches(trMethod.getOwner().getName(), trMethod.getName(), trMethod.getDesc()))
+				.sorted(
+						Comparator
+								.<TrMethod, String>comparing(trMethod -> trMethod.getOwner().getName())
+								.thenComparing(TrMember::getName)
+								.thenComparing(TrMember::getDesc)
+				)
+				.collect(Collectors.toList());
+
+		List<String> result = new ArrayList<>();
+
+		for (TrMethod matchedMethod : matchedMethods) {
+			String mappedOwner = data.mapper.mapName(matchedMethod.getOwner());
+			String mappedName = data.mapper.mapName(matchedMethod);
+			String mappedDesc = data.mapper.mapDesc(matchedMethod);
+			result.add(String.format("L%s;%s%s", mappedOwner, mappedName, mappedDesc));
+		}
+
+		return result;
 	}
 
 	private static class InjectMethodMappable implements IMappable<List<MemberInfo>> {
