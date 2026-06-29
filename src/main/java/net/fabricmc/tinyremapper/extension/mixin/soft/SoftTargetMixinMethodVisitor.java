@@ -18,8 +18,10 @@
 
 package net.fabricmc.tinyremapper.extension.mixin.soft;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -45,12 +47,14 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapM
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapOperationAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapWithConditionAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapWithConditionV2AnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
 
 class SoftTargetMixinMethodVisitor extends MethodVisitor {
 	private final CommonData data;
 	private final MxMember method;
 
 	private final List<String> targets;
+	private final Set<MemberInfo> knownTargetMethods;
 
 	SoftTargetMixinMethodVisitor(CommonData data, MethodVisitor delegate, MxMember method, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
@@ -58,6 +62,7 @@ class SoftTargetMixinMethodVisitor extends MethodVisitor {
 		this.method = Objects.requireNonNull(method);
 
 		this.targets = Objects.requireNonNull(targets);
+		this.knownTargetMethods = new HashSet<>();
 	}
 
 	@Override
@@ -70,31 +75,31 @@ class SoftTargetMixinMethodVisitor extends MethodVisitor {
 		case Annotation.INVOKER:
 			return new InvokerAnnotationVisitor(data, av, method, targets);
 		case Annotation.INJECT:
-			return new InjectAnnotationVisitor(data, av, targets);
+			return new InjectAnnotationVisitor(data, av, targets, knownTargetMethods);
 		case Annotation.MODIFY_ARG:
-			return new ModifyArgAnnotationVisitor(data, av, targets);
+			return new ModifyArgAnnotationVisitor(data, av, targets, knownTargetMethods);
 		case Annotation.MODIFY_ARGS:
-			return new ModifyArgsAnnotationVisitor(data, av, targets);
+			return new ModifyArgsAnnotationVisitor(data, av, targets, knownTargetMethods);
 		case Annotation.MODIFY_CONSTANT:
-			return new ModifyConstantAnnotationVisitor(data, av, targets);
+			return new ModifyConstantAnnotationVisitor(data, av, targets, knownTargetMethods);
 		case Annotation.MODIFY_VARIABLE:
-			return new ModifyVariableAnnotationVisitor(data, av, targets);
+			return new ModifyVariableAnnotationVisitor(data, av, targets, knownTargetMethods);
 		case Annotation.REDIRECT:
-			return new RedirectAnnotationVisitor(data, av, targets);
+			return new RedirectAnnotationVisitor(data, av, targets, knownTargetMethods);
 		case Annotation.MIXIN_EXTRAS_MODIFY_EXPRESSION_VALUE:
-			return new ModifyExpressionValueAnnotationVisitor(data, av, targets);
+			return new ModifyExpressionValueAnnotationVisitor(data, av, targets, knownTargetMethods);
 		case Annotation.MIXIN_EXTRAS_MODIFY_RECEIVER:
-			return new ModifyReceiverAnnotationVisitor(data, av, targets);
+			return new ModifyReceiverAnnotationVisitor(data, av, targets, knownTargetMethods);
 		case Annotation.MIXIN_EXTRAS_MODIFY_RETURN_VALUE:
-			return new ModifyReturnValueAnnotationVisitor(data, av, targets);
+			return new ModifyReturnValueAnnotationVisitor(data, av, targets, knownTargetMethods);
 		case Annotation.MIXIN_EXTRAS_WRAP_METHOD:
-			return new WrapMethodAnnotationVisitor(data, av, targets);
+			return new WrapMethodAnnotationVisitor(data, av, targets, knownTargetMethods);
 		case Annotation.MIXIN_EXTRAS_WRAP_OPERATION:
-			return new WrapOperationAnnotationVisitor(data, av, targets);
+			return new WrapOperationAnnotationVisitor(data, av, targets, knownTargetMethods);
 		case Annotation.MIXIN_EXTRAS_WRAP_WITH_CONDITION:
-			return new WrapWithConditionAnnotationVisitor(data, av, targets);
+			return new WrapWithConditionAnnotationVisitor(data, av, targets, knownTargetMethods);
 		case Annotation.MIXIN_EXTRAS_WRAP_WITH_CONDITION_V2:
-			return new WrapWithConditionV2AnnotationVisitor(data, av, targets);
+			return new WrapWithConditionV2AnnotationVisitor(data, av, targets, knownTargetMethods);
 		case Annotation.MIXIN_EXTRAS_DEFINITIONS:
 			return new DefinitionsAnnotationVisitor(data, av);
 		case Annotation.MIXIN_EXTRAS_DEFINITION:

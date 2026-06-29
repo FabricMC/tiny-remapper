@@ -30,4 +30,9 @@ public class LvtRemapTargetMixin {
 	private String modifyStr3(String str3) {
 		return "noice";
 	}
+
+	@ModifyVariable(at = @At("HEAD"), name = "str3", method = "target")
+	private String modifyStr3Reordered(String str3) {
+		return "noice";
+	}
 }
