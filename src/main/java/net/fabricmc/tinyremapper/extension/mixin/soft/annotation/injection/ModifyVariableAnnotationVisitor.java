@@ -19,9 +19,7 @@
 package net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -31,7 +29,6 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.tree.AnnotationNode;
 
 import net.fabricmc.tinyremapper.api.TrClass;
-import net.fabricmc.tinyremapper.api.TrLocal;
 import net.fabricmc.tinyremapper.api.TrMethod;
 import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
@@ -40,6 +37,7 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
 import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
+import net.fabricmc.tinyremapper.extension.mixin.soft.util.LocalsMapper;
 
 public class ModifyVariableAnnotationVisitor extends AnnotationNode {
 	private final CommonData data;
@@ -144,36 +142,8 @@ public class ModifyVariableAnnotationVisitor extends AnnotationNode {
 								.collect(Collectors.toList());
 
 						List<String> collection = targetMethods.stream()
-								.map(m -> {
-									TrLocal[] localVariables = m.getLocals();
-
-									if (localVariables == null || localVariables.length == 0) {
-										return localName;
-									}
-
-									Map<String, Integer> lvtName2Index = new HashMap<>();
-
-									for (TrLocal variable : localVariables) {
-										if (!lvtName2Index.containsKey(variable.getName())) {
-											lvtName2Index.put(variable.getName(), variable.getIndex());
-										} else {
-											lvtName2Index.put(variable.getName(), -1); // TODO actually generate lvt for injection points, currently only handles unique names
-										}
-									}
-
-									if (!lvtName2Index.containsKey(localName)) {
-										return localName;
-									}
-
-									int lvIndex = lvtName2Index.get(localName);
-
-									if (lvIndex < 0) {
-										return localName;
-									}
-
-									return data.mapper.asTrRemapper().mapMethodArg(m.getOwner().getName(), m.getName(), m.getDesc(), lvIndex, localName);
-								})
-								.distinct().collect(Collectors.toList());
+								.map(m -> LocalsMapper.mapLocal(data, m, localName))
+								.sorted().distinct().collect(Collectors.toList());
 
 						if (collection.size() > 1) {
 							data.getLogger().error(Message.CONFLICT_MAPPING, localName, collection);

@@ -32,6 +32,7 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.MxMember;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.AccessorAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.InvokerAnnotationVisitor;
+import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.SugarLocalAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.DefinitionAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.DefinitionsAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.InjectAnnotationVisitor;
@@ -104,6 +105,21 @@ class SoftTargetMixinMethodVisitor extends MethodVisitor {
 			return new DefinitionsAnnotationVisitor(data, av);
 		case Annotation.MIXIN_EXTRAS_DEFINITION:
 			return new DefinitionAnnotationVisitor(data, av);
+		}
+
+		return av;
+	}
+
+	/**
+	 * This is called after visitAnnotation.
+	 */
+	@Override
+	public AnnotationVisitor visitParameterAnnotation(int parameter, String descriptor, boolean visible) {
+		AnnotationVisitor av = super.visitParameterAnnotation(parameter, descriptor, visible);
+
+		switch (descriptor) {
+		case Annotation.MIXIN_EXTRAS_SUGAR_LOCAL:
+			return new SugarLocalAnnotationVisitor(data, av, knownTargetMethods);
 		}
 
 		return av;
