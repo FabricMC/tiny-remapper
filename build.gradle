@@ -32,6 +32,9 @@ dependencies {
 	testImplementation ('net.fabricmc:sponge-mixin:0.16.2+mixin.0.8.7') {
 		transitive = false
 	}
+	testImplementation ('io.github.llamalad7:mixinextras-common:0.5.4') {
+		transitive = false
+	}
 }
 
 java {
