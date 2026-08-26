@@ -40,5 +40,20 @@ public interface IMappingProvider {
 		public String owner;
 		public String name;
 		public String desc;
+
+		@Override
+		public int hashCode() {
+			return (31 * (31 * owner.hashCode()) + name.hashCode()) + desc.hashCode();
+		}
+
+		@Override
+		public boolean equals(Object other) {
+			if (!(other instanceof Member)) {
+				return false;
+			} else {
+				Member otherMember = (Member) other;
+				return owner.equals(otherMember.owner) && name.equals(otherMember.owner) && desc.equals(otherMember.desc);
+			}
+		}
 	}
 }
