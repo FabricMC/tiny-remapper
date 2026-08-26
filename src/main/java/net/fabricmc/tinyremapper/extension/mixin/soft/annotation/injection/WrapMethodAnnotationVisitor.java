@@ -19,13 +19,15 @@
 package net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection;
 
 import java.util.List;
+import java.util.Set;
 
 import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
+import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
 
 public class WrapMethodAnnotationVisitor extends CommonInjectionAnnotationVisitor {
-	public WrapMethodAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets) {
-		super(data, delegate, targets);
+	public WrapMethodAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets, Set<MemberInfo> knownTargetMethods) {
+		super(data, delegate, targets, knownTargetMethods);
 	}
 }

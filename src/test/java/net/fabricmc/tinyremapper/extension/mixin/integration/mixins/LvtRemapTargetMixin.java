@@ -18,9 +18,12 @@
 
 package net.fabricmc.tinyremapper.extension.mixin.integration.mixins;
 
+import com.llamalad7.mixinextras.sugar.Local;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.LvtRemapTarget;
 
@@ -29,5 +32,14 @@ public class LvtRemapTargetMixin {
 	@ModifyVariable(method = "target", at = @At("HEAD"), name = "str3")
 	private String modifyStr3(String str3) {
 		return "noice";
+	}
+
+	@ModifyVariable(at = @At("HEAD"), name = "str3", method = "target")
+	private String modifyStr3Reordered(String str3) {
+		return "noice";
+	}
+
+	@Inject(method = "target", at = @At("HEAD"))
+	private void captureStr3WithLocal(CallbackInfo ci, @Local(name = "str3", argsOnly = true) String str3) {
 	}
 }

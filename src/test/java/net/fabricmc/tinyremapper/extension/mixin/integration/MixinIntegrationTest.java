@@ -143,6 +143,8 @@ public class MixinIntegrationTest {
 		});
 
 		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/ModifyVariable;(method={\"targetRemapped\"}, at=@Lorg/spongepowered/asm/mixin/injection/At;(value=\"HEAD\"), name={\"remappedStr3\"})"));
+		assertTrue(remapped.contains("@Lorg/spongepowered/asm/mixin/injection/ModifyVariable;(at=@Lorg/spongepowered/asm/mixin/injection/At;(value=\"HEAD\"), method={\"targetRemapped\"}, name={\"remappedStr3\"})"));
+		assertTrue(remapped.contains("@Lcom/llamalad7/mixinextras/sugar/Local;(name={\"remappedStr3\"}, argsOnly=true) // invisible, parameter 1"));
 	}
 
 	@Test

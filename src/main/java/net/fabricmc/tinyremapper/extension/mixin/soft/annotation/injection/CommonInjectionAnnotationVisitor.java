@@ -59,12 +59,14 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.util.RegexMatcher;
 class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 	protected final CommonData data;
 	protected final List<String> targets;
+	protected final Set<MemberInfo> knownTargetMethods;
 
-	CommonInjectionAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets) {
+	CommonInjectionAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets, Set<MemberInfo> knownTargetMethods) {
 		super(Constant.ASM_VERSION, Objects.requireNonNull(delegate));
 
 		this.data = Objects.requireNonNull(data);
 		this.targets = Objects.requireNonNull(targets);
+		this.knownTargetMethods = Objects.requireNonNull(knownTargetMethods);
 	}
 
 	@Override
@@ -120,7 +122,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 						return;
 					}
 
-					List<MemberInfo> resolved = new InjectMethodMappable(data, info, targets).result();
+					List<MemberInfo> resolved = new InjectMethodMappable(data, info, targets, knownTargetMethods).result();
 
 					if (resolved.isEmpty()) {
 						throw new RuntimeException("InjectMethodMappable should never resolve to zero entries");
@@ -203,6 +205,8 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			String mappedName = data.mapper.mapName(matchedMethod);
 			String mappedDesc = data.mapper.mapDesc(matchedMethod);
 			result.add(String.format("L%s;%s%s", mappedOwner, mappedName, mappedDesc));
+
+			this.knownTargetMethods.add(new MemberInfo(matchedMethod.getOwner().getName(), matchedMethod.getName(), "", matchedMethod.getDesc()));
 		}
 
 		return result;
@@ -212,10 +216,12 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		private final CommonData data;
 		private final MemberInfo info;
 		private final List<TrClass> targets;
+		protected final Set<MemberInfo> knownTargetMethods;
 
-		InjectMethodMappable(CommonData data, MemberInfo info, List<String> targets) {
+		InjectMethodMappable(CommonData data, MemberInfo info, List<String> targets, Set<MemberInfo> knownTargetMethods) {
 			this.data = Objects.requireNonNull(data);
 			this.info = Objects.requireNonNull(info);
+			this.knownTargetMethods = Objects.requireNonNull(knownTargetMethods);
 
 			if (info.getOwner().isEmpty()) {
 				this.targets = Objects.requireNonNull(targets).stream()
@@ -287,6 +293,8 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 
 					fullMethodToTarget.computeIfAbsent(Pair.of(mappedName, mappedDesc), k -> new HashSet<>()).add(target);
 					namesToDesc.computeIfAbsent(mappedName, k -> new TreeSet<>()).add(mappedDesc);
+
+					this.knownTargetMethods.add(new MemberInfo(target.getName(), method.getName(), "", method.getDesc()));
 				}
 			}
 
