@@ -115,7 +115,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 						return;
 					}
 
-					MemberInfo info = MemberInfo.parse(string.replaceAll("\\s", ""));
+					MemberInfo info = MemberInfo.parse(string);
 
 					if (info == null) {
 						super.visit(name, value);

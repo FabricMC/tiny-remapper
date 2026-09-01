@@ -135,5 +135,13 @@ class MemberInfoTest {
 		assertEquals(info.getQuantifier(), "*");
 		assertEquals(info.getDesc(), "()Lcom/example/ExampleClass;");
 		assertEquals(info.toString(), "*()Lcom/example/ExampleClass;");
+
+		info = MemberInfo.parse(" com/example/Owner . someMethod {1, 2} ()Z ");
+		assertNotNull(info);
+		assertEquals(info.getType(), MemberType.METHOD);
+		assertEquals(info.getOwner(), "com/example/Owner");
+		assertEquals(info.getName(), "someMethod");
+		assertEquals(info.getQuantifier(), "{1, 2}");
+		assertEquals(info.getDesc(), "()Z");
 	}
 }

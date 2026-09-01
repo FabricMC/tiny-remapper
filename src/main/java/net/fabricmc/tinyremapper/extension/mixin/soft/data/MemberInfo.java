@@ -73,11 +73,11 @@ public final class MemberInfo {
 	}
 
 	public static MemberInfo parse(String str) {
+		str = str.trim();
+
 		if (isRegex(str) || isDynamic(str)) {
 			return null;
 		}
-
-		str = str.replaceAll("\\s", "");
 
 		// str = owner | name | quantifier | descriptor
 
@@ -86,34 +86,34 @@ public final class MemberInfo {
 		owner = name = quantifier = descriptor = "";
 
 		if ((sep = str.indexOf('(')) >= 0) {
-			descriptor = str.substring(sep);
-			str = str.substring(0, sep);
+			descriptor = str.substring(sep).trim();
+			str = str.substring(0, sep).trim();
 		} else if ((sep = str.indexOf(":")) >= 0) {
-			descriptor = str.substring(sep + 1);
-			str = str.substring(0, sep);
+			descriptor = str.substring(sep + 1).trim();
+			str = str.substring(0, sep).trim();
 		}
 
 		// str = owner | name | quantifier
 
 		if ((sep = str.indexOf('*')) >= 0) {
-			quantifier = str.substring(sep);
-			str = str.substring(0, sep);
+			quantifier = str.substring(sep).trim();
+			str = str.substring(0, sep).trim();
 		} else if ((sep = str.indexOf('+')) >= 0) {
-			quantifier = str.substring(sep);
-			str = str.substring(0, sep);
+			quantifier = str.substring(sep).trim();
+			str = str.substring(0, sep).trim();
 		} else if ((sep = str.indexOf('{')) >= 0) {
-			quantifier = str.substring(sep);
-			str = str.substring(0, sep);
+			quantifier = str.substring(sep).trim();
+			str = str.substring(0, sep).trim();
 		}
 
 		// str = owner | name
 
 		if ((sep = str.indexOf(';')) >= 0) {
-			owner = StringUtility.classDescToName(str.substring(0, sep + 1));
-			str = str.substring(sep + 1);
+			owner = StringUtility.classDescToName(str.substring(0, sep + 1).trim());
+			str = str.substring(sep + 1).trim();
 		} else if ((sep = str.lastIndexOf('.')) >= 0) {
-			owner = str.substring(0, sep).replace('.', '/');
-			str = str.substring(sep + 1);
+			owner = str.substring(0, sep).trim().replace('.', '/');
+			str = str.substring(sep + 1).trim();
 		}
 
 		// str = owner or name

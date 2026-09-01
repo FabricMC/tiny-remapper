@@ -132,7 +132,7 @@ public class ModifyVariableAnnotationVisitor extends AnnotationNode {
 				return new AnnotationVisitor(Constant.ASM_VERSION, av) {
 					@Override
 					public void visit(String name, Object value) {
-						String localName = Objects.requireNonNull((String) value).replaceAll("\\s", "");
+						String localName = Objects.requireNonNull((String) value);
 
 						List<TrMethod> targetMethods = knownTargetMethods.stream()
 								// we should already have a unique set of methods, so set FLAG_UNIQUE
