@@ -59,9 +59,9 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.util.RegexMatcher;
 class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 	protected final CommonData data;
 	protected final List<String> targets;
-	protected final Set<MemberInfo> knownTargetMethods;
+	protected final Set<TrMethod> knownTargetMethods;
 
-	CommonInjectionAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets, Set<MemberInfo> knownTargetMethods) {
+	CommonInjectionAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets, Set<TrMethod> knownTargetMethods) {
 		super(Constant.ASM_VERSION, Objects.requireNonNull(delegate));
 
 		this.data = Objects.requireNonNull(data);
@@ -206,7 +206,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			String mappedDesc = data.mapper.mapDesc(matchedMethod);
 			result.add(String.format("L%s;%s%s", mappedOwner, mappedName, mappedDesc));
 
-			this.knownTargetMethods.add(new MemberInfo(matchedMethod.getOwner().getName(), matchedMethod.getName(), "", matchedMethod.getDesc()));
+			this.knownTargetMethods.add(matchedMethod);
 		}
 
 		return result;
@@ -216,9 +216,9 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 		private final CommonData data;
 		private final MemberInfo info;
 		private final List<TrClass> targets;
-		protected final Set<MemberInfo> knownTargetMethods;
+		protected final Set<TrMethod> knownTargetMethods;
 
-		InjectMethodMappable(CommonData data, MemberInfo info, List<String> targets, Set<MemberInfo> knownTargetMethods) {
+		InjectMethodMappable(CommonData data, MemberInfo info, List<String> targets, Set<TrMethod> knownTargetMethods) {
 			this.data = Objects.requireNonNull(data);
 			this.info = Objects.requireNonNull(info);
 			this.knownTargetMethods = Objects.requireNonNull(knownTargetMethods);
@@ -286,7 +286,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 				int matchedCount = Math.min(methods.size(), methodsPerTarget);
 
 				for (int i = 0; i < matchedCount; i++) {
-					TrMember method = methods.get(i);
+					TrMethod method = methods.get(i);
 
 					String mappedName = data.mapper.mapName(method);
 					String mappedDesc = data.mapper.mapDesc(method);
@@ -294,7 +294,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					fullMethodToTarget.computeIfAbsent(Pair.of(mappedName, mappedDesc), k -> new HashSet<>()).add(target);
 					namesToDesc.computeIfAbsent(mappedName, k -> new TreeSet<>()).add(mappedDesc);
 
-					this.knownTargetMethods.add(new MemberInfo(target.getName(), method.getName(), "", method.getDesc()));
+					this.knownTargetMethods.add(method);
 				}
 			}
 

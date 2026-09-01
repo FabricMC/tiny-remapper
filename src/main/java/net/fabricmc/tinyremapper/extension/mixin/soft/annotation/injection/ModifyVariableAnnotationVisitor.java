@@ -36,18 +36,17 @@ import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
-import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
 import net.fabricmc.tinyremapper.extension.mixin.soft.util.LocalsMapper;
 
 public class ModifyVariableAnnotationVisitor extends AnnotationNode {
 	private final CommonData data;
 	private final AnnotationVisitor delegate;
 	private final List<String> targets;
-	private final Set<MemberInfo> knownTargetMethods;
+	private final Set<TrMethod> knownTargetMethods;
 
 	private final List<String> rawMethods = new ArrayList<>();
 
-	public ModifyVariableAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets, Set<MemberInfo> knownTargetMethods) {
+	public ModifyVariableAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets, Set<TrMethod> knownTargetMethods) {
 		super(Constant.ASM_VERSION, Annotation.MODIFY_VARIABLE);
 		this.data = Objects.requireNonNull(data);
 		this.delegate = Objects.requireNonNull(delegate);
@@ -88,7 +87,7 @@ public class ModifyVariableAnnotationVisitor extends AnnotationNode {
 
 		private boolean visitedMethods = false;
 
-		ModifyVariableSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets, List<String> rawMethods, Set<MemberInfo> knownTargetMethods) {
+		ModifyVariableSecondPassAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets, List<String> rawMethods, Set<TrMethod> knownTargetMethods) {
 			super(data, delegate, targets, knownTargetMethods);
 			this.rawMethods = rawMethods;
 			this.targets = Objects.requireNonNull(targets).stream()
@@ -134,21 +133,14 @@ public class ModifyVariableAnnotationVisitor extends AnnotationNode {
 					public void visit(String name, Object value) {
 						String localName = Objects.requireNonNull((String) value);
 
-						List<TrMethod> targetMethods = knownTargetMethods.stream()
-								// we should already have a unique set of methods, so set FLAG_UNIQUE
-								.map(memberInfo -> data.resolver.resolveMethod(memberInfo.getOwner(), memberInfo.getName(), memberInfo.getDesc(), ResolveUtility.FLAG_UNIQUE))
-								.filter(Optional::isPresent)
-								.map(Optional::get)
-								.collect(Collectors.toList());
-
-						List<String> collection = targetMethods.stream()
+						List<String> collection = knownTargetMethods.stream()
 								.map(m -> LocalsMapper.mapLocal(data, m, localName))
 								.sorted().distinct().collect(Collectors.toList());
 
 						if (collection.size() > 1) {
 							data.getLogger().error(Message.CONFLICT_MAPPING, localName, collection);
 						} else if (collection.isEmpty()) {
-							data.getLogger().warn(Message.NO_MAPPING_NON_RECURSIVE, localName, targetMethods);
+							data.getLogger().warn(Message.NO_MAPPING_NON_RECURSIVE, localName, knownTargetMethods);
 						}
 
 						super.visit(name, collection.stream().findFirst().orElse(localName));

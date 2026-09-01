@@ -20,26 +20,23 @@ package net.fabricmc.tinyremapper.extension.mixin.soft.annotation;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.objectweb.asm.AnnotationVisitor;
 
 import net.fabricmc.tinyremapper.api.TrMethod;
-import net.fabricmc.tinyremapper.extension.mixin.common.ResolveUtility;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.AnnotationElement;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Message;
-import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
 import net.fabricmc.tinyremapper.extension.mixin.soft.util.LocalsMapper;
 
 public class SugarLocalAnnotationVisitor extends AnnotationVisitor {
 	private final CommonData data;
-	private final Set<MemberInfo> knownTargetMethods;
+	private final Set<TrMethod> knownTargetMethods;
 
-	public SugarLocalAnnotationVisitor(CommonData data, AnnotationVisitor delegate, Set<MemberInfo> knownTargetMethods) {
+	public SugarLocalAnnotationVisitor(CommonData data, AnnotationVisitor delegate, Set<TrMethod> knownTargetMethods) {
 		super(Constant.ASM_VERSION, delegate);
 
 		this.data = Objects.requireNonNull(data);
@@ -56,21 +53,14 @@ public class SugarLocalAnnotationVisitor extends AnnotationVisitor {
 				public void visit(String name, Object value) {
 					String localName = Objects.requireNonNull((String) value);
 
-					List<TrMethod> targetMethods = knownTargetMethods.stream()
-							// we should already have a unique set of methods, so set FLAG_UNIQUE
-							.map(memberInfo -> data.resolver.resolveMethod(memberInfo.getOwner(), memberInfo.getName(), memberInfo.getDesc(), ResolveUtility.FLAG_UNIQUE))
-							.filter(Optional::isPresent)
-							.map(Optional::get)
-							.collect(Collectors.toList());
-
-					List<String> collection = targetMethods.stream()
+					List<String> collection = knownTargetMethods.stream()
 							.map(m -> LocalsMapper.mapLocal(data, m, localName))
 							.sorted().distinct().collect(Collectors.toList());
 
 					if (collection.size() > 1) {
 						data.getLogger().error(Message.CONFLICT_MAPPING, localName, collection);
 					} else if (collection.isEmpty()) {
-						data.getLogger().warn(Message.NO_MAPPING_NON_RECURSIVE, localName, targetMethods);
+						data.getLogger().warn(Message.NO_MAPPING_NON_RECURSIVE, localName, knownTargetMethods);
 					}
 
 					super.visit(name, collection.stream().findFirst().orElse(localName));
