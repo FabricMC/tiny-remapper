@@ -21,6 +21,7 @@ package net.fabricmc.tinyremapper.extension.mixin.soft.data;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.stream.Stream;
@@ -47,8 +48,16 @@ class MemberInfoTest {
 
 	@ParameterizedTest(name = "{0}")
 	@MethodSource("parseTests")
-	void parse(String input, Expected expected) {
-		expected.check(MemberInfo.parse(input));
+	void parse(String input, Expected[] expectedParts) {
+		MemberInfo info = MemberInfo.parse(input);
+
+		for (Expected expected : expectedParts) {
+			assertNotNull(info, "Fewer components than expected");
+			expected.check(info);
+			info = info.getNext();
+		}
+
+		assertNull(info, "More components than expected");
 	}
 
 	static Stream<Arguments> parseTests() {
@@ -174,12 +183,143 @@ class MemberInfoTest {
 								"()Z",
 								"Lcom/example/Owner;someMethod{1, 2}()Z"
 						)
+				),
+
+				// Nesting
+				testCase(
+						"outer -> *",
+						new Expected(
+								null,
+								"",
+								"outer",
+								"",
+								"",
+								"outer -> *",
+								""
+						),
+						new Expected(
+								null,
+								"",
+								"",
+								"*",
+								"",
+								"*"
+						)
+				),
+				testCase(
+						"outer ->* *",
+						new Expected(
+								null,
+								"",
+								"outer",
+								"",
+								"",
+								"outer ->* *",
+								"*"
+						),
+						new Expected(
+								null,
+								"",
+								"",
+								"*",
+								"",
+								"*"
+						)
+				),
+				testCase(
+						"outer ->{1, 2} ()V",
+						new Expected(
+								null,
+								"",
+								"outer",
+								"",
+								"",
+								"outer ->{1, 2} ()V",
+								"{1, 2}"
+						),
+						new Expected(
+								MemberType.METHOD,
+								"",
+								"",
+								"",
+								"()V",
+								"()V"
+						)
+				),
+				testCase(
+						"outer -> {1, 2}()V",
+						new Expected(
+								null,
+								"",
+								"outer",
+								"",
+								"",
+								"outer -> {1, 2}()V",
+								""
+						),
+						new Expected(
+								MemberType.METHOD,
+								"",
+								"",
+								"{1, 2}",
+								"()V",
+								"{1, 2}()V"
+						)
+				),
+				testCase(
+						"* ->* * ->* *",
+						new Expected(
+								null,
+								"",
+								"",
+								"*",
+								"",
+								"* ->* * ->* *",
+								"*"
+						),
+						new Expected(
+								null,
+								"",
+								"",
+								"*",
+								"",
+								"* ->* *",
+								"*"
+						),
+						new Expected(
+								null,
+								"",
+								"",
+								"*",
+								"",
+								"*"
+						)
+				),
+				testCase(
+						"* ->+ Ljava/lang/Runnable;run()V",
+						new Expected(
+								null,
+								"",
+								"",
+								"*",
+								"",
+								"* ->+ Ljava/lang/Runnable;run()V",
+								"+"
+						),
+						new Expected(
+								MemberType.METHOD,
+								"java/lang/Runnable",
+								"run",
+								"",
+								"()V",
+								"Ljava/lang/Runnable;run()V"
+						)
 				)
 		);
 	}
 
-	private static Arguments testCase(String input, Expected expected) {
-		return Arguments.of(input, expected);
+	private static Arguments testCase(String input, Expected... expectedParts) {
+		return Arguments.of(input, expectedParts);
 	}
 
 	private static class Expected {
@@ -189,10 +329,18 @@ class MemberInfoTest {
 		private final String expectedQuantifier;
 		private final String expectedDesc;
 		private final String expectedToString;
+		private final String expectedNextDepth;
 
 		Expected(
 				MemberType expectedType, String expectedOwner, String expectedName, String expectedQuantifier,
 				String expectedDesc, String expectedToString
+		) {
+			this(expectedType, expectedOwner, expectedName, expectedQuantifier, expectedDesc, expectedToString, null);
+		}
+
+		Expected(
+				MemberType expectedType, String expectedOwner, String expectedName, String expectedQuantifier,
+				String expectedDesc, String expectedToString, String expectedNextDepth
 		) {
 			this.expectedType = expectedType;
 			this.expectedOwner = expectedOwner;
@@ -200,6 +348,7 @@ class MemberInfoTest {
 			this.expectedQuantifier = expectedQuantifier;
 			this.expectedDesc = expectedDesc;
 			this.expectedToString = expectedToString;
+			this.expectedNextDepth = expectedNextDepth;
 		}
 
 		void check(MemberInfo info) {
@@ -210,6 +359,7 @@ class MemberInfoTest {
 			assertEquals(expectedQuantifier, info.getQuantifier());
 			assertEquals(expectedDesc, info.getDesc());
 			assertEquals(expectedToString, info.toString());
+			assertEquals(expectedNextDepth, info.getNextDepth());
 		}
 	}
 }

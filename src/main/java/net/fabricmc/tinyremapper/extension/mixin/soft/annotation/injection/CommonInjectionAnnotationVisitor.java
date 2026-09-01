@@ -253,6 +253,8 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 
 		@Override
 		public List<MemberInfo> result() {
+			MemberInfo mappedNext = new NestedSelectorMappable(data, info.getNext()).result();
+
 			String mappedOwner = info.getOwner();
 
 			if (!mappedOwner.isEmpty()) {
@@ -272,7 +274,9 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 					desc = data.mapper.asTrRemapper().mapDesc(desc);
 				}
 
-				return Collections.singletonList(new MemberInfo(mappedOwner, info.getName(), info.getQuantifier(), desc));
+				return Collections.singletonList(
+						new MemberInfo(mappedOwner, info.getName(), info.getQuantifier(), desc, info.getNextDepth(), mappedNext)
+				);
 			}
 
 			// Step 1. Collect all methods we want to target
@@ -316,7 +320,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 				SortedSet<String> mappedDescriptors = entry.getValue();
 
 				if (!explicitDesc && canInject(mappedName, methodsPerTarget, fullMethodToTarget)) { // Try to apply method name without descriptor if possible
-					list.add(new MemberInfo(mappedOwner, mappedName, info.getQuantifier(), ""));
+					list.add(new MemberInfo(mappedOwner, mappedName, info.getQuantifier(), "", info.getNextDepth(), mappedNext));
 				} else {
 					for (String mappedDesc : mappedDescriptors) {
 						if (canInject(mappedName, mappedDesc, fullMethodToTarget)) {
@@ -330,7 +334,7 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 								quantifier = "";
 							}
 
-							list.add(new MemberInfo(mappedOwner, mappedName, quantifier, mappedDesc));
+							list.add(new MemberInfo(mappedOwner, mappedName, quantifier, mappedDesc, info.getNextDepth(), mappedNext));
 						} else {
 							data.getLogger().error(Message.MISSING_INJECT, info.toString(), mappedName, mappedDesc);
 						}
@@ -400,6 +404,44 @@ class CommonInjectionAnnotationVisitor extends AnnotationVisitor {
 			}
 
 			return true;
+		}
+	}
+
+	private static class NestedSelectorMappable implements IMappable<MemberInfo> {
+		private final CommonData data;
+		private final MemberInfo info;
+
+		NestedSelectorMappable(CommonData data, MemberInfo info) {
+			this.data = Objects.requireNonNull(data);
+			this.info = info;
+		}
+
+		@Override
+		public MemberInfo result() {
+			if (info == null) {
+				return null;
+			}
+
+			String desc = info.getDesc();
+
+			if (!desc.isEmpty()) {
+				desc = data.mapper.asTrRemapper().mapMethodDesc(desc);
+			}
+
+			String owner = info.getOwner();
+			String name = "";
+
+			if (!owner.isEmpty()) {
+				// The owner is enough to uniquely identify the SAM, strip the name
+				owner = data.mapper.asTrRemapper().map(info.getOwner());
+			} else {
+				name = info.getName();
+			}
+
+			return new MemberInfo(
+					owner, name, info.getQuantifier(), desc, info.getNextDepth(),
+					new NestedSelectorMappable(data, info.getNext()).result()
+			);
 		}
 	}
 

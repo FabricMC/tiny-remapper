@@ -19,21 +19,34 @@
 package net.fabricmc.tinyremapper.extension.mixin.soft.data;
 
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 import net.fabricmc.tinyremapper.extension.mixin.common.StringUtility;
 
 public final class MemberInfo {
+	/**
+	 * Shallow parsing pattern to extract nesting.
+	 */
+	private static final Pattern NESTING_PATTERN = Pattern.compile(
+			"(?<root>.*?\\S)\\s+->(?<nextDepth>\\{.*?}|\\S*)\\s+(?<next>\\S.*)"
+	);
+
 	private final String owner;		// desc
 	private final String name;		// name
 	private final String quantifier;
 	private final String desc;		// desc
+	private final String nextDepth; // nesting depth quantifier, or null
+	private final MemberInfo next;  // nested selector, or null
 
-	public MemberInfo(String owner, String name, String quantifier, String desc) {
+	public MemberInfo(String owner, String name, String quantifier, String desc, String nextDepth, MemberInfo next) {
 		this.owner = Objects.requireNonNull(owner);
 		this.name = Objects.requireNonNull(name);
 		this.quantifier = Objects.requireNonNull(quantifier);
 		this.desc = Objects.requireNonNull(desc);
+		this.nextDepth = nextDepth;
+		this.next = next;
 	}
 
 	public String getOwner() {
@@ -50,6 +63,14 @@ public final class MemberInfo {
 
 	public String getDesc() {
 		return desc;
+	}
+
+	public String getNextDepth() {
+		return nextDepth;
+	}
+
+	public MemberInfo getNext() {
+		return next;
 	}
 
 	public MemberType getType() {
@@ -77,6 +98,17 @@ public final class MemberInfo {
 
 		if (isRegex(str) || isDynamic(str)) {
 			return null;
+		}
+
+		String nextDepth = null;
+		MemberInfo next = null;
+
+		Matcher nestedMatcher = NESTING_PATTERN.matcher(str);
+
+		if (nestedMatcher.matches()) {
+			str = nestedMatcher.group("root").trim();
+			nextDepth = nestedMatcher.group("nextDepth").trim();
+			next = MemberInfo.parse(nestedMatcher.group("next"));
 		}
 
 		// str = owner | name | quantifier | descriptor
@@ -123,14 +155,14 @@ public final class MemberInfo {
 			name = str;
 		}
 
-		return new MemberInfo(owner, name, quantifier, descriptor);
+		return new MemberInfo(owner, name, quantifier, descriptor, nextDepth, next);
 	}
 
 	@Override
 	public String toString() {
 		String owner = getOwner().isEmpty() ? "" : StringUtility.classNameToDesc(getOwner());
 
-		return owner + name + quantifier + formattedDesc();
+		return owner + name + quantifier + formattedDesc() + tailToString();
 	}
 
 	private String formattedDesc() {
@@ -145,5 +177,13 @@ public final class MemberInfo {
 		}
 
 		return desc;
+	}
+
+	private String tailToString() {
+		if (next == null) {
+			return "";
+		}
+
+		return " ->" + nextDepth + " " + next;
 	}
 }

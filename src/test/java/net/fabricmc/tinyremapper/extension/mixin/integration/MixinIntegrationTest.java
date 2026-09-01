@@ -44,6 +44,7 @@ import net.fabricmc.tinyremapper.extension.mixin.MixinExtension;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.AmbiguousRemappedNameMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.DescAtMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.LvtRemapTargetMixin;
+import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.NestedSelectorsMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.NonObfuscatedOverrideMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.RegexMethodTargetMixin;
 import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.SeparateRemappedNameMixin;
@@ -51,6 +52,7 @@ import net.fabricmc.tinyremapper.extension.mixin.integration.mixins.WildcardTarg
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.AmbiguousRemappedNameTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.DescAtTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.LvtRemapTarget;
+import net.fabricmc.tinyremapper.extension.mixin.integration.targets.NestedSelectorsTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.NonObfuscatedOverrideTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.RegexMethodTarget;
 import net.fabricmc.tinyremapper.extension.mixin.integration.targets.SeparateRemappedNameTarget;
@@ -173,6 +175,19 @@ public class MixinIntegrationTest {
 		});
 
 		assertTrue(remapped.contains("method={\"Lcom/example/Remapped;t0()Ljava/lang/String;\", \"Lcom/example/Remapped;t00(Ljava/lang/String;)Ljava/lang/String;\", \"Lcom/example/Remapped;t1()Ljava/lang/String;\", \"Lcom/example/Remapped;t2(Ljava/util/List;)Ljava/lang/String;\"}"));
+	}
+
+	@Test
+	public void remapNestedSelectors() throws IOException {
+		String remapped = remap(NestedSelectorsTarget.class, NestedSelectorsMixin.class, out -> {
+			String fqn = "net/fabricmc/tinyremapper/extension/mixin/integration/targets/NestedSelectorsTarget";
+			String innerFqn = fqn + "$ObfSam";
+			out.acceptClass(innerFqn, "com/example/Remapped");
+			out.acceptMethod(new IMappingProvider.Member(fqn, "obfOuter", "()V"), "remappedOuter");
+			out.acceptMethod(new IMappingProvider.Member(innerFqn, "obfInner", "()V"), "remappedInner");
+		});
+
+		assertTrue(remapped.contains("method={\"remappedOuter ->{3, 4} *\", \"remappedOuter ->+ Lcom/example/Remapped;()V\", \"* -> Lcom/example/Remapped; -> Lcom/example/Remapped;{5}()V\", \"unobfOuter -> Lcom/example/Remapped;\"}"));
 	}
 
 	private String remap(Class<?> target, Class<?> mixin, IMappingProvider mappings) throws IOException {

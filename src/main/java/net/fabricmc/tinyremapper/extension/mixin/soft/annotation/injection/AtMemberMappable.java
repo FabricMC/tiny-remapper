@@ -53,12 +53,12 @@ class AtMemberMappable implements IMappable<MemberInfo> {
 			String newName = data.mapper.mapName(resolved.get());
 			String newDesc = data.mapper.mapDesc(resolved.get());
 
-			return new MemberInfo(newOwner, newName, info.getQuantifier(), newDesc);
+			return new MemberInfo(newOwner, newName, info.getQuantifier(), newDesc, null, null);
 		}
 
 		// Workaround for https://github.com/FabricMC/tiny-remapper/issues/155
 		String newOwner = trRemapper.map(info.getOwner());
 		String newDesc = info.getType() == TrMember.MemberType.FIELD ? trRemapper.mapDesc(info.getDesc()) : trRemapper.mapMethodDesc(info.getDesc());
-		return new MemberInfo(newOwner, info.getName(), info.getQuantifier(), newDesc);
+		return new MemberInfo(newOwner, info.getName(), info.getQuantifier(), newDesc, null, null);
 	}
 }
