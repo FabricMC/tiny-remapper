@@ -16,18 +16,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection;
+package net.fabricmc.tinyremapper.extension.mixin.integration.targets;
 
-import java.util.List;
-import java.util.Set;
+public class NestedSelectorsTarget {
+	public void obfOuter() {
+	}
 
-import org.objectweb.asm.AnnotationVisitor;
+	public void unobfOuter() {
+	}
 
-import net.fabricmc.tinyremapper.api.TrMethod;
-import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
-
-public class ModifyArgAnnotationVisitor extends CommonInjectionAnnotationVisitor {
-	public ModifyArgAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets, Set<TrMethod> knownTargetMethods) {
-		super(data, delegate, targets, knownTargetMethods);
+	@FunctionalInterface
+	public interface ObfSam {
+		void obfInner();
 	}
 }

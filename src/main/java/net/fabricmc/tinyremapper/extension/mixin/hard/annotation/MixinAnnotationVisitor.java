@@ -47,7 +47,7 @@ public class MixinAnnotationVisitor extends AnnotationVisitor {
 			return new AnnotationVisitor(Constant.ASM_VERSION, visitor) {
 				@Override
 				public void visit(String name, Object value) {
-					String srcName = ((String) value).replaceAll("\\s", "").replace('.', '/');
+					String srcName = ((String) value).replace('.', '/');
 					String dstName = srcName;
 
 					MixinAnnotationVisitor.this.targets.add(srcName);

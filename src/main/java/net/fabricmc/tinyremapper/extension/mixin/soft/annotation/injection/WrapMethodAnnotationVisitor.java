@@ -23,11 +23,11 @@ import java.util.Set;
 
 import org.objectweb.asm.AnnotationVisitor;
 
+import net.fabricmc.tinyremapper.api.TrMethod;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
-import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
 
 public class WrapMethodAnnotationVisitor extends CommonInjectionAnnotationVisitor {
-	public WrapMethodAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets, Set<MemberInfo> knownTargetMethods) {
+	public WrapMethodAnnotationVisitor(CommonData data, AnnotationVisitor delegate, List<String> targets, Set<TrMethod> knownTargetMethods) {
 		super(data, delegate, targets, knownTargetMethods);
 	}
 }

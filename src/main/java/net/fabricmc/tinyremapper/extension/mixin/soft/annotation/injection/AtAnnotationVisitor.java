@@ -83,7 +83,7 @@ class AtAnnotationVisitor extends AnnotationNode {
 		@Override
 		public void visit(String name, Object value) {
 			if (name.equals(AnnotationElement.TARGET)) {
-				MemberInfo info = MemberInfo.parse(Objects.requireNonNull((String) value).replaceAll("\\s", ""));
+				MemberInfo info = MemberInfo.parse(Objects.requireNonNull((String) value));
 
 				if (info != null) {
 					if (this.value.equals("NEW")) {
@@ -126,7 +126,7 @@ class AtAnnotationVisitor extends AnnotationNode {
 						MemberInfo info;
 
 						if (argument.startsWith(prefix)
-								&& (info = MemberInfo.parse(argument.substring(prefix.length()).replaceAll("\\s", ""))) != null) {
+								&& (info = MemberInfo.parse(argument.substring(prefix.length()))) != null) {
 							value = prefix + new AtConstructorMappable(data, info).result().toString();
 						}
 
@@ -152,13 +152,13 @@ class AtAnnotationVisitor extends AnnotationNode {
 		public MemberInfo result() {
 			if (info.getDesc().isEmpty()) {
 				// remap owner only
-				return new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), info.getName(), info.getQuantifier(), "");
+				return new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), info.getName(), info.getQuantifier(), "", null, null);
 			} else if (info.getDesc().endsWith(")V")) {
 				// remap owner and desc
-				return new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), info.getName(), info.getQuantifier(), data.mapper.asTrRemapper().mapMethodDesc(info.getDesc()));
+				return new MemberInfo(data.mapper.asTrRemapper().map(info.getOwner()), info.getName(), info.getQuantifier(), data.mapper.asTrRemapper().mapMethodDesc(info.getDesc()), null, null);
 			} else {
 				// remap desc only
-				return new MemberInfo(info.getOwner(), info.getName(), info.getQuantifier(), data.mapper.asTrRemapper().mapMethodDesc(info.getDesc()));
+				return new MemberInfo(info.getOwner(), info.getName(), info.getQuantifier(), data.mapper.asTrRemapper().mapMethodDesc(info.getDesc()), null, null);
 			}
 		}
 	}
