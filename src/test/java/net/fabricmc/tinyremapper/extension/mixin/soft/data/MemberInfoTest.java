@@ -24,7 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import net.fabricmc.tinyremapper.api.TrMember.MemberType;
 
@@ -41,99 +46,320 @@ class MemberInfoTest {
 		assertFalse(MemberInfo.isRegex("Lfoo/bar/Baz;func_1234_a(DDD)V"));
 	}
 
-	@Test
-	void parse() {
-		MemberInfo info;
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("parseTests")
+	void parse(String input, Expected[] expectedParts) {
+		MemberInfo info = MemberInfo.parse(input);
 
-		info = MemberInfo.parse("{2}(Z)V");
-		assertNotNull(info);
-		assertEquals(info.getType(), MemberType.METHOD);
-		assertEquals(info.getOwner(), "");
-		assertEquals(info.getName(), "");
-		assertEquals(info.getQuantifier(), "{2}");
-		assertEquals(info.getDesc(), "(Z)V");
-		assertEquals(info.toString(), "{2}(Z)V");
+		for (Expected expected : expectedParts) {
+			assertNotNull(info, "Fewer components than expected");
+			expected.check(info);
+			info = info.getNext();
+		}
 
-		info = MemberInfo.parse("field_5678_z:Ljava/lang/String;");
-		assertNotNull(info);
-		assertEquals(info.getType(), MemberType.FIELD);
-		assertEquals(info.getOwner(), "");
-		assertEquals(info.getName(), "field_5678_z");
-		assertEquals(info.getQuantifier(), "");
-		assertEquals(info.getDesc(), "Ljava/lang/String;");
-		assertEquals(info.toString(), "field_5678_z:Ljava/lang/String;");
+		assertNull(info, "More components than expected");
+	}
 
-		info = MemberInfo.parse("Lfoo/bar/Baz;func_1234_a(DDD)V");
-		assertNotNull(info);
-		assertEquals(info.getType(), MemberType.METHOD);
-		assertEquals(info.getOwner(), "foo/bar/Baz");
-		assertEquals(info.getName(), "func_1234_a");
-		assertEquals(info.getQuantifier(), "");
-		assertEquals(info.getDesc(), "(DDD)V");
-		assertEquals(info.toString(), "Lfoo/bar/Baz;func_1234_a(DDD)V");
+	static Stream<Arguments> parseTests() {
+		return Stream.of(
+				testCase(
+						"{2}(Z)V",
+						new Expected(
+								MemberType.METHOD,
+								"",
+								"",
+								"{2}",
+								"(Z)V",
+								"{2}(Z)V"
+						)
+				),
+				testCase(
+						"field_5678_z:Ljava/lang/String;",
+						new Expected(
+								MemberType.FIELD,
+								"",
+								"field_5678_z",
+								"",
+								"Ljava/lang/String;",
+								"field_5678_z:Ljava/lang/String;"
+						)
+				),
+				testCase(
+						"Lfoo/bar/Baz;func_1234_a(DDD)V",
+						new Expected(
+								MemberType.METHOD,
+								"foo/bar/Baz",
+								"func_1234_a",
+								"",
+								"(DDD)V",
+								"Lfoo/bar/Baz;func_1234_a(DDD)V"
+						)
+				),
+				testCase(
+						"foo.bar.Baz.func_1234_a(DDD)V",
+						new Expected(
+								MemberType.METHOD,
+								"foo/bar/Baz",
+								"func_1234_a",
+								"",
+								"(DDD)V",
+								"Lfoo/bar/Baz;func_1234_a(DDD)V"
+						)
+				),
+				testCase(
+						"java/lang/String",
+						new Expected(
+								null,
+								"java/lang/String",
+								"",
+								"",
+								"",
+								"Ljava/lang/String;"
+						)
+				),
+				testCase(
+						"([C)Ljava/lang/String;",
+						new Expected(
+								MemberType.METHOD,
+								"",
+								"",
+								"",
+								"([C)Ljava/lang/String;",
+								"([C)Ljava/lang/String;"
+						)
+				),
+				testCase(
+						"<init>*",
+						new Expected(
+								null,
+								"",
+								"<init>",
+								"*",
+								"",
+								"<init>*"
+						)
+				),
+				testCase(
+						"<init>*()V",
+						new Expected(
+								MemberType.METHOD,
+								"",
+								"<init>",
+								"*",
+								"()V",
+								"<init>*()V"
+						)
+				),
+				// https://github.com/FabricMC/tiny-remapper/issues/137
+				testCase(
+						"<init>*",
+						new Expected(
+								null,
+								"",
+								"<init>",
+								"*",
+								"",
+								"<init>*"
+						)
+				),
+				testCase(
+						"*()Lcom/example/ExampleClass;",
+						new Expected(
+								MemberType.METHOD,
+								"",
+								"",
+								"*",
+								"()Lcom/example/ExampleClass;",
+								"*()Lcom/example/ExampleClass;"
+						)
+				),
+				testCase(
+						" com/example/Owner . someMethod {1, 2} ()Z ",
+						new Expected(
+								MemberType.METHOD,
+								"com/example/Owner",
+								"someMethod",
+								"{1, 2}",
+								"()Z",
+								"Lcom/example/Owner;someMethod{1, 2}()Z"
+						)
+				),
 
-		info = MemberInfo.parse("foo.bar.Baz.func_1234_a(DDD)V");
-		assertNotNull(info);
-		assertEquals(info.getType(), MemberType.METHOD);
-		assertEquals(info.getOwner(), "foo/bar/Baz");
-		assertEquals(info.getName(), "func_1234_a");
-		assertEquals(info.getQuantifier(), "");
-		assertEquals(info.getDesc(), "(DDD)V");
-		assertEquals(info.toString(), "Lfoo/bar/Baz;func_1234_a(DDD)V");
+				// Nesting
+				testCase(
+						"outer -> *",
+						new Expected(
+								null,
+								"",
+								"outer",
+								"",
+								"",
+								"outer -> *",
+								""
+						),
+						new Expected(
+								null,
+								"",
+								"",
+								"*",
+								"",
+								"*"
+						)
+				),
+				testCase(
+						"outer ->* *",
+						new Expected(
+								null,
+								"",
+								"outer",
+								"",
+								"",
+								"outer ->* *",
+								"*"
+						),
+						new Expected(
+								null,
+								"",
+								"",
+								"*",
+								"",
+								"*"
+						)
+				),
+				testCase(
+						"outer ->{1, 2} ()V",
+						new Expected(
+								null,
+								"",
+								"outer",
+								"",
+								"",
+								"outer ->{1, 2} ()V",
+								"{1, 2}"
+						),
+						new Expected(
+								MemberType.METHOD,
+								"",
+								"",
+								"",
+								"()V",
+								"()V"
+						)
+				),
+				testCase(
+						"outer -> {1, 2}()V",
+						new Expected(
+								null,
+								"",
+								"outer",
+								"",
+								"",
+								"outer -> {1, 2}()V",
+								""
+						),
+						new Expected(
+								MemberType.METHOD,
+								"",
+								"",
+								"{1, 2}",
+								"()V",
+								"{1, 2}()V"
+						)
+				),
+				testCase(
+						"* ->* * ->* *",
+						new Expected(
+								null,
+								"",
+								"",
+								"*",
+								"",
+								"* ->* * ->* *",
+								"*"
+						),
+						new Expected(
+								null,
+								"",
+								"",
+								"*",
+								"",
+								"* ->* *",
+								"*"
+						),
+						new Expected(
+								null,
+								"",
+								"",
+								"*",
+								"",
+								"*"
+						)
+				),
+				testCase(
+						"* ->+ Ljava/lang/Runnable;run()V",
+						new Expected(
+								null,
+								"",
+								"",
+								"*",
+								"",
+								"* ->+ Ljava/lang/Runnable;run()V",
+								"+"
+						),
+						new Expected(
+								MemberType.METHOD,
+								"java/lang/Runnable",
+								"run",
+								"",
+								"()V",
+								"Ljava/lang/Runnable;run()V"
+						)
+				)
+		);
+	}
 
-		info = MemberInfo.parse("java/lang/String");
-		assertNotNull(info);
-		assertNull(info.getType());
-		assertEquals(info.getOwner(), "java/lang/String");
-		assertEquals(info.getName(), "");
-		assertEquals(info.getQuantifier(), "");
-		assertEquals(info.getDesc(), "");
-		assertEquals(info.toString(), "Ljava/lang/String;");
+	private static Arguments testCase(String input, Expected... expectedParts) {
+		return Arguments.of(input, expectedParts);
+	}
 
-		info = MemberInfo.parse("([C)Ljava/lang/String;");
-		assertNotNull(info);
-		assertEquals(info.getType(), MemberType.METHOD);
-		assertEquals(info.getOwner(), "");
-		assertEquals(info.getName(), "");
-		assertEquals(info.getQuantifier(), "");
-		assertEquals(info.getDesc(), "([C)Ljava/lang/String;");
-		assertEquals(info.toString(), "([C)Ljava/lang/String;");
+	private static class Expected {
+		private final MemberType expectedType;
+		private final String expectedOwner;
+		private final String expectedName;
+		private final String expectedQuantifier;
+		private final String expectedDesc;
+		private final String expectedToString;
+		private final String expectedNextDepth;
 
-		info = MemberInfo.parse("<init>*");
-		assertNotNull(info);
-		assertNull(info.getType());
-		assertEquals(info.getOwner(), "");
-		assertEquals(info.getName(), "<init>");
-		assertEquals(info.getQuantifier(), "*");
-		assertEquals(info.getDesc(), "");
-		assertEquals(info.toString(), "<init>*");
+		Expected(
+				MemberType expectedType, String expectedOwner, String expectedName, String expectedQuantifier,
+				String expectedDesc, String expectedToString
+		) {
+			this(expectedType, expectedOwner, expectedName, expectedQuantifier, expectedDesc, expectedToString, null);
+		}
 
-		info = new MemberInfo("", "<init>", "*", "()V");
-		assertNotNull(info);
-		assertEquals(info.getType(), MemberType.METHOD);
-		assertEquals(info.getOwner(), "");
-		assertEquals(info.getName(), "<init>");
-		assertEquals(info.getQuantifier(), "*");
-		assertEquals(info.getDesc(), "()V");
-		assertEquals(info.toString(), "<init>*()V");
+		Expected(
+				MemberType expectedType, String expectedOwner, String expectedName, String expectedQuantifier,
+				String expectedDesc, String expectedToString, String expectedNextDepth
+		) {
+			this.expectedType = expectedType;
+			this.expectedOwner = expectedOwner;
+			this.expectedName = expectedName;
+			this.expectedQuantifier = expectedQuantifier;
+			this.expectedDesc = expectedDesc;
+			this.expectedToString = expectedToString;
+			this.expectedNextDepth = expectedNextDepth;
+		}
 
-		// https://github.com/FabricMC/tiny-remapper/issues/137
-		info = MemberInfo.parse("<init>*");
-		assertNotNull(info);
-		assertNull(info.getType());
-		assertEquals(info.getOwner(), "");
-		assertEquals(info.getName(), "<init>");
-		assertEquals(info.getQuantifier(), "*");
-		assertEquals(info.getDesc(), "");
-		assertEquals(info.toString(), "<init>*");
-
-		info = MemberInfo.parse("*()Lcom/example/ExampleClass;");
-		assertNotNull(info);
-		assertEquals(info.getType(), MemberType.METHOD);
-		assertEquals(info.getOwner(), "");
-		assertEquals(info.getName(), "");
-		assertEquals(info.getQuantifier(), "*");
-		assertEquals(info.getDesc(), "()Lcom/example/ExampleClass;");
-		assertEquals(info.toString(), "*()Lcom/example/ExampleClass;");
+		void check(MemberInfo info) {
+			assertNotNull(info);
+			assertEquals(expectedType, info.getType());
+			assertEquals(expectedOwner, info.getOwner());
+			assertEquals(expectedName, info.getName());
+			assertEquals(expectedQuantifier, info.getQuantifier());
+			assertEquals(expectedDesc, info.getDesc());
+			assertEquals(expectedToString, info.toString());
+			assertEquals(expectedNextDepth, info.getNextDepth());
+		}
 	}
 }

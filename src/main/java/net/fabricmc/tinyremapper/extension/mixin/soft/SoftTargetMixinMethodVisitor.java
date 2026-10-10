@@ -26,6 +26,7 @@ import java.util.Set;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.MethodVisitor;
 
+import net.fabricmc.tinyremapper.api.TrMethod;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Annotation;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.CommonData;
 import net.fabricmc.tinyremapper.extension.mixin.common.data.Constant;
@@ -48,14 +49,13 @@ import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapM
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapOperationAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapWithConditionAnnotationVisitor;
 import net.fabricmc.tinyremapper.extension.mixin.soft.annotation.injection.WrapWithConditionV2AnnotationVisitor;
-import net.fabricmc.tinyremapper.extension.mixin.soft.data.MemberInfo;
 
 class SoftTargetMixinMethodVisitor extends MethodVisitor {
 	private final CommonData data;
 	private final MxMember method;
 
 	private final List<String> targets;
-	private final Set<MemberInfo> knownTargetMethods;
+	private final Set<TrMethod> knownTargetMethods;
 
 	SoftTargetMixinMethodVisitor(CommonData data, MethodVisitor delegate, MxMember method, List<String> targets) {
 		super(Constant.ASM_VERSION, delegate);
